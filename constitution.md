@@ -88,7 +88,9 @@ Um item só está pronto quando:
 
 - **Nenhum segredo no app**: chave do TMDB, chave da IA e credenciais de banco vivem só
   no backend (`.env` do servidor). O app conversa **só** com o backend próprio.
-- A `baseUrl` vem por `--dart-define`, não hardcoded.
+- A `baseUrl` vem por `--dart-define`; o **default** (`https://gdn.vps-kinghost.net`) fica
+  no código **de propósito**, para o app rodar sem flag nenhuma (item 13 do grill).
+  Trocar de host é `--dart-define`, não editar o fonte.
 - `debug.keystore` **do projeto** será versionado (é chave de debug: não publica na loja),
   e ainda **não existe no repo**: nasce na fatia 3, junto com a SHA-1 cadastrada no
   Firebase. Keystore de **release** não entra no repositório, vai por segredo de CI.
