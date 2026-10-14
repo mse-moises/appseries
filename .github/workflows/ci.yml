@@ -7,11 +7,17 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Runner pinned on purpose: `ubuntu-latest` migrates to Ubuntu 26 on 19/10/2026, and
+  # with it the whole build toolchain would change without a single commit here. Bump it
+  # deliberately, in a PR that shows the build still passes.
+  #
+  # Actions run on their current majors: v4 still targets the deprecated Node 20 runtime,
+  # which GitHub warns about on every run.
   analyze-and-test:
     name: analyze + test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: subosito/flutter-action@v2
         with:
@@ -34,19 +40,19 @@ jobs:
         run: flutter test --coverage
 
       - name: Sobe o relatório de cobertura
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cobertura
           path: coverage/lcov.info
 
   build-android:
     name: build APK
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: analyze-and-test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
@@ -63,17 +69,17 @@ jobs:
         run: flutter build apk --release
 
       - name: Sobe o APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: appseries-apk
           path: build/app/outputs/flutter-apk/app-release.apk
 
   build-web:
     name: build web
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: analyze-and-test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: subosito/flutter-action@v2
         with:
@@ -87,7 +93,7 @@ jobs:
         run: flutter build web --release
 
       - name: Sobe o build web
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: appseries-web
           path: build/web
