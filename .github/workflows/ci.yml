@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  # Runner pinned on purpose: `ubuntu-latest` migrates to Ubuntu 26 on 19/10/2026, and
+  # with it the whole build toolchain would change without a single commit here. Bump it
+  # deliberately, in a PR that shows the build still passes.
+  #
+  # Actions run on their current majors: v4 still targets the deprecated Node 20 runtime,
+  # which GitHub warns about on every run.
+  analyze-and-test:
+    name: analyze + test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.35.5
+          cache: true
+
+      - name: Dependências
+        run: flutter pub get
+
+      - name: Gera os .g.dart (retrofit/json_serializable)
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Os .g.dart commitados estão em dia?
+        run: git diff --exit-code -- '*.g.dart'
+
+      - name: flutter analyze
+        run: flutter analyze
+
+      - name: flutter test (com cobertura)
+        run: flutter test --coverage
+
+      - name: Sobe o relatório de cobertura
+        uses: actions/upload-artifact@v7
+        with:
+          name: cobertura
+          path: coverage/lcov.info
+
+  build-android:
+    name: build APK
+    runs-on: ubuntu-24.04
+    needs: analyze-and-test
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.35.5
+          cache: true
+
+      - run: flutter pub get
+      - run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Build do APK (release)
+        run: flutter build apk --release
+
+      - name: Sobe o APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: appseries-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+  build-web:
+    name: build web
+    runs-on: ubuntu-24.04
+    needs: analyze-and-test
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.35.5
+          cache: true
+
+      - run: flutter pub get
+      - run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Build do web
+        run: flutter build web --release
+
+      - name: Sobe o build web
+        uses: actions/upload-artifact@v7
+        with:
+          name: appseries-web
+          path: build/web
