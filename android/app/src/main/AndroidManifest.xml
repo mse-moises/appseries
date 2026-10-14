@@ -1,4 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The app talks to the backend over REST. This permission must live here, in the
+         main manifest: the release build does not merge the debug/profile manifests,
+         so an APK without it has no network at all while `flutter run` works fine. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
     <application
         android:label="AppSeries"
         android:name="${applicationName}"
