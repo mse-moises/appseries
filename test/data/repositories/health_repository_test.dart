@@ -76,5 +76,16 @@ void main() {
 
       expect(resultado.errorOrNull, isA<ServerError>());
     });
+
+    test('traduz 503 auth_unconfigured em ServerError, e não em sessão expirada', () async {
+      final repo = HealthRepositoryImpl(
+        _FakeRestClient(erro: _erroHttp(503, <String, String>{'error': 'auth_unconfigured'})),
+      );
+
+      final resultado = await repo.check();
+
+      expect(resultado.errorOrNull, isA<ServerError>());
+      expect(resultado.errorOrNull?.mensagem, isNot(contains('sessão')));
+    });
   });
 }

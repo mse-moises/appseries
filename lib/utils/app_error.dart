@@ -39,8 +39,13 @@ final class ServerError extends AppError {
 }
 
 /// Translates the `{"error": "<codigo>"}` that the backend returns.
+///
+/// The `*_unconfigured` codes (`auth_unconfigured`, `rec_unconfigured`,
+/// `tmdb_unconfigured`) are 503 from a server missing its own configuration.
+/// They fall through to [ServerError] on purpose: telling the user to sign in
+/// again would loop her against a problem that is not hers.
 AppError appErrorFromCodigo(String? codigo) => switch (codigo) {
-      'unauthorized' || 'auth_unconfigured' => const UnauthorizedError(),
+      'unauthorized' => const UnauthorizedError(),
       'not_found' => const NotFoundError(),
       'invalid_estado' || 'invalid_tmdb_id' || 'invalid_body' => const ConflictError(),
       'rec_limit' => const RateLimitError(),
