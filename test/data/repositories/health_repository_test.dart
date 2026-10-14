@@ -11,7 +11,7 @@ class _FakeRestClient implements RestClient {
   _FakeRestClient({this.status, this.erro});
 
   final HealthStatus? status;
-  final DioException? erro;
+  final Object? erro;
 
   @override
   Future<HealthStatus> health() async {
@@ -86,6 +86,17 @@ void main() {
 
       expect(resultado.errorOrNull, isA<ServerError>());
       expect(resultado.errorOrNull?.mensagem, isNot(contains('sessão')));
+    });
+
+    test('resposta em formato inesperado não escapa como exceção crua', () async {
+      final repo = HealthRepositoryImpl(
+        _FakeRestClient(erro: const FormatException('corpo em formato inesperado')),
+      );
+
+      final resultado = await repo.check();
+
+      expect(resultado.errorOrNull, isA<ServerError>());
+      expect(resultado.valueOrNull, isNull);
     });
   });
 }

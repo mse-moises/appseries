@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import '../../utils/app_error.dart';
 import '../../utils/result.dart';
 import '../api_models/health_status.dart';
 import '../services/error_mapper.dart';
@@ -18,6 +19,12 @@ class HealthRepositoryImpl implements HealthRepository {
       return Result.ok(await _api.health());
     } on DioException catch (e) {
       return Result.error(appErrorFromDio(e));
+    } catch (_) {
+      // Anything else (a body in an unexpected shape breaking fromJson, for
+      // instance) must not escape either: the contract of a repository is to
+      // always answer a Result, so no screen has to guard against a raw
+      // exception — and the ViewModel cannot leave the screen loading forever.
+      return const Result<HealthStatus>.error(ServerError());
     }
   }
 }
