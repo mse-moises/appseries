@@ -15,6 +15,17 @@ class _FakeHealthRepository implements HealthRepository {
   Future<Result<HealthStatus>> check() async => _resposta;
 }
 
+/// Devolve uma resposta por chamada, na ordem — é o que permite testar recarga.
+class _FakeRespostasSequenciais implements HealthRepository {
+  _FakeRespostasSequenciais(this._respostas);
+
+  final List<Result<HealthStatus>> _respostas;
+  int _chamadas = 0;
+
+  @override
+  Future<Result<HealthStatus>> check() async => _respostas[_chamadas++];
+}
+
 void main() {
   group('HomeViewModel', () {
     test('começa carregando e termina com o dado', () async {
@@ -52,6 +63,23 @@ void main() {
       await vm.load();
 
       expect(avisos, 2);
+    });
+
+    test('falha na recarga não deixa o dado antigo no estado', () async {
+      final vm = HomeViewModel(
+        _FakeRespostasSequenciais(<Result<HealthStatus>>[
+          const Result<HealthStatus>.ok(HealthStatus(status: 'ok')),
+          const Result<HealthStatus>.error(NetworkError()),
+        ]),
+      );
+
+      await vm.load();
+      expect(vm.status?.status, 'ok');
+
+      await vm.load();
+
+      expect(vm.status, isNull);
+      expect(vm.error, isNotNull);
     });
   });
 }

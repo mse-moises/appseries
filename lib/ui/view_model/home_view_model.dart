@@ -24,6 +24,7 @@ class HomeViewModel extends ChangeNotifier {
   Future<void> load() async {
     _isLoading = true;
     _error = null;
+    _status = null;
     notifyListeners();
 
     switch (await _repository.check()) {
