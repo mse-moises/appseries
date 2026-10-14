@@ -42,7 +42,8 @@ molde; a spec de cada feature fica com quem pegar a task.
 | repository | contrato abstrato + `<Feature>RepositoryImpl` |
 | erro | `Result<T>` + `sealed AppError` (código cru + frase em pt-BR) |
 | View | `context.watch` + primeira carga no `create` do provider |
-| plataformas | Android + Web |
+| plataformas | Android + Web (alvo). As pastas `ios/`, `macos/`, `linux/` e `windows/`
+continuam no repo por decisão do dono (14/10) |
 | identidade | AppSeries · `br.com.appseries.app` · repo/pasta `appseries` |
 
 ## Contrato do backend (o que já existe)
@@ -73,8 +74,9 @@ enriquecimento do `GET /acervo` com título/pôster.
 ## Fatias (cada uma um PR)
 
 1. **Esqueleto navegável** — estrutura, tema, rotas, `README` + `constitution`, CI verde.
-   ⚠️ **Entregue em 14/10 sem o `AuthGate`**: ele depende do Firebase Auth, e o app ainda
-   não está registrado no console do Firebase (ação do dono). A primeira carga do app
+   ✅ **Entregue e mergeada em 14/10** (PR #1, merge `e317b53`, 23 commits preservados sem
+   squash, CI verde na `main`). Ficou **sem o `AuthGate`**: ele depende do Firebase Auth,
+   e o console do Firebase só foi registrado no fim do dia (ver "Dependências do dono"). A primeira carga do app
    ficou na rota `/login`, que navega para `/home`; o `AuthGate` entra na fatia 2, junto
    com o Firebase. Também ficou sem o deploy do web no Hosting, pela mesma razão.
 2. **Login e-mail/senha** ponta a ponta — página, ViewModel, `AuthRepository(Impl)`,
@@ -105,8 +107,12 @@ flutter run -d chrome --web-port 8080   # 8080 é a origem liberada no CORS do b
 
 ## Dependências do dono (o agente não faz)
 
-- console do **Firebase** `pos-app-c4297`: registrar os apps android + web, habilitar
-  e-mail/senha e Google, colar a SHA-1 do `debug.keystore`, autorizar o domínio do Hosting
-- **renomear** o repo no GitHub e a pasta local para `appseries`
-- **token novo do Jira** (o atual responde 401) — sem ele não dá pra nomear branch com a
-  chave do item nem atualizar as horas do E0/E1
+- ✅ **console do Firebase `pos-app-c4297`** (feito em 14/10): apps **web** (`pos-web-api`) e
+  **android** (`br.com.appseries.app`) registrados, e-mail/senha e Google habilitados, a
+  SHA-1 do keystore de debug cadastrada, `google-services.json` versionado e os domínios
+  do Hosting autorizados
+- ✅ **repo renomeado** para `mse-moises/appseries` e **token novo do Jira** trocado (14/10)
+- **renomear a pasta local** `projects/pos/pos_app_filmes` → `appseries` (o `flutter run`
+  segura a pasta; exige o processo parado)
+- **convidar os 4 colegas** como colaboradores e **publicar o web no Hosting** (site já
+  provisionado, sem deploy: entra na fatia 3)
