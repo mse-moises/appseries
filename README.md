@@ -14,14 +14,18 @@ e **Gestão de Projetos**): catálogo pessoal de séries e filmes com recomenda�
 ```bash
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs   # gera os .g.dart
-flutter run -d chrome                                      # ou -d <seu-device-android>
+flutter run -d chrome --web-port 8080                      # ou -d <seu-device-android>
 ```
+
+No web a porta **não é livre**: o backend libera só a origem `http://localhost:8080` no
+CORS (`CORS_ORIGINS`). Em outra porta o navegador bloqueia a leitura da resposta e a tela
+fica em estado de erro, sem nenhuma pista de que o problema é a origem.
 
 A base URL já vem por padrão em `utils/env.dart` e é **só o host**, sem path: cada
 endpoint carrega o seu (`/health`, `/api/v1/...`). Para apontar para outro lugar:
 
 ```bash
-flutter run -d chrome --dart-define=API_BASE_URL=https://outro-host
+flutter run -d chrome --web-port 8080 --dart-define=API_BASE_URL=https://outro-host
 ```
 
 Verificação antes de abrir PR:

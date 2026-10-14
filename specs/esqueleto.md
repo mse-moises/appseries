@@ -97,7 +97,7 @@ flutter pub get
 dart run build_runner build --delete-conflicting-outputs
 flutter analyze
 flutter test
-flutter run -d chrome
+flutter run -d chrome --web-port 8080   # 8080 é a origem liberada no CORS do backend
 ```
 
 ## Dependências do dono (o agente não faz)
