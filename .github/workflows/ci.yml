@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  analyze-and-test:
+    name: analyze + test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Dependências
+        run: flutter pub get
+
+      - name: Gera os .g.dart (retrofit/json_serializable)
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Os .g.dart commitados estão em dia?
+        run: git diff --exit-code -- '*.g.dart'
+
+      - name: flutter analyze
+        run: flutter analyze
+
+      - name: flutter test (com cobertura)
+        run: flutter test --coverage
+
+      - name: Sobe o relatório de cobertura
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobertura
+          path: coverage/lcov.info
+
+  build-android:
+    name: build APK
+    runs-on: ubuntu-latest
+    needs: analyze-and-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+      - run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Build do APK (release)
+        run: flutter build apk --release
+
+      - name: Sobe o APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: appseries-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+  build-web:
+    name: build web
+    runs-on: ubuntu-latest
+    needs: analyze-and-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+      - run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Build do web
+        run: flutter build web --release
+
+      - name: Sobe o build web
+        uses: actions/upload-artifact@v4
+        with:
+          name: appseries-web
+          path: build/web
