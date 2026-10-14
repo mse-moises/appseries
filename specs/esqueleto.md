@@ -22,8 +22,8 @@ pelas outras quatro pessoas do time.
 - camada de rede: `retrofit` + `dio` com interceptor do token, `Result` + `AppError`
 - `README` (como rodar + como criar uma feature em 6 passos) e `constitution.md`
 - CI: `analyze` + `test` + APK release como artefato (PR) e deploy do web (`main`)
-- 3 testes: ViewModel (repository falso), `AuthRepositoryImpl` (`RestClient` dublado) e
-  widget test da página de login
+- testes em cada camada do molde: repository (com o `RestClient` dublado) e ViewModel (com
+  repository falso), widget tests das telas e o teste da navegação login → home
 
 ## Fora de escopo (tem item e dono no Jira)
 
@@ -89,7 +89,7 @@ enriquecimento do `GET /acervo` com título/pôster.
   ao login
 - **Google** entra na mesma Home
 - login errado mostra frase clara, sem termo técnico
-- os 3 testes passam e o **CI ficou verde** no PR
+- todos os testes passam e o **CI ficou verde** no PR
 - `README` e `constitution.md` estão no repo; o web está publicado com URL
 - outra pessoa revisou e rodou
 

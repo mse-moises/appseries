@@ -21,26 +21,6 @@ class LoadingView extends StatelessWidget {
       );
 }
 
-/// Centered message for a screen with nothing to show.
-class EmptyView extends StatelessWidget {
-  const EmptyView({super.key, required this.mensagem, this.icone = Icons.inbox_outlined});
-
-  final String mensagem;
-  final IconData icone;
-
-  @override
-  Widget build(BuildContext context) => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Icon(icone, size: 48),
-            const SizedBox(height: 12),
-            Text(mensagem, textAlign: TextAlign.center),
-          ],
-        ),
-      );
-}
-
 /// Centered error with an optional retry action.
 class ErrorView extends StatelessWidget {
   const ErrorView({super.key, required this.mensagem, this.onRetry});
