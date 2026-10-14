@@ -69,12 +69,15 @@ enriquecimento do `GET /acervo` com título/pôster.
 
 ## Fatias (cada uma um PR)
 
-1. **Esqueleto navegável** — estrutura, tema, rotas, `AuthGate` com Home casca,
-   `README` + `constitution`, CI verde.
+1. **Esqueleto navegável** — estrutura, tema, rotas, `README` + `constitution`, CI verde.
+   ⚠️ **Entregue em 14/10 sem o `AuthGate`**: ele depende do Firebase Auth, e o app ainda
+   não está registrado no console do Firebase (ação do dono). A primeira carga do app
+   ficou na rota `/login`, que navega para `/home`; o `AuthGate` entra na fatia 2, junto
+   com o Firebase. Também ficou sem o deploy do web no Hosting, pela mesma razão.
 2. **Login e-mail/senha** ponta a ponta — página, ViewModel, `AuthRepository(Impl)`,
-   `AppError`, os 3 testes.
-3. **Google Sign-In + acabamento** — `debug.keystore` + SHA-1, deploy do web, domínio
-   autorizado no Auth.
+   `AppError`, os testes da feature, o `AuthGate` e o interceptor do token.
+3. **Google Sign-In + acabamento** — `debug.keystore` + SHA-1, deploy do web no Hosting,
+   domínio autorizado no Auth.
 
 ## Critério de pronto
 
