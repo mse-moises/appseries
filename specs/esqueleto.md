@@ -47,7 +47,10 @@ molde; a spec de cada feature fica com quem pegar a task.
 
 ## Contrato do backend (o que já existe)
 
-Base: `https://gdn.vps-kinghost.net/api/v1` · auth: `Authorization: Bearer <idToken>`
+Prefixo das rotas: `/api/v1` (o `GET /health` fica **fora** dele).
+Auth: `Authorization: Bearer <id token do Firebase>`.
+O app usa como base **só o host** (`lib/utils/env.dart` → `https://gdn.vps-kinghost.net`) e
+cada endpoint carrega o path completo: pôr `/api/v1` na base duplica o prefixo.
 
 | rota | o que devolve |
 |---|---|
