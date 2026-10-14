@@ -20,7 +20,6 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "br.com.appseries.app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
@@ -32,8 +31,9 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            // Debug key on purpose for now: keeps `flutter build apk --release`
+            // working without shipping a real key. The release keystore comes
+            // from a CI secret (see constitution.md).
             signingConfig = signingConfigs.getByName("debug")
         }
     }
