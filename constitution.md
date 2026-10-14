@@ -63,8 +63,9 @@ em `data/repositories/` e o DTO em `data/api_models/`. Sem pasta por feature.
 
 ## 5. Fluxo de trabalho (git)
 
-- **Git Flow simplificado**: `feature/<chave-do-Jira>-<nome>` → `develop` → `main`
-  (produção). Nada de push direto em `develop` ou `main`.
+- **Uma branch de vida longa só: `main`.** Cada feature nasce da `main`
+  (`feature/<chave-do-Jira>-<nome>`) e volta por PR. Nada de push direto na `main`:
+  o merge é sempre por PR.
 - PR com **1 review de outra pessoa** (cumpre o "testado por outra pessoa" da Definição
   de Pronto).
 - Commits **em inglês**, pequenos, **um assunto por commit** (`feat:`, `fix:`, `docs:`,

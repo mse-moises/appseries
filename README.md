@@ -33,7 +33,7 @@ flutter analyze && flutter test
 
 A feature de **login** é o molde completo, ponta a ponta. Copie o caminho dela:
 
-1. branch a partir da `develop`: `git checkout develop && git pull && git checkout -b feature/AP-XX-nome-curto`
+1. branch a partir da `main`: `git checkout main && git pull && git checkout -b feature/AP-XX-nome-curto`
 2. DTO em `data/api_models/<nome>.dart` (`@JsonSerializable()` + `part '<nome>.g.dart';`)
 3. contrato + implementação em `data/repositories/`: `<Nome>Repository` (abstrato,
    devolve `Future<Result<T>>`) e `<Nome>RepositoryImpl` (recebe o `RestClient` e
@@ -47,7 +47,8 @@ A feature de **login** é o molde completo, ponta a ponta. Copie o caminho dela:
 
 ## Fluxo de trabalho
 
-- **Git Flow simplificado**: `feature/<chave-do-Jira>-<nome>` → `develop` → `main`
+- **Só `main`**: cada pessoa cria a sua branch `feature/<chave-do-Jira>-<nome>` a partir
+  da `main` e volta por PR. `main` é a única branch de vida longa
 - **PR com 1 review** de outra pessoa (a Definição de Pronto exige item testado por outra
   pessoa)
 - commits em inglês, pequenos, um assunto por commit
