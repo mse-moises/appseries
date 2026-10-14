@@ -17,10 +17,11 @@ dart run build_runner build --delete-conflicting-outputs   # gera os .g.dart
 flutter run -d chrome                                      # ou -d <seu-device-android>
 ```
 
-A base URL já vem por padrão em `utils/env.dart`; para apontar para outro lugar:
+A base URL já vem por padrão em `utils/env.dart` e é **só o host**, sem path: cada
+endpoint carrega o seu (`/health`, `/api/v1/...`). Para apontar para outro lugar:
 
 ```bash
-flutter run -d chrome --dart-define=API_BASE_URL=https://outro-host/api/v1
+flutter run -d chrome --dart-define=API_BASE_URL=https://outro-host
 ```
 
 Verificação antes de abrir PR:
@@ -62,5 +63,8 @@ A feature de **login** é o molde completo, ponta a ponta. Copie o caminho dela:
 - mensagem de erro para o usuário **sem termo técnico**
 - todo dado vindo do TMDB é exibido com a **atribuição** ("This product uses the TMDB
   API but is not endorsed or certified by TMDB" + logo)
-- nenhum segredo no app; o `debug.keystore` do projeto é versionado (é chave de debug),
-  o de release não
+- nenhum segredo no app; o keystore de **release** não entra no repositório (vai por
+  segredo de CI)
+- o `debug.keystore` **do projeto** (chave de debug, nunca publicada na loja) ainda **não
+  existe no repo**: entra na fatia 3, junto com o cadastro da SHA-1 no Firebase. Sem ele,
+  cada dev tem a SHA-1 do próprio keystore e o Google Sign-In quebra por máquina
