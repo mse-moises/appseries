@@ -1,0 +1,21 @@
+import 'package:dio/dio.dart';
+import 'package:retrofit/retrofit.dart';
+
+import '../api_models/health_status.dart';
+
+part 'rest_client.g.dart';
+
+/// Every backend call goes through here.
+///
+/// The Firebase id token is added by the Dio interceptor, so **no endpoint
+/// takes a token parameter**. Run
+/// `dart run build_runner build --delete-conflicting-outputs` after changing
+/// this file (it generates `rest_client.g.dart`).
+@RestApi()
+abstract class RestClient {
+  factory RestClient(Dio dio, {String? baseUrl}) = _RestClient;
+
+  /// `GET /health` — the only endpoint that needs no auth.
+  @GET('/health')
+  Future<HealthStatus> health();
+}
