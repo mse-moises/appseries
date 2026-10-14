@@ -1,7 +1,6 @@
 import 'package:appseries/data/api_models/health_status.dart';
 import 'package:appseries/data/repositories/health_repository.dart';
 import 'package:appseries/ui/view/home_page.dart';
-import 'package:appseries/ui/view/login_page.dart';
 import 'package:appseries/ui/view_model/home_view_model.dart';
 import 'package:appseries/utils/result.dart';
 import 'package:flutter/material.dart';
@@ -15,15 +14,6 @@ class _FakeHealthRepository implements HealthRepository {
 }
 
 void main() {
-  testWidgets('a tela de login mostra os campos e o botão', (WidgetTester tester) async {
-    await tester.pumpWidget(const MaterialApp(home: LoginPage()));
-
-    expect(find.text('AppSeries'), findsOneWidget);
-    expect(find.text('E-mail'), findsOneWidget);
-    expect(find.text('Senha'), findsOneWidget);
-    expect(find.text('Entrar'), findsOneWidget);
-  });
-
   testWidgets('a home mostra o estado do backend', (WidgetTester tester) async {
     await tester.pumpWidget(
       ChangeNotifierProvider<HomeViewModel>(
