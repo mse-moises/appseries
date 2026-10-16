@@ -20,10 +20,13 @@ pelas outras quatro pessoas do time.
   `AuthGate` na raiz
 - **login e-mail/senha + Google** e logout, com sessão persistida pelo Firebase
 - camada de rede: `retrofit` + `dio` com interceptor do token, `Result` + `AppError`
-- `README` (como rodar + como criar uma feature em 6 passos) e `constitution.md`
-- CI: `analyze` + `test` + APK release como artefato (PR) e deploy do web (`main`)
-- testes em cada camada do molde: repository (com o `RestClient` dublado) e ViewModel (com
-  repository falso), widget tests das telas e o teste da navegação login → home
+- `README` (como rodar + como criar uma feature em 7 passos) e `constitution.md`
+- CI: `analyze` + `test` (+ cobertura) e APK release como artefato no PR; o **deploy do
+  web no Hosting é da fatia 3** (a esteira ainda não tem job de deploy)
+- testes em cada camada do molde: repository (com o **Service** dublado — o `RestClient`
+  para as features de backend, o `AuthService` para a de login) e ViewModel (com repository
+  falso), widget tests das telas, o teste do `AuthGate` (a troca de tela vem do estado da
+  sessão, não de navegação) e o do interceptor do token (token por requisição e 401 desloga)
 
 ## Fora de escopo (tem item e dono no Jira)
 
@@ -41,7 +44,7 @@ molde; a spec de cada feature fica com quem pegar a task.
 | navegação | rotas nomeadas (`utils/routes_config.dart`) + `AuthGate` |
 | repository | contrato abstrato + `<Feature>RepositoryImpl` |
 | erro | `Result<T>` + `sealed AppError` (código cru + frase em pt-BR) |
-| View | `context.watch` + primeira carga no `create` do provider |
+| View | `context.watch` + primeira carga no `initState` da tela (não no `create`) |
 | plataformas | Android + Web (alvo). As pastas `ios/`, `macos/`, `linux/` e `windows/`
 continuam no repo por decisão do dono (14/10) |
 | identidade | AppSeries · `br.com.appseries.app` · repo/pasta `appseries` |
@@ -81,19 +84,63 @@ enriquecimento do `GET /acervo` com título/pôster.
    com o Firebase. Também ficou sem o deploy do web no Hosting, pela mesma razão.
 2. **Login e-mail/senha** ponta a ponta — página, ViewModel, `AuthRepository(Impl)`,
    `AppError`, os testes da feature, o `AuthGate` e o interceptor do token.
+   🟡 **Entregue no PR #2 com CI verde; falta o merge.**
 3. **Google Sign-In + acabamento** — `debug.keystore` + SHA-1, deploy do web no Hosting,
    domínio autorizado no Auth.
 
+## Casos de aceite da fatia 2 (login e-mail/senha)
+
+O que a tela faz em cada caminho. A "validação local" nem chega ao Firebase.
+
+**Sucesso**
+
+| caso | o que acontece |
+|---|---|
+| criar conta (e-mail inédito + senha de 6+) | cria no Firebase e entra direto na home |
+| entrar com e-mail e senha corretos | vai para a home |
+| abrir o app com sessão viva | vai direto para a home, sem passar pelo login |
+| sair | limpa a sessão e volta ao login |
+| a API responder **401** | desloga e volta ao login (interceptor do dio) |
+
+**Erro**
+
+| caso | frase na tela |
+|---|---|
+| e-mail vazio · sem `@` · senha com menos de 6 (validação local) | "Informe o e-mail" · "Confira o e-mail digitado" · "A senha precisa ter 6 caracteres ou mais" |
+| e-mail inexistente **ou** senha errada | "E-mail ou senha incorretos. Confira e tente de novo." |
+| cadastro com e-mail já usado | "Esse e-mail já tem conta. Tente entrar." |
+| senha fraca no cadastro | "A senha precisa ter pelo menos 6 caracteres." |
+| muitas tentativas seguidas | "Muitas tentativas seguidas. Espere um pouco." |
+| conta desativada no console | "Essa conta está desativada." |
+| a sessão acaba sozinha (401, canal que cai) | "Sua sessão expirou. Entre de novo." (aviso na tela de login) |
+| falha ao sair da conta | a frase do erro, numa faixa na home, com o botão "Fechar" |
+| sem rede / Firebase fora do ar | "Sem conexão com a internet. Confira sua rede e tente de novo." |
+| provedor que não responde dentro do tempo limite | "Demorou demais para responder. Tente de novo." |
+| erro não previsto (provedor desligado, erro interno) | "O servidor deu uma escorregada. Tente em instantes." |
+
+O e-mail inexistente e a senha errada devolvem **a mesma frase de propósito**: o
+Firebase responde igual nos dois casos para não revelar quais e-mails têm conta.
+
+**Fora desta fatia** (não existe ainda): "esqueci minha senha", trocar senha ou
+e-mail, excluir conta, verificação de e-mail e Google Sign-In (esse é a fatia 3).
+
 ## Critério de pronto
 
-- abre no **Chrome** e no **Android** e mostra a página de login
+**Da fatia 2 (login e-mail/senha)** — é o que se confere neste PR:
+
+- abre no **Chrome** e mostra a página de login (o Android depende de um aparelho ligado:
+  o CI compila o APK, não o executa)
 - cadastro e login por **e-mail/senha** funcionam; a Home casca aparece; **logout** volta
   ao login
-- **Google** entra na mesma Home
+- abrir o app com sessão viva vai direto à home, sem passar pelo login
 - login errado mostra frase clara, sem termo técnico
 - todos os testes passam e o **CI ficou verde** no PR
-- `README` e `constitution.md` estão no repo; o web está publicado com URL
-- outra pessoa revisou e rodou
+- outra pessoa revisou
+
+**Da fatia 3 e do fecho do E1** — ainda não é para estar pronto:
+
+- **Google** entra na mesma Home
+- o web está publicado com URL (Hosting)
 
 ## Como verificar (comandos)
 

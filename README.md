@@ -21,7 +21,7 @@ No web a porta **não é livre**: o backend libera só a origem `http://localhos
 CORS (`CORS_ORIGINS`). Em outra porta o navegador bloqueia a leitura da resposta e a tela
 fica em estado de erro, sem nenhuma pista de que o problema é a origem.
 
-A base URL já vem por padrão em `utils/env.dart` e é **só o host**, sem path: cada
+A base URL já vem por padrão em `lib/utils/env.dart` e é **só o host**, sem path: cada
 endpoint carrega o seu (`/health`, `/api/v1/...`). Para apontar para outro lugar:
 
 ```bash
@@ -34,21 +34,30 @@ Verificação antes de abrir PR:
 flutter analyze && flutter test
 ```
 
-## Como criar uma feature nova (6 passos)
+## Como criar uma feature nova (7 passos)
 
 A feature de **login** é o molde completo, ponta a ponta. Copie o caminho dela:
 
 1. branch a partir da `main`: `git checkout main && git pull && git checkout -b feature/AP-XX-nome-curto`
-2. DTO em `data/api_models/<nome>.dart` (`@JsonSerializable()` + `part '<nome>.g.dart';`)
-3. contrato + implementação em `data/repositories/`: `<Nome>Repository` (abstrato,
-   devolve `Future<Result<T>>`) e `<Nome>RepositoryImpl` (recebe o `RestClient` e
-   traduz o erro do backend em `AppError`)
+2. `<Nome>Service` em `data/services/` — o acesso ao mundo externo, **sem estado**.
+   Fala com a API do backend pelo `RestClient`, ou esconde outro provedor (o
+   `AuthService` esconde o Firebase Auth): nenhum tipo do provedor passa daqui
+3. modelo em `data/api_models/` (`@JsonSerializable()` + `part '<nome>.g.dart';` quando
+   vem do backend) e contrato + implementação em `data/repositories/`:
+   `<Nome>Repository` (abstrato, devolve `Future<Result<T>>`) e `<Nome>RepositoryImpl`
+   (recebe o **Service** e traduz o erro dele em `AppError`)
 4. ViewModel em `ui/view_model/<nome>_view_model.dart` (`extends ChangeNotifier`, recebe
    o repository no construtor, tem getters públicos e chama `notifyListeners()`)
 5. página + widgets em `ui/view/<nome>_page.dart` (`context.watch` no ViewModel; estado
    efêmero de tela fica na View)
-6. registre a rota em `utils/routes_config.dart`, rode o `build_runner`, `flutter analyze`,
-   `flutter test` e abra o PR explicando o que muda
+6. **testes por camada** (é critério de aceite, não enfeite): repository com o Service
+   dublado, ViewModel com repository falso e o widget test da tela
+7. telas internas registram a sua rota em `utils/routes_config.dart` e navegam com
+   `Navigator.pushNamed`. **`login` e `home` não são rotas**: quem decide entre elas é o
+   `AuthGate` (`app.dart`), pelo estado da sessão
+
+Antes de abrir o PR: `dart run build_runner build --delete-conflicting-outputs` (se mexeu
+em DTO ou no `RestClient`), `flutter analyze && flutter test`.
 
 ## Fluxo de trabalho
 
