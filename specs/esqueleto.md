@@ -84,7 +84,8 @@ enriquecimento do `GET /acervo` com título/pôster.
    com o Firebase. Também ficou sem o deploy do web no Hosting, pela mesma razão.
 2. **Login e-mail/senha** ponta a ponta — página, ViewModel, `AuthRepository(Impl)`,
    `AppError`, os testes da feature, o `AuthGate` e o interceptor do token.
-   🟡 **Entregue no PR #2 com CI verde; falta o merge.**
+   ✅ **Entregue, revisada em 6 ondas e mergeada em 16/10** (PR #2, merge `a11a67f`;
+   109 testes verdes, CI verde nos 3 jobs).
 3. **Google Sign-In + acabamento** — `debug.keystore` + SHA-1, deploy do web no Hosting,
    domínio autorizado no Auth.
 
