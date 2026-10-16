@@ -4,9 +4,14 @@ import '../../utils/app_error.dart';
 
 /// Turns a [DioException] into the typed [AppError] the UI shows.
 ///
-/// Repositories call this in their `on DioException catch` — the mapping lives
-/// in one place so every feature answers the same way.
+/// Repositories call this in their `on DioException catch`. The dio-specific
+/// part of the mapping lives here; the backend and Firebase codes map in
+/// `utils/app_error.dart` (`appErrorFromCodigo` / `appErrorFromFirebase`).
 AppError appErrorFromDio(DioException e) {
+  // The token-refresh deadline stamps `TempoEsgotadoError` on `e.error` (the
+  // interceptor does it), so the person reads "Demorou demais" — a slow refresh
+  // is not her network's fault, and "Confira sua rede" would lie.
+  if (e.error is TempoEsgotadoError) return const TempoEsgotadoError();
   switch (e.type) {
     case DioExceptionType.connectionTimeout:
     case DioExceptionType.sendTimeout:

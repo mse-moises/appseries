@@ -43,3 +43,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local secrets: the app keeps no key of its own (see constitution.md §7), so
+# anything that looks like a credential belongs on the backend, never here.
+.env
+.env.*
+android/key.properties

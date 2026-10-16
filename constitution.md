@@ -12,12 +12,19 @@
 - `Repository` é **contrato abstrato** (`<Feature>Repository`) + implementação
   (`<Feature>RepositoryImpl`). O ViewModel depende do contrato.
 - `Service` é o acesso ao mundo externo (retrofit/`RestClient`, Firebase Auth) e **não
-  tem estado**.
+  tem estado**. Ele **esconde o SDK**: o contrato dele fala os modelos do app (como
+  `AppUser`), nunca um tipo do provedor (o `User` do Firebase, por exemplo). É isso que
+  deixa o repository e o ViewModel testáveis sem tocar no SDK.
 - O que só existe porque a tela existe (foco, `TextEditingController`, animação) fica na
   **View**. "Quem está logado" é estado de **app**: `AuthViewModel` na raiz, observado
   pelo `AuthGate`.
-- A View pega o ViewModel com `context.watch<...>()`; a **primeira carga** acontece no
-  `create` do provider (`..carregar()`). **Nunca** disparar carga dentro do `build()`.
+- A View pega o ViewModel com `context.watch<...>()`. A **primeira carga** de uma tela
+  acontece quando ela monta (`initState`, via pós-frame) — **não** no `create` do provider,
+  que roda uma vez só e faria a segunda sessão herdar a resposta da primeira. **Nunca**
+  disparar carga dentro do `build()`.
+- `login` e `home` **não são rotas nomeadas**: quem decide entre as duas é o `AuthGate` na
+  raiz, pelo estado da sessão. Rota nomeada é para tela interna, alcançada de uma tela
+  logada — uma rota para `home` renderizaria a tela sem passar por essa decisão.
 
 ## 2. Estrutura de pastas (por tipo, como o desenho da aula)
 
@@ -26,7 +33,8 @@ lib/
 ├── main.dart              # MultiProvider (a injeção) + runApp
 ├── app.dart               # MaterialApp: tema, rotas, AuthGate
 ├── data/
-│   ├── api_models/        # DTOs (um por recurso do backend) + .g.dart
+│   ├── api_models/        # modelos de dado: DTO do backend (com .g.dart) e os
+│   │                      # modelos de fronteira que o Service expõe (ex.: user.dart)
 │   ├── repositories/      # <Feature>Repository (abstrato) + <Feature>RepositoryImpl
 │   └── services/          # rest_client.dart (retrofit), auth_service.dart
 ├── ui/
@@ -45,9 +53,11 @@ em `data/repositories/` e o DTO em `data/api_models/`. Sem pasta por feature.
 
 - Todo método de repository devolve `Future<Result<T>>` (`utils/result.dart`).
 - Erro é **tipado**: `AppError` (`utils/app_error.dart`), um caso por família
-  (`Network`, `Unauthorized`, `NotFound`, `Conflict`, `RateLimit`, `Server`), carregando
-  o **código cru** que o backend devolveu (para log) e a **frase em português** que a
-  tela mostra. Nunca jogar `Exception` genérica na tela.
+  (`Network`, `TempoEsgotado`, `Unauthorized`, `NotFound`, `Conflict`, `RateLimit`,
+  `Server`), carregando o **código da origem** (o cru quando veio do backend ou do
+  Firebase; um sentinela do próprio app quando a falha nasceu aqui, como em `Network` e
+  `TempoEsgotado`) e a **frase em português** que a tela mostra. Nunca jogar `Exception`
+  genérica na tela.
 - Mensagem para o usuário **sem termo técnico** ("e-mail ou senha inválidos", não
   "401 unauthorized").
 
@@ -68,8 +78,9 @@ em `data/repositories/` e o DTO em `data/api_models/`. Sem pasta por feature.
   o merge é sempre por PR.
 - PR com **1 review de outra pessoa** (cumpre o "testado por outra pessoa" da Definição
   de Pronto).
-- Commits **em inglês**, pequenos, **um assunto por commit** (`feat:`, `fix:`, `docs:`,
-  `test:`, `chore:`).
+- Commits **em inglês**, pequenos, **um assunto por commit**, no formato
+  **`tipo(escopo):`** (`feat:`, `fix:`, `docs:`, `test:`, `chore:`, `ci:`, `refactor:`);
+  o escopo é opcional e diz a área tocada (`auth`, `gate`, `spec`).
 - `dart run build_runner build --delete-conflicting-outputs` **antes do commit** sempre
   que um DTO ou o `RestClient` mudar; os `.g.dart` vão no mesmo commit. Esquecer isso dá
   erro de compilação confuso (`part of` sem o arquivo gerado).

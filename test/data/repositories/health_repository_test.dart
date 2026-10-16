@@ -8,14 +8,14 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// Dublê do RestClient: nenhum teste desta camada toca a rede.
 class _FakeRestClient implements RestClient {
-  _FakeRestClient({this.status, this.erro});
+  _FakeRestClient({this.status, this.error});
 
   final HealthStatus? status;
-  final Object? erro;
+  final Object? error;
 
   @override
   Future<HealthStatus> health() async {
-    if (erro != null) throw erro!;
+    if (error != null) throw error!;
     return status!;
   }
 }
@@ -37,66 +37,66 @@ void main() {
         _FakeRestClient(status: const HealthStatus(status: 'ok')),
       );
 
-      final resultado = await repo.check();
+      final result = await repo.check();
 
-      expect(resultado, isA<Ok<HealthStatus>>());
-      expect(resultado.valueOrNull?.status, 'ok');
+      expect(result, isA<Ok<HealthStatus>>());
+      expect(result.valueOrNull?.status, 'ok');
     });
 
     test('traduz 401 do backend em UnauthorizedError', () async {
       final repo = HealthRepositoryImpl(
-        _FakeRestClient(erro: _erroHttp(401, <String, String>{'error': 'unauthorized'})),
+        _FakeRestClient(error: _erroHttp(401, <String, String>{'error': 'unauthorized'})),
       );
 
-      final resultado = await repo.check();
+      final result = await repo.check();
 
-      expect(resultado.errorOrNull, isA<UnauthorizedError>());
-      expect(resultado.errorOrNull?.codigo, 'unauthorized');
+      expect(result.errorOrNull, isA<UnauthorizedError>());
+      expect(result.errorOrNull?.codigo, 'unauthorized');
     });
 
     test('traduz queda de conexão em NetworkError', () async {
       final repo = HealthRepositoryImpl(
         _FakeRestClient(
-          erro: DioException.connectionError(
+          error: DioException.connectionError(
             requestOptions: RequestOptions(path: '/health'),
             reason: 'sem rede',
           ),
         ),
       );
 
-      final resultado = await repo.check();
+      final result = await repo.check();
 
-      expect(resultado.errorOrNull, isA<NetworkError>());
+      expect(result.errorOrNull, isA<NetworkError>());
     });
 
     test('traduz 500 sem corpo de erro em ServerError', () async {
-      final repo = HealthRepositoryImpl(_FakeRestClient(erro: _erroHttp(500, 'boom')));
+      final repo = HealthRepositoryImpl(_FakeRestClient(error: _erroHttp(500, 'boom')));
 
-      final resultado = await repo.check();
+      final result = await repo.check();
 
-      expect(resultado.errorOrNull, isA<ServerError>());
+      expect(result.errorOrNull, isA<ServerError>());
     });
 
     test('traduz 503 auth_unconfigured em ServerError, e não em sessão expirada', () async {
       final repo = HealthRepositoryImpl(
-        _FakeRestClient(erro: _erroHttp(503, <String, String>{'error': 'auth_unconfigured'})),
+        _FakeRestClient(error: _erroHttp(503, <String, String>{'error': 'auth_unconfigured'})),
       );
 
-      final resultado = await repo.check();
+      final result = await repo.check();
 
-      expect(resultado.errorOrNull, isA<ServerError>());
-      expect(resultado.errorOrNull?.mensagem, isNot(contains('sessão')));
+      expect(result.errorOrNull, isA<ServerError>());
+      expect(result.errorOrNull?.mensagem, isNot(contains('sessão')));
     });
 
     test('resposta em formato inesperado não escapa como exceção crua', () async {
       final repo = HealthRepositoryImpl(
-        _FakeRestClient(erro: const FormatException('corpo em formato inesperado')),
+        _FakeRestClient(error: const FormatException('corpo em formato inesperado')),
       );
 
-      final resultado = await repo.check();
+      final result = await repo.check();
 
-      expect(resultado.errorOrNull, isA<ServerError>());
-      expect(resultado.valueOrNull, isNull);
+      expect(result.errorOrNull, isA<ServerError>());
+      expect(result.valueOrNull, isNull);
     });
   });
 }

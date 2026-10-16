@@ -15,10 +15,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
-    }
-
     defaultConfig {
         applicationId = "br.com.appseries.app"
         // You can update the following values to match your application needs.
@@ -36,6 +32,14 @@ android {
             // from a CI secret (see constitution.md).
             signingConfig = signingConfigs.getByName("debug")
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        // jvmTarget lives in the new compilerOptions DSL: with Kotlin 2.3 the old
+        // `kotlinOptions { jvmTarget = "11" }` is a script compilation error.
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
     }
 }
 

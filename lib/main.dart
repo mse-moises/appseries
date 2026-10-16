@@ -1,17 +1,43 @@
 import 'package:dio/dio.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 import 'package:provider/provider.dart';
 
 import 'app.dart';
+import 'data/repositories/auth_repository.dart';
+import 'data/repositories/auth_repository_impl.dart';
 import 'data/repositories/health_repository.dart';
 import 'data/repositories/health_repository_impl.dart';
+import 'data/services/auth_interceptor.dart';
+import 'data/services/auth_service.dart';
 import 'data/services/rest_client.dart';
+import 'firebase_options.dart';
+import 'ui/view/startup_error_page.dart';
+import 'ui/view_model/auth_view_model.dart';
 import 'ui/view_model/home_view_model.dart';
+import 'ui/view_model/login_view_model.dart';
 import 'utils/env.dart';
 
-void main() => runApp(const AppSeries());
+Future<void> main() async {
+  // `DefaultFirebaseOptions` is written by hand in `lib/firebase_options.dart`
+  // (the FlutterFire CLI is not installed here): Android values from
+  // `android/app/google-services.json`, web values from the app registered in
+  // the console. See `constitution.md` §7.
+  try {
+    WidgetsFlutterBinding.ensureInitialized();
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  } catch (error, stack) {
+    // No Firebase there is no app to draw: without this the app dies before the
+    // first frame and the person gets a blank window. The screen says what
+    // happened in product words; the detail goes to the log.
+    debugPrint('[AppSeries] falha ao iniciar o Firebase: $error\n$stack');
+    runApp(StartupErrorApp(mensagem: startupFailureMessage(error)));
+    return;
+  }
+  runApp(const AppSeries());
+}
 
 /// Wires the whole dependency graph.
 ///
@@ -23,26 +49,36 @@ class AppSeries extends StatelessWidget {
   @override
   Widget build(BuildContext context) => MultiProvider(
         providers: [
-          Provider<Dio>(create: (_) => buildDio()),
+          Provider<AuthService>(create: (_) => FirebaseAuthService()),
+          Provider<AuthRepository>(
+            create: (ctx) => AuthRepositoryImpl(ctx.read<AuthService>()),
+          ),
+          ChangeNotifierProvider<AuthViewModel>(
+            create: (ctx) => AuthViewModel(ctx.read<AuthRepository>()),
+          ),
+          ChangeNotifierProvider<LoginViewModel>(
+            create: (ctx) => LoginViewModel(ctx.read<AuthRepository>()),
+          ),
+          Provider<Dio>(create: (ctx) => buildDio(ctx.read<AuthService>())),
           Provider<RestClient>(
             create: (ctx) => RestClient(ctx.read<Dio>(), baseUrl: Env.apiBaseUrl),
           ),
           Provider<HealthRepository>(
             create: (ctx) => HealthRepositoryImpl(ctx.read<RestClient>()),
           ),
+          // No `..load()` here: the `HomePage` is what loads, and it is mounted
+          // anew on every login (the provider's `create` runs once).
           ChangeNotifierProvider<HomeViewModel>(
-            create: (ctx) => HomeViewModel(ctx.read<HealthRepository>())..load(),
+            create: (ctx) => HomeViewModel(ctx.read<HealthRepository>()),
           ),
         ],
         child: const App(),
       );
 }
 
-/// The shared Dio instance: base URL, timeouts and (in debug) the request log.
-///
-/// The auth interceptor (Firebase id token per request + logout on 401) is added
-/// here in AP-24.
-Dio buildDio() {
+/// The shared Dio instance: base URL, timeouts, the auth interceptor (id token
+/// per request + logout on 401) and, in debug, the request log.
+Dio buildDio(AuthService auth) {
   final Dio dio = Dio(
     BaseOptions(
       baseUrl: Env.apiBaseUrl,
@@ -50,6 +86,8 @@ Dio buildDio() {
       receiveTimeout: const Duration(seconds: 20),
     ),
   );
+
+  dio.interceptors.add(authInterceptor(auth));
 
   if (kDebugMode) {
     dio.interceptors.add(PrettyDioLogger(requestBody: true, responseBody: true, compact: true));

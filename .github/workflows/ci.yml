@@ -11,8 +11,9 @@ jobs:
   # with it the whole build toolchain would change without a single commit here. Bump it
   # deliberately, in a PR that shows the build still passes.
   #
-  # Actions run on their current majors: v4 still targets the deprecated Node 20 runtime,
-  # which GitHub warns about on every run.
+  # Actions run on their current majors (checkout@v7, setup-java@v6, upload-artifact@v7),
+  # which no longer carry the deprecated Node 20 runtime: the seven annotations this
+  # workflow used to print on every run are gone.
   analyze-and-test:
     name: analyze + test
     runs-on: ubuntu-24.04
@@ -34,7 +35,11 @@ jobs:
         run: git diff --exit-code -- '*.g.dart'
 
       - name: flutter analyze
-        run: flutter analyze
+        # `--fatal-infos` means "treat info diagnostics as fatal". It states the
+        # intent, it does not change the outcome: this SDK already declares it (and
+        # `--fatal-warnings`) as `defaultsTo: true` in `analyze.dart`, so a plain
+        # `flutter analyze` exits 1 as soon as one of those diagnostics exists.
+        run: flutter analyze --fatal-infos
 
       - name: flutter test (com cobertura)
         run: flutter test --coverage

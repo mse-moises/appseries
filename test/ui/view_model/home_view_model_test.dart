@@ -15,6 +15,17 @@ class _FakeHealthRepository implements HealthRepository {
   Future<Result<HealthStatus>> check() async => _resposta;
 }
 
+/// Fura o contrato: lança em vez de devolver `Result`.
+class _FakeHealthRepositoryQueLanca implements HealthRepository {
+  int chamadas = 0;
+
+  @override
+  Future<Result<HealthStatus>> check() async {
+    chamadas++;
+    throw const FormatException('contrato furado');
+  }
+}
+
 /// Devolve uma resposta por chamada, na ordem — é o que permite testar recarga.
 class _FakeRespostasSequenciais implements HealthRepository {
   _FakeRespostasSequenciais(this._respostas);
@@ -63,6 +74,20 @@ void main() {
       await vm.load();
 
       expect(avisos, 2);
+    });
+
+    test('repository que lança não deixa a home presa em carregando', () async {
+      final repo = _FakeHealthRepositoryQueLanca();
+      final vm = HomeViewModel(repo);
+
+      await vm.load();
+
+      expect(vm.isLoading, isFalse, reason: 'a tela não pode travar no carregando');
+      expect(vm.error, 'O servidor deu uma escorregada. Tente em instantes.');
+
+      // O retry continua saindo depois de o contrato ser furado.
+      await vm.load();
+      expect(repo.chamadas, 2);
     });
 
     test('falha na recarga não deixa o dado antigo no estado', () async {

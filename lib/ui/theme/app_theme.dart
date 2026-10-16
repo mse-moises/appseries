@@ -16,3 +16,12 @@ class AppTheme {
         colorScheme: ColorScheme.fromSeed(seedColor: seed, brightness: brightness),
       );
 }
+
+/// The theme pair and the mode every `MaterialApp` in this app shares — the real
+/// one and the start-up failure screen. One source for the three, so a theme
+/// change cannot silently miss the other tree.
+({ThemeData light, ThemeData dark, ThemeMode mode}) temasDoApp() {
+  final ThemeData light = AppTheme.light();
+  final ThemeData dark = AppTheme.dark();
+  return (light: light, dark: dark, mode: ThemeMode.system);
+}
