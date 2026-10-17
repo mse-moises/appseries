@@ -25,6 +25,20 @@ android {
         versionName = flutter.versionName
     }
 
+    // One debug key for the whole team, versioned on purpose: Google Sign-In only
+    // accepts an app signed by a key whose SHA-1 is registered in Firebase, and
+    // every machine generates its own ~/.android/debug.keystore. Without this file
+    // each teammate would have to register their own SHA-1 (or face `ApiException: 10`).
+    // Password and alias are the Android debug defaults, not a secret.
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
             // Debug key on purpose for now: keeps `flutter build apk --release`
