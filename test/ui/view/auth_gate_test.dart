@@ -34,6 +34,9 @@ class _FakeAuthRepository implements AuthRepository {
       const Result<AppUser>.ok(_livia);
 
   @override
+  Future<Result<AppUser>> signInWithGoogle() async => const Result<AppUser>.ok(_livia);
+
+  @override
   Future<Result<void>> signOut() async {
     saidas++;
     return const Result<void>.ok(null);

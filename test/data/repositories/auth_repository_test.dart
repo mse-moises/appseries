@@ -35,6 +35,12 @@ class _FakeAuthService implements AuthService {
   }
 
   @override
+  Future<AppUser> signInWithGoogle() async {
+    if (error != null) throw error!;
+    return _livia;
+  }
+
+  @override
   Future<void> signOut() async {
     saidas++;
     if (erroAoNaoSair == true) throw FirebaseAuthException(code: 'internal-error');
@@ -65,6 +71,9 @@ class _FakeAuthServiceQuePendura implements AuthService {
   Future<AppUser> signUp(String email, String password) => _loginParaSempre.future;
 
   @override
+  Future<AppUser> signInWithGoogle() => _loginParaSempre.future;
+
+  @override
   Future<void> signOut() => _saidaParaSempre.future;
 
   @override
@@ -81,6 +90,15 @@ void main() {
       final repo = AuthRepositoryImpl(_FakeAuthService());
 
       final result = await repo.signIn('livia@exemplo.com', 'segredo123');
+
+      expect(result, isA<Ok<AppUser>>());
+      expect(result.valueOrNull?.email, 'livia@exemplo.com');
+    });
+
+    test('devolve Ok com o usuário quando o login é pelo Google', () async {
+      final repo = AuthRepositoryImpl(_FakeAuthService());
+
+      final result = await repo.signInWithGoogle();
 
       expect(result, isA<Ok<AppUser>>());
       expect(result.valueOrNull?.email, 'livia@exemplo.com');

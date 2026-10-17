@@ -20,6 +20,7 @@ class _FakeAuthRepository implements AuthRepository {
   final StreamController<AppUser?> _sessao = StreamController<AppUser?>.broadcast();
   int entradas = 0;
   int criadas = 0;
+  int comGoogle = 0;
 
   /// Se não-nulo, o `signIn` pendura até alguém completar (deixa `isSubmitting` em voo).
   Completer<Result<AppUser>>? portaDoLogin;
@@ -40,6 +41,12 @@ class _FakeAuthRepository implements AuthRepository {
   @override
   Future<Result<AppUser>> signUp(String email, String password) async {
     criadas++;
+    return _resposta;
+  }
+
+  @override
+  Future<Result<AppUser>> signInWithGoogle() async {
+    comGoogle++;
     return _resposta;
   }
 
@@ -123,6 +130,20 @@ void main() {
       expect(find.text('E-mail'), findsOneWidget);
       expect(find.text('Senha'), findsOneWidget);
       expect(find.widgetWithText(FilledButton, 'Entrar'), findsOneWidget);
+      expect(find.widgetWithText(OutlinedButton, 'Entrar com Google'), findsOneWidget);
+    });
+
+    testWidgets('o botão do Google entra sem passar pela validação dos campos', (tester) async {
+      final repo = await _montar(tester);
+
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Entrar com Google'));
+      await tester.pump();
+
+      // Nada preenchido e o caminho do Google tem de sair assim mesmo: a
+      // validação do formulário é do login por e-mail.
+      expect(repo.comGoogle, 1);
+      expect(repo.entradas, 0);
+      expect(find.text('Informe o e-mail'), findsNothing);
     });
 
     testWidgets('campos vazios não chamam o repositório', (tester) async {

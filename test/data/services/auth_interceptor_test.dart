@@ -37,6 +37,9 @@ class _FakeAuthService implements AuthService {
   Future<AppUser> signUp(String email, String password) async => _livia;
 
   @override
+  Future<AppUser> signInWithGoogle() async => _livia;
+
+  @override
   Future<void> signOut() async {
     saidas++;
     if (falharAoSair) throw StateError('signOut falhou');
