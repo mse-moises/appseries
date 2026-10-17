@@ -51,6 +51,64 @@ void main() {
     });
   });
 
+  group('appErrorFromGoogle', () {
+    test('fechar o seletor ou o popup é cancelamento, não falha do sistema', () {
+      for (final String codigo in <String>[
+        'canceled',
+        'popup-closed-by-user',
+        'cancelled-popup-request',
+      ]) {
+        final AppError error = appErrorFromGoogle(codigo);
+        expect(error, isA<GoogleCanceladoError>(), reason: codigo);
+        expect(error.mensagem, 'Entrada com o Google cancelada.');
+      }
+    });
+
+    test('conta que já existe por senha pede a senha', () {
+      final AppError error = appErrorFromGoogle('account-exists-with-different-credential');
+
+      expect(error, isA<ContaDeOutroMetodoError>());
+      expect(error.mensagem, contains('senha'));
+    });
+
+    test('ambiente sem suporte aponta para o formulário', () {
+      final AppError error = appErrorFromGoogle('operation-not-supported-in-this-environment');
+
+      expect(error, isA<GoogleIndisponivelError>());
+      expect(error.mensagem, contains('e-mail e senha'));
+    });
+
+    test('janela bloqueada explica o pop-up', () {
+      expect(appErrorFromGoogle('popup-blocked'), isA<JanelaBloqueadaError>());
+    });
+
+    test('configuração, interrupção e queda sem código têm frase própria', () {
+      for (final String? codigo in <String?>[
+        'clientConfigurationError',
+        'providerConfigurationError',
+        'interrupted',
+        'uiUnavailable',
+        'unknownError',
+        null,
+      ]) {
+        expect(appErrorFromGoogle(codigo), isA<GoogleFalhouError>(), reason: '$codigo');
+      }
+    });
+
+    test('os códigos do popup chegam pelo FirebaseAuthException e leem igual', () {
+      expect(appErrorFromFirebase('popup-closed-by-user'), isA<GoogleCanceladoError>());
+      expect(
+        appErrorFromFirebase('account-exists-with-different-credential'),
+        isA<ContaDeOutroMetodoError>(),
+      );
+      expect(
+        appErrorFromFirebase('operation-not-supported-in-this-environment'),
+        isA<GoogleIndisponivelError>(),
+      );
+      expect(appErrorFromFirebase('popup-blocked'), isA<JanelaBloqueadaError>());
+    });
+  });
+
   group('appErrorFromCodigo (backend)', () {
     test('unauthorized e not_found', () {
       expect(appErrorFromCodigo('unauthorized'), isA<UnauthorizedError>());
@@ -96,6 +154,11 @@ void main() {
       EmailInvalidoError(),
       MuitasTentativasError(),
       ContaDesativadaError(),
+      GoogleCanceladoError(),
+      ContaDeOutroMetodoError(),
+      GoogleIndisponivelError(),
+      JanelaBloqueadaError(),
+      GoogleFalhouError(),
     ];
 
     for (final AppError error in erros) {

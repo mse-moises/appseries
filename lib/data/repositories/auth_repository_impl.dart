@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../utils/app_error.dart';
 import '../../utils/result.dart';
@@ -69,6 +70,10 @@ class AuthRepositoryImpl implements AuthRepository {
       // `e.code` is the raw code; the mapper turns it into the sentence the
       // screen shows.
       return Result.error(appErrorFromFirebase(e.code));
+    } on GoogleSignInException catch (e) {
+      // The SDK's enum travels as a string so `utils/app_error.dart` stays free
+      // of the plugin import.
+      return Result.error(appErrorFromGoogle(e.code.name));
     } catch (_) {
       return const Result<AppUser>.error(ServerError());
     }

@@ -83,6 +83,63 @@ final class ContaDesativadaError extends AppError {
   const ContaDesativadaError() : super('user-disabled', 'Essa conta está desativada.');
 }
 
+// --- Google sign-in --------------------------------------------------------
+//
+// Two sources answer here: `GoogleSignInException.code` (the SDK, on Android;
+// passed as a string so this file does not import the plugin) and the codes the
+// Firebase popup returns on web. Both end in the same sentence on screen.
+
+/// She closed the account picker (or the browser popup).
+final class GoogleCanceladoError extends AppError {
+  const GoogleCanceladoError() : super('canceled', 'Entrada com o Google cancelada.');
+}
+
+/// That Google account already has a password account with the same e-mail:
+/// signing in with Google would create a second identity for one person.
+final class ContaDeOutroMetodoError extends AppError {
+  const ContaDeOutroMetodoError()
+      : super(
+          'account-exists-with-different-credential',
+          'Esse e-mail já tem conta com senha. Entre com a sua senha.',
+        );
+}
+
+/// Google sign-in does not work in this environment (an embedded browser, for
+/// instance): pointing her at the form is the honest answer.
+final class GoogleIndisponivelError extends AppError {
+  const GoogleIndisponivelError()
+      : super(
+          'operation-not-supported-in-this-environment',
+          'Entrar com o Google não está disponível aqui. Use e-mail e senha.',
+        );
+}
+
+final class JanelaBloqueadaError extends AppError {
+  const JanelaBloqueadaError()
+      : super(
+          'popup-blocked',
+          'O navegador bloqueou a janela do Google. Libere as janelas pop-up e tente de novo.',
+        );
+}
+
+/// Anything else in the Google flow: bad configuration, interruption, no token.
+final class GoogleFalhouError extends AppError {
+  const GoogleFalhouError() : super('google', 'Não deu para entrar com o Google. Tente de novo.');
+}
+
+/// Translates the code of a Google sign-in failure (SDK enum name or Firebase
+/// popup code, both arrive as a string).
+AppError appErrorFromGoogle(String? codigo) => switch (codigo) {
+      'canceled' ||
+      'popup-closed-by-user' ||
+      'cancelled-popup-request' =>
+        const GoogleCanceladoError(),
+      'account-exists-with-different-credential' => const ContaDeOutroMetodoError(),
+      'operation-not-supported-in-this-environment' => const GoogleIndisponivelError(),
+      'popup-blocked' => const JanelaBloqueadaError(),
+      _ => const GoogleFalhouError(),
+    };
+
 /// Translates the `{"error": "<codigo>"}` that the backend returns.
 ///
 /// The `*_unconfigured` codes (`auth_unconfigured`, `rec_unconfigured`,
@@ -113,5 +170,13 @@ AppError appErrorFromFirebase(String? codigo) => switch (codigo) {
       'too-many-requests' => const MuitasTentativasError(),
       'user-disabled' => const ContaDesativadaError(),
       'network-request-failed' => const NetworkError(),
+      // The web popup reports its own codes through FirebaseAuthException: send
+      // them to the Google table so both paths read the same.
+      'popup-closed-by-user' ||
+      'cancelled-popup-request' ||
+      'account-exists-with-different-credential' ||
+      'operation-not-supported-in-this-environment' ||
+      'popup-blocked' =>
+        appErrorFromGoogle(codigo),
       _ => const ServerError(),
     };

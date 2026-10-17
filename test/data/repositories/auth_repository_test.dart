@@ -7,6 +7,7 @@ import 'package:appseries/utils/app_error.dart';
 import 'package:appseries/utils/result.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 const AppUser _livia = AppUser(id: 'u1', email: 'livia@exemplo.com');
 
@@ -102,6 +103,31 @@ void main() {
 
       expect(result, isA<Ok<AppUser>>());
       expect(result.valueOrNull?.email, 'livia@exemplo.com');
+    });
+
+    test('fechar o seletor do Google vira frase de cancelamento', () async {
+      final repo = AuthRepositoryImpl(
+        _FakeAuthService(
+          error: const GoogleSignInException(code: GoogleSignInExceptionCode.canceled),
+        ),
+      );
+
+      final result = await repo.signInWithGoogle();
+
+      expect(result.errorOrNull, isA<GoogleCanceladoError>());
+      expect(result.errorOrNull?.mensagem, 'Entrada com o Google cancelada.');
+    });
+
+    test('e-mail que já tem conta por senha pede a senha', () async {
+      final repo = AuthRepositoryImpl(
+        _FakeAuthService(
+          error: FirebaseAuthException(code: 'account-exists-with-different-credential'),
+        ),
+      );
+
+      final result = await repo.signInWithGoogle();
+
+      expect(result.errorOrNull, isA<ContaDeOutroMetodoError>());
     });
 
     test('traduz credencial inválida na frase da tela', () async {
