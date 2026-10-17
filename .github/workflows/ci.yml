@@ -102,3 +102,31 @@ jobs:
         with:
           name: appseries-web
           path: build/web
+
+  # Publishing lives here and only here: a merge into `main` ships the site. Any
+  # other branch stops at the artifact above, so a PR cannot overwrite what the
+  # team is using.
+  deploy-web:
+    name: deploy web
+    runs-on: ubuntu-24.04
+    needs: build-web
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Baixa o build web do job anterior
+        uses: actions/download-artifact@v7
+        with:
+          name: appseries-web
+          path: build/web
+
+      # Service account, not `firebase login:ci`: the CI token is deprecated and
+      # carries the whole Google account, while this key only deploys this project.
+      - name: Publica no Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: pos-app-c4297
+          channelId: live
