@@ -54,6 +54,17 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  Future<void> _signInWithGoogle() async {
+    final LoginViewModel vm = context.read<LoginViewModel>();
+    final AuthViewModel auth = context.read<AuthViewModel>();
+
+    await vm.signInWithGoogle();
+    if (!mounted) return;
+
+    // An expired session is old news once she is trying again.
+    auth.clearNotice();
+  }
+
   String? _validateEmail(String? value) {
     final String email = (value ?? '').trim();
     if (email.isEmpty) return 'Informe o e-mail';
@@ -199,6 +210,22 @@ class _LoginPageState extends State<LoginPage> {
                           child: Text(
                             _isSigningUp ? 'Já tenho conta' : 'Ainda não tenho conta',
                           ),
+                        ),
+                        const SizedBox(height: 24),
+                        Row(
+                          children: <Widget>[
+                            const Expanded(child: Divider()),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              child: Text('ou', style: tema.textTheme.bodySmall),
+                            ),
+                            const Expanded(child: Divider()),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        OutlinedButton(
+                          onPressed: vm.isSubmitting ? null : _signInWithGoogle,
+                          child: const Text('Entrar com Google'),
                         ),
                       ],
                     ),

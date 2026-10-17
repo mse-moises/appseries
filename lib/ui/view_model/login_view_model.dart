@@ -31,6 +31,8 @@ class LoginViewModel extends ChangeNotifier {
   Future<void> signUp(String email, String password) =>
       _run(() => _repository.signUp(email, password));
 
+  Future<void> signInWithGoogle() => _run(_repository.signInWithGoogle);
+
   /// Called when the user starts typing again: the old error is stale.
   void clearError() {
     if (_error == null) return;

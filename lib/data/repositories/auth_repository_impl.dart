@@ -33,6 +33,9 @@ class AuthRepositoryImpl implements AuthRepository {
       _attempt(() => _auth.signUp(email, password));
 
   @override
+  Future<Result<AppUser>> signInWithGoogle() => _attempt(_auth.signInWithGoogle);
+
+  @override
   Future<Result<void>> signOut() async {
     try {
       await _auth.signOut().timeout(timeLimit);

@@ -1,4 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../api_models/user.dart';
 
@@ -15,6 +17,12 @@ abstract class AuthService {
   Future<AppUser> signIn(String email, String password);
 
   Future<AppUser> signUp(String email, String password);
+
+  /// Google sign-in. On Android it borrows the account picker from the Google
+  /// SDK and trades its id token for a Firebase session; on web the flow is a
+  /// popup driven by the Firebase SDK (the Google SDK requires *its own* button
+  /// on web, so `google_sign_in` is not used there).
+  Future<AppUser> signInWithGoogle();
 
   Future<void> signOut();
 
@@ -51,6 +59,36 @@ class FirebaseAuthService implements AuthService {
 
   @override
   Future<void> signOut() => _auth.signOut();
+
+  /// `GoogleSignIn.initialize` must run exactly once per process, before any
+  /// other call on the instance: the future is cached so a second tap reuses it.
+  Future<void>? _googleInitialized;
+
+  @override
+  Future<AppUser> signInWithGoogle() async {
+    final UserCredential credential = kIsWeb
+        ? await _auth.signInWithPopup(GoogleAuthProvider())
+        : await _auth.signInWithCredential(await _googleCredential());
+    return _toUser(credential.user)!;
+  }
+
+  Future<OAuthCredential> _googleCredential() async {
+    final GoogleSignIn google = GoogleSignIn.instance;
+    await (_googleInitialized ??= google.initialize());
+
+    final GoogleSignInAccount account = await google.authenticate();
+    final String? idToken = account.authentication.idToken;
+    if (idToken == null) {
+      // Without an id token Firebase has nothing to trade: reported as a Google
+      // failure so the error mapper tells the person what happened, instead of
+      // the generic "server slipped" a raw exception would earn.
+      throw const GoogleSignInException(
+        code: GoogleSignInExceptionCode.unknownError,
+        description: 'authenticate() returned no id token',
+      );
+    }
+    return GoogleAuthProvider.credential(idToken: idToken);
+  }
 
   @override
   Future<String?> idToken() async {
