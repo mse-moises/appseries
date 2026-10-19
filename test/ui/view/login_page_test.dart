@@ -127,6 +127,26 @@ void main() {
       await tester.pump();
     });
 
+    testWidgets('o botão do Google desliga enquanto o login está em voo', (tester) async {
+      final repo = _FakeAuthRepository()..portaDoLogin = Completer<Result<AppUser>>();
+      await _montar(tester, null, repo);
+
+      await _preencher(tester);
+      await tester.tap(find.widgetWithText(FilledButton, 'Entrar'));
+      await tester.pump();
+
+      // O envio congela a tela inteira: o botão do Google tem que ir junto.
+      // O guard é o `isSubmitting`; apagar só essa linha não pode deixar a
+      // suíte verde.
+      final OutlinedButton botaoGoogle = tester.widget<OutlinedButton>(
+        find.widgetWithText(OutlinedButton, 'Entrar com Google'),
+      );
+      expect(botaoGoogle.onPressed, isNull, reason: 'não pode ser tocável durante o envio');
+
+      repo.portaDoLogin!.complete(const Result<AppUser>.ok(_livia));
+      await tester.pump();
+    });
+
     testWidgets('mostra os campos, o botão e o título', (tester) async {
       await _montar(tester);
 

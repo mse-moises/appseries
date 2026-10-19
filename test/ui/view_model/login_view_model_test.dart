@@ -167,14 +167,14 @@ void main() {
       await peloEmail;
     });
 
-    test('falha do Google vira frase na tela', () async {
+    test('falha do Google vira a frase própria na tela', () async {
       final vm = LoginViewModel(
-        _FakeAuthRepository(const Result<AppUser>.error(ServerError())),
+        _FakeAuthRepository(const Result<AppUser>.error(GoogleFalhouError())),
       );
 
       await vm.signInWithGoogle();
 
-      expect(vm.error, isNotNull);
+      expect(vm.error, 'Não deu para entrar com o Google. Tente de novo.');
       expect(vm.isSubmitting, isFalse);
     });
 
