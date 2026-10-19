@@ -87,6 +87,7 @@ void main() {
         'operation-not-allowed',
         'unauthorized-domain',
         'providerConfigurationError',
+        'clientConfigurationError',
       ]) {
         final AppError error = appErrorFromGoogle(codigo);
         expect(error, isA<GoogleIndisponivelError>(), reason: codigo);

@@ -141,7 +141,8 @@ AppError appErrorFromGoogle(String? codigo) => switch (codigo) {
       // SDK's providerConfigurationError). "Try again" would be a lie.
       'operation-not-allowed' ||
       'unauthorized-domain' ||
-      'providerConfigurationError' =>
+      'providerConfigurationError' ||
+      'clientConfigurationError' =>
         const GoogleIndisponivelError(),
       'popup-blocked' => const JanelaBloqueadaError(),
       _ => const GoogleFalhouError(),
