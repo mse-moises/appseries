@@ -136,6 +136,13 @@ AppError appErrorFromGoogle(String? codigo) => switch (codigo) {
         const GoogleCanceladoError(),
       'account-exists-with-different-credential' => const ContaDeOutroMetodoError(),
       'operation-not-supported-in-this-environment' => const GoogleIndisponivelError(),
+      // Configuration on our side, not hers: the Google provider is off in the
+      // console, this domain is not authorised, or the client id is wrong (the
+      // SDK's providerConfigurationError). "Try again" would be a lie.
+      'operation-not-allowed' ||
+      'unauthorized-domain' ||
+      'providerConfigurationError' =>
+        const GoogleIndisponivelError(),
       'popup-blocked' => const JanelaBloqueadaError(),
       _ => const GoogleFalhouError(),
     };
@@ -176,6 +183,8 @@ AppError appErrorFromFirebase(String? codigo) => switch (codigo) {
       'cancelled-popup-request' ||
       'account-exists-with-different-credential' ||
       'operation-not-supported-in-this-environment' ||
+      'operation-not-allowed' ||
+      'unauthorized-domain' ||
       'popup-blocked' =>
         appErrorFromGoogle(codigo),
       _ => const ServerError(),

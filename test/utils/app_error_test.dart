@@ -82,10 +82,20 @@ void main() {
       expect(appErrorFromGoogle('popup-blocked'), isA<JanelaBloqueadaError>());
     });
 
+    test('erro de configuração nossa não manda "tente de novo"', () {
+      for (final String codigo in <String>[
+        'operation-not-allowed',
+        'unauthorized-domain',
+        'providerConfigurationError',
+      ]) {
+        final AppError error = appErrorFromGoogle(codigo);
+        expect(error, isA<GoogleIndisponivelError>(), reason: codigo);
+        expect(error.mensagem, isNot(contains('Tente de novo')), reason: codigo);
+      }
+    });
+
     test('configuração, interrupção e queda sem código têm frase própria', () {
       for (final String? codigo in <String?>[
-        'clientConfigurationError',
-        'providerConfigurationError',
         'interrupted',
         'uiUnavailable',
         'unknownError',
@@ -106,6 +116,8 @@ void main() {
         isA<GoogleIndisponivelError>(),
       );
       expect(appErrorFromFirebase('popup-blocked'), isA<JanelaBloqueadaError>());
+      expect(appErrorFromFirebase('unauthorized-domain'), isA<GoogleIndisponivelError>());
+      expect(appErrorFromFirebase('operation-not-allowed'), isA<GoogleIndisponivelError>());
     });
   });
 
