@@ -109,8 +109,14 @@ jobs:
   deploy-web:
     name: deploy web
     runs-on: ubuntu-24.04
-    needs: build-web
+    needs: [build-web, build-android]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # One publish at a time and in order: two merges close together would
+    # otherwise race and the older build could land last. And a red APK means the
+    # app is not shippable, so the site does not go out either.
+    concurrency:
+      group: hosting-live
+      cancel-in-progress: false
     permissions:
       contents: read
     steps:
