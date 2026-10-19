@@ -88,10 +88,10 @@ enriquecimento do `GET /acervo` com título/pôster.
    109 testes verdes, CI verde nos 3 jobs).
 3. **Google Sign-In + acabamento** — `debug.keystore` + SHA-1, deploy do web no Hosting,
    domínio autorizado no Auth.
-   🟡 **Em andamento (17/10)**: chaveiro compartilhado, SHA-1 cadastrada, plugin
+   🟡 **Em andamento (19/10)**: chaveiro compartilhado, SHA-1 cadastrada, plugin
    `google-services` e o fluxo de login no código (Android pelo `google_sign_in`, web pelo
-   popup do Firebase). Falta a validação do dono num aparelho, o deploy e o CORS da origem
-   publicada no backend.
+   popup do Firebase). Falta a validação do dono num aparelho e o merge que publica — o CORS
+   da origem publicada já está liberado no backend.
 
 ## Casos de aceite da fatia 2 (login e-mail/senha)
 
@@ -138,7 +138,8 @@ O Android assina com o `android/app/debug.keystore` **versionado no repo**, apon
 segredo. A SHA-1 dessa chave (`44:0E:30:FB:AC:A8:C0:24:B1:FF:96:65:3D:C2:F4:90:7A:AC:99:A2`)
 está cadastrada no app Android do Firebase, e o plugin `com.google.gms.google-services`
 (4.4.4) é quem injeta o cliente OAuth no build. Sem os três, o Google responde
-`ApiException: 10`, que não diz nada a quem lê.
+`ApiException: 10` (Play Services) ou `clientConfigurationError`/`providerConfigurationError`
+(SDK 7) — mensagens que não dizem nada a quem lê.
 
 **O que a tela faz**
 

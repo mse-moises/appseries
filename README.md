@@ -40,7 +40,12 @@ flutter analyze && flutter test
 (`signingConfigs.debug`; alias e senha são os padrões públicos de debug do Android) e pega o
 id token pelo `google_sign_in`. A SHA-1 dessa chave está cadastrada no app Android do
 Firebase, e o plugin `com.google.gms.google-services` injeta o cliente OAuth no build. Sem
-qualquer um dos três, o Google responde `ApiException: 10`, que não diz nada a quem lê.
+qualquer um dos três, o Google responde `ApiException: 10` (Play Services) ou
+`clientConfigurationError`/`providerConfigurationError` (SDK 7) — mensagens que não dizem
+nada a quem lê.
+
+Emulador sem **Play Services/Play Store** não tem o seletor do Google: o botão responde
+"não está disponível aqui" e parece defeito do app, mas é o AVD que não tem o serviço.
 
 **Web**: o botão chama `signInWithPopup(GoogleAuthProvider())` do `firebase_auth`. O pacote
 `google_sign_in` não é usado ali: na web ele exige um botão renderizado pelo próprio SDK.
@@ -62,8 +67,8 @@ flutter build web --release
 firebase deploy --only hosting
 ```
 
-A origem publicada precisa estar em `CORS_ORIGINS` no backend, senão o app abre, loga e não
-consegue ler a API (o navegador bloqueia a resposta).
+A origem `https://pos-app-c4297.web.app` já está em `CORS_ORIGINS` no backend. Para publicar
+numa origem nova, ela precisa entrar lá, senão o app abre, loga e não consegue ler a API.
 
 ## Como criar uma feature nova (7 passos)
 
