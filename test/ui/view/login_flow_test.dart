@@ -114,6 +114,18 @@ void main() {
       expect(find.byType(LoginPage), findsNothing);
     });
 
+    testWidgets('entrar com Google leva da tela de login para a home', (tester) async {
+      await _abrir(tester, _FakeAuthRepository());
+      expect(find.byType(LoginPage), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Entrar com Google'));
+      await tester.pump(); // dispara a requisição
+      await tester.pump(); // entrega a mudança de sessão
+
+      expect(find.byType(HomePage), findsOneWidget);
+      expect(find.byType(LoginPage), findsNothing);
+    });
+
     testWidgets('criar conta leva para a home pelo mesmo caminho', (tester) async {
       await _abrir(tester, _FakeAuthRepository());
 
