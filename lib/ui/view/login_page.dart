@@ -61,6 +61,12 @@ class _LoginPageState extends State<LoginPage> {
     await vm.signInWithGoogle();
     if (!mounted) return;
 
+    // "Esse e-mail já tem conta com senha. Entre com a sua senha." is an
+    // instruction: the screen has to be showing the form it tells her to use.
+    if (vm.typedError is ContaDeOutroMetodoError) {
+      setState(() => _isSigningUp = false);
+    }
+
     // An expired session is old news once she is trying again.
     auth.clearNotice();
   }
@@ -191,12 +197,8 @@ class _LoginPageState extends State<LoginPage> {
                         const SizedBox(height: 24),
                         FilledButton(
                           onPressed: vm.isSubmitting ? null : _submit,
-                          child: vm.isSubmitting
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                )
+                          child: vm.isEmailInFlight
+                              ? const _EntrandoSpinner()
                               : Text(_isSigningUp ? 'Criar conta' : 'Entrar'),
                         ),
                         const SizedBox(height: 8),
@@ -225,7 +227,9 @@ class _LoginPageState extends State<LoginPage> {
                         const SizedBox(height: 16),
                         OutlinedButton(
                           onPressed: vm.isSubmitting ? null : _signInWithGoogle,
-                          child: const Text('Entrar com Google'),
+                          child: vm.isGoogleInFlight
+                              ? const _EntrandoSpinner()
+                              : const Text('Entrar com Google'),
                         ),
                       ],
                     ),
@@ -238,4 +242,20 @@ class _LoginPageState extends State<LoginPage> {
       ),
     );
   }
+}
+
+/// The progress shown **inside the button that was pressed**, with a label so a
+/// screen reader does not announce an unnamed button while the request is out.
+class _EntrandoSpinner extends StatelessWidget {
+  const _EntrandoSpinner();
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        label: 'Entrando...',
+        child: const SizedBox(
+          height: 20,
+          width: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
 }

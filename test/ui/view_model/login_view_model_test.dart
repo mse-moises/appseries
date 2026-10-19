@@ -144,6 +144,29 @@ void main() {
       expect(vm.error, isNull);
     });
 
+    test('o estado de envio sabe qual botão foi apertado', () async {
+      final portaGoogle = Completer<Result<AppUser>>();
+      final vmGoogle = LoginViewModel(_FakeAuthRepositoryComPorta(portaGoogle));
+
+      final Future<void> peloGoogle = vmGoogle.signInWithGoogle();
+      expect(vmGoogle.isGoogleInFlight, isTrue);
+      expect(vmGoogle.isEmailInFlight, isFalse, reason: 'o spinner é do botão do Google');
+
+      portaGoogle.complete(const Result<AppUser>.ok(_livia));
+      await peloGoogle;
+      expect(vmGoogle.isGoogleInFlight, isFalse);
+
+      final portaEmail = Completer<Result<AppUser>>();
+      final vmEmail = LoginViewModel(_FakeAuthRepositoryComPorta(portaEmail));
+
+      final Future<void> peloEmail = vmEmail.signIn('livia@exemplo.com', 'segredo123');
+      expect(vmEmail.isEmailInFlight, isTrue);
+      expect(vmEmail.isGoogleInFlight, isFalse);
+
+      portaEmail.complete(const Result<AppUser>.ok(_livia));
+      await peloEmail;
+    });
+
     test('falha do Google vira frase na tela', () async {
       final vm = LoginViewModel(
         _FakeAuthRepository(const Result<AppUser>.error(ServerError())),

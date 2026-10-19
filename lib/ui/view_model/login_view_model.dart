@@ -15,8 +15,15 @@ class LoginViewModel extends ChangeNotifier {
 
   bool _isSubmitting = false;
   AppError? _error;
+  bool _viaGoogle = false;
 
   bool get isSubmitting => _isSubmitting;
+
+  /// Which button started the request in flight, so the right one shows the
+  /// spinner: whoever pressed "Entrar com Google" should not watch the e-mail
+  /// button spin (and the screen reader gets a label on the right control).
+  bool get isGoogleInFlight => _isSubmitting && _viaGoogle;
+  bool get isEmailInFlight => _isSubmitting && !_viaGoogle;
 
   /// The sentence the screen shows.
   String? get error => _error?.mensagem;
@@ -31,7 +38,7 @@ class LoginViewModel extends ChangeNotifier {
   Future<void> signUp(String email, String password) =>
       _run(() => _repository.signUp(email, password));
 
-  Future<void> signInWithGoogle() => _run(_repository.signInWithGoogle);
+  Future<void> signInWithGoogle() => _run(_repository.signInWithGoogle, viaGoogle: true);
 
   /// Called when the user starts typing again: the old error is stale.
   void clearError() {
@@ -40,13 +47,17 @@ class LoginViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _run(Future<Result<AppUser>> Function() action) async {
+  Future<void> _run(
+    Future<Result<AppUser>> Function() action, {
+    bool viaGoogle = false,
+  }) async {
     // Reentrancy guard: a second tap while the first request is in flight would
     // fire a second sign-in attempt (the button is only disabled on the next
     // build) and the loser would overwrite the winner's state.
     if (_isSubmitting) return;
 
     _isSubmitting = true;
+    _viaGoogle = viaGoogle;
     _error = null;
     notifyListeners();
 
