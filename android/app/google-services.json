@@ -22,14 +22,6 @@
           }
         },
         {
-          "client_id": "238916672789-ednv3629bu8b0ad0po44gi7eb4a3i08i.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "br.com.appseries.app",
-            "certificate_hash": "f5ba6b4d65769cafac0137546ff56f03aff0d007"
-          }
-        },
-        {
           "client_id": "238916672789-5oj2l8fclc6bo5esg9ejkee70mk8set5.apps.googleusercontent.com",
           "client_type": 3
         }
