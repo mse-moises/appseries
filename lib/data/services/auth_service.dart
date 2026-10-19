@@ -62,8 +62,11 @@ class FirebaseAuthService implements AuthService {
     // The Google session outlives the Firebase one. Without this, the next
     // `authenticate()` reuses the account that just "left" (shared device), and
     // the SDK's own docs say not to authenticate again before a sign-out.
-    if (!kIsWeb && _googleInitialized != null) {
+    // Initialized lazily so a session restored after the app was killed still
+    // signs the Google SDK out.
+    if (!kIsWeb) {
       try {
+        await _ensureGoogleInitialized();
         await GoogleSignIn.instance.signOut();
       } catch (_) {
         // A failed Google sign-out must not keep the Firebase session alive.
@@ -73,8 +76,26 @@ class FirebaseAuthService implements AuthService {
   }
 
   /// `GoogleSignIn.initialize` must run exactly once per process, before any
-  /// other call on the instance: the future is cached so a second tap reuses it.
+  /// other call on the instance: the future is cached so concurrent taps share
+  /// it. A failed initialization is NOT memoized — the next tap retries.
   Future<void>? _googleInitialized;
+
+  Future<void> _ensureGoogleInitialized() async {
+    final Future<void>? pending = _googleInitialized;
+    if (pending != null) {
+      await pending;
+      return;
+    }
+
+    final Future<void> init = GoogleSignIn.instance.initialize();
+    _googleInitialized = init;
+    try {
+      await init;
+    } catch (_) {
+      _googleInitialized = null;
+      rethrow;
+    }
+  }
 
   @override
   Future<AppUser> signInWithGoogle() async {
@@ -86,7 +107,7 @@ class FirebaseAuthService implements AuthService {
 
   Future<OAuthCredential> _googleCredential() async {
     final GoogleSignIn google = GoogleSignIn.instance;
-    await (_googleInitialized ??= google.initialize());
+    await _ensureGoogleInitialized();
 
     final GoogleSignInAccount account = await google.authenticate();
     final String? idToken = account.authentication.idToken;
