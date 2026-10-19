@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -6,6 +9,16 @@ plugins {
     id("com.google.gms.google-services")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// A chave de release não mora no repo (é secret do CI). Este arquivo é
+// gitignored; o job do APK o reconstrói antes de buildar. Sem ele o release
+// não tem como assinar e falha de propósito — para não assinar com a chave
+// de debug, que agora é pública no repo.
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
 android {
@@ -40,14 +53,19 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+        create("release") {
+            // Lê de key.properties. Sem o arquivo os campos ficam nulos e o
+            // AGP recusa assinar o release ("Keystore file not set").
+            keyAlias = keystoreProperties["keyAlias"] as String?
+            keyPassword = keystoreProperties["keyPassword"] as String?
+            storeFile = keystoreProperties["storeFile"]?.let { file(it) }
+            storePassword = keystoreProperties["storePassword"] as String?
+        }
     }
 
     buildTypes {
         release {
-            // Debug key on purpose for now: keeps `flutter build apk --release`
-            // working without shipping a real key. The release keystore comes
-            // from a CI secret (see constitution.md).
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }
