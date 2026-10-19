@@ -29,6 +29,9 @@ class _FakeAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<Result<AppUser>> signInWithGoogle() async => _resposta;
+
+  @override
   Future<Result<void>> signOut() async => const Result<void>.ok(null);
 }
 
@@ -50,6 +53,12 @@ class _FakeAuthRepositoryComPorta implements AuthRepository {
 
   @override
   Future<Result<AppUser>> signUp(String email, String password) {
+    chamadas++;
+    return porta.future;
+  }
+
+  @override
+  Future<Result<AppUser>> signInWithGoogle() {
     chamadas++;
     return porta.future;
   }
@@ -84,6 +93,12 @@ class _FakeAuthRepositoryQueLanca implements AuthRepository {
   }
 
   @override
+  Future<Result<AppUser>> signInWithGoogle() async {
+    chamadas++;
+    throw error;
+  }
+
+  @override
   Future<Result<void>> signOut() async => const Result<void>.ok(null);
 }
 
@@ -113,6 +128,54 @@ void main() {
       await vm.signIn('livia@exemplo.com', 'segredo123');
 
       expect(vm.error, isNull);
+    });
+
+    test('entrar com Google passa pelo mesmo caminho do login', () async {
+      final porta = Completer<Result<AppUser>>();
+      final vm = LoginViewModel(_FakeAuthRepositoryComPorta(porta));
+
+      final Future<void> emVoo = vm.signInWithGoogle();
+      expect(vm.isSubmitting, isTrue, reason: 'a tela tem de congelar durante o fluxo do Google');
+
+      porta.complete(const Result<AppUser>.ok(_livia));
+      await emVoo;
+
+      expect(vm.isSubmitting, isFalse);
+      expect(vm.error, isNull);
+    });
+
+    test('o estado de envio sabe qual botão foi apertado', () async {
+      final portaGoogle = Completer<Result<AppUser>>();
+      final vmGoogle = LoginViewModel(_FakeAuthRepositoryComPorta(portaGoogle));
+
+      final Future<void> peloGoogle = vmGoogle.signInWithGoogle();
+      expect(vmGoogle.isGoogleInFlight, isTrue);
+      expect(vmGoogle.isEmailInFlight, isFalse, reason: 'o spinner é do botão do Google');
+
+      portaGoogle.complete(const Result<AppUser>.ok(_livia));
+      await peloGoogle;
+      expect(vmGoogle.isGoogleInFlight, isFalse);
+
+      final portaEmail = Completer<Result<AppUser>>();
+      final vmEmail = LoginViewModel(_FakeAuthRepositoryComPorta(portaEmail));
+
+      final Future<void> peloEmail = vmEmail.signIn('livia@exemplo.com', 'segredo123');
+      expect(vmEmail.isEmailInFlight, isTrue);
+      expect(vmEmail.isGoogleInFlight, isFalse);
+
+      portaEmail.complete(const Result<AppUser>.ok(_livia));
+      await peloEmail;
+    });
+
+    test('falha do Google vira frase na tela', () async {
+      final vm = LoginViewModel(
+        _FakeAuthRepository(const Result<AppUser>.error(ServerError())),
+      );
+
+      await vm.signInWithGoogle();
+
+      expect(vm.error, isNotNull);
+      expect(vm.isSubmitting, isFalse);
     });
 
     test('avisa a View no começo e no fim da requisição', () async {

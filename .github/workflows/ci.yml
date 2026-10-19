@@ -6,6 +6,11 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Least privilege: only the deploy job needs to write (it doesn't even need that
+# here), so every job starts read-only by default.
+permissions:
+  contents: read
+
 jobs:
   # Runner pinned on purpose: `ubuntu-latest` migrates to Ubuntu 26 on 19/10/2026, and
   # with it the whole build toolchain would change without a single commit here. Bump it
@@ -102,3 +107,37 @@ jobs:
         with:
           name: appseries-web
           path: build/web
+
+  # Publishing lives here and only here: a merge into `main` ships the site. Any
+  # other branch stops at the artifact above, so a PR cannot overwrite what the
+  # team is using.
+  deploy-web:
+    name: deploy web
+    runs-on: ubuntu-24.04
+    needs: [build-web, build-android]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # One publish at a time and in order: two merges close together would
+    # otherwise race and the older build could land last. And a red APK means the
+    # app is not shippable, so the site does not go out either.
+    concurrency:
+      group: hosting-live
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Baixa o build web do job anterior
+        uses: actions/download-artifact@v7
+        with:
+          name: appseries-web
+          path: build/web
+
+      # Service account, not `firebase login:ci`: the CI token is deprecated and
+      # carries the whole Google account, while this key only deploys this project.
+      - name: Publica no Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: pos-app-c4297
+          channelId: live

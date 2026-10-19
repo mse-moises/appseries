@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../utils/app_error.dart';
 import '../../utils/result.dart';
@@ -11,8 +12,12 @@ import 'auth_repository.dart';
 /// Talks to Firebase Auth through [AuthService] and answers
 /// `Future<Result<...>>`, like every repository in this project.
 class AuthRepositoryImpl implements AuthRepository {
-  AuthRepositoryImpl(this._auth, {Duration? timeLimit})
-      : timeLimit = timeLimit ?? const Duration(seconds: 30);
+  AuthRepositoryImpl(
+    this._auth, {
+    Duration? timeLimit,
+    Duration? interactiveLimit,
+  })  : timeLimit = timeLimit ?? const Duration(seconds: 30),
+        interactiveLimit = interactiveLimit ?? const Duration(minutes: 5);
 
   final AuthService _auth;
 
@@ -20,6 +25,12 @@ class AuthRepositoryImpl implements AuthRepository {
   /// Injectable so a test can prove the behaviour without waiting 30 seconds.
   /// The interceptor has its own, shorter deadline (see `auth_interceptor.dart`).
   final Duration timeLimit;
+
+  /// The Google flow waits for a human: choosing an account, granting consent,
+  /// typing the Google password. The 30 s network deadline would abort it with the
+  /// picker still on screen and the form unlocked underneath. Five minutes is a
+  /// ceiling to keep the button from hanging forever, not a target.
+  final Duration interactiveLimit;
 
   @override
   Stream<AppUser?> get sessionStream => _auth.sessionStream;
@@ -31,6 +42,10 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Result<AppUser>> signUp(String email, String password) =>
       _attempt(() => _auth.signUp(email, password));
+
+  @override
+  Future<Result<AppUser>> signInWithGoogle() =>
+      _attempt(_auth.signInWithGoogle, limit: interactiveLimit);
 
   @override
   Future<Result<void>> signOut() async {
@@ -49,9 +64,12 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
-  Future<Result<AppUser>> _attempt(Future<AppUser> Function() action) async {
+  Future<Result<AppUser>> _attempt(
+    Future<AppUser> Function() action, {
+    Duration? limit,
+  }) async {
     try {
-      return Result.ok(await action().timeout(timeLimit));
+      return Result.ok(await action().timeout(limit ?? timeLimit));
     } on TimeoutException {
       // The provider accepted the request and went quiet: answering a sentence
       // beats leaving the person on a screen that never resolves.
@@ -66,6 +84,10 @@ class AuthRepositoryImpl implements AuthRepository {
       // `e.code` is the raw code; the mapper turns it into the sentence the
       // screen shows.
       return Result.error(appErrorFromFirebase(e.code));
+    } on GoogleSignInException catch (e) {
+      // The SDK's enum travels as a string so `utils/app_error.dart` stays free
+      // of the plugin import.
+      return Result.error(appErrorFromGoogle(e.code.name));
     } catch (_) {
       return const Result<AppUser>.error(ServerError());
     }

@@ -7,6 +7,7 @@ import 'package:appseries/utils/app_error.dart';
 import 'package:appseries/utils/result.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 const AppUser _livia = AppUser(id: 'u1', email: 'livia@exemplo.com');
 
@@ -30,6 +31,12 @@ class _FakeAuthService implements AuthService {
 
   @override
   Future<AppUser> signUp(String email, String password) async {
+    if (error != null) throw error!;
+    return _livia;
+  }
+
+  @override
+  Future<AppUser> signInWithGoogle() async {
     if (error != null) throw error!;
     return _livia;
   }
@@ -65,6 +72,9 @@ class _FakeAuthServiceQuePendura implements AuthService {
   Future<AppUser> signUp(String email, String password) => _loginParaSempre.future;
 
   @override
+  Future<AppUser> signInWithGoogle() => _loginParaSempre.future;
+
+  @override
   Future<void> signOut() => _saidaParaSempre.future;
 
   @override
@@ -84,6 +94,68 @@ void main() {
 
       expect(result, isA<Ok<AppUser>>());
       expect(result.valueOrNull?.email, 'livia@exemplo.com');
+    });
+
+    test('devolve Ok com o usuário quando o login é pelo Google', () async {
+      final repo = AuthRepositoryImpl(_FakeAuthService());
+
+      final result = await repo.signInWithGoogle();
+
+      expect(result, isA<Ok<AppUser>>());
+      expect(result.valueOrNull?.email, 'livia@exemplo.com');
+    });
+
+    test('fechar o seletor do Google vira frase de cancelamento', () async {
+      final repo = AuthRepositoryImpl(
+        _FakeAuthService(
+          error: const GoogleSignInException(code: GoogleSignInExceptionCode.canceled),
+        ),
+      );
+
+      final result = await repo.signInWithGoogle();
+
+      expect(result.errorOrNull, isA<GoogleCanceladoError>());
+      expect(result.errorOrNull?.mensagem, 'Entrada com o Google cancelada.');
+    });
+
+    test('e-mail que já tem conta por senha pede a senha', () async {
+      final repo = AuthRepositoryImpl(
+        _FakeAuthService(
+          error: FirebaseAuthException(code: 'account-exists-with-different-credential'),
+        ),
+      );
+
+      final result = await repo.signInWithGoogle();
+
+      expect(result.errorOrNull, isA<ContaDeOutroMetodoError>());
+    });
+
+    test('o caminho do Google não herda o prazo curto de rede', () async {
+      final repo = AuthRepositoryImpl(
+        _FakeAuthServiceQuePendura(),
+        timeLimit: const Duration(milliseconds: 20),
+        interactiveLimit: const Duration(milliseconds: 400),
+      );
+
+      bool respondeu = false;
+      unawaited(repo.signInWithGoogle().then((_) => respondeu = true));
+
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+
+      // Escolher uma conta leva tempo humano: estourar aqui devolveria a frase
+      // "Demorou demais" com o seletor ainda aberto na tela.
+      expect(respondeu, isFalse, reason: 'herdou o prazo de rede de 20 ms');
+    });
+
+    test('o prazo do caminho interativo também estoura, com a frase certa', () async {
+      final repo = AuthRepositoryImpl(
+        _FakeAuthServiceQuePendura(),
+        interactiveLimit: const Duration(milliseconds: 50),
+      );
+
+      final result = await repo.signInWithGoogle();
+
+      expect(result.errorOrNull, isA<TempoEsgotadoError>());
     });
 
     test('traduz credencial inválida na frase da tela', () async {

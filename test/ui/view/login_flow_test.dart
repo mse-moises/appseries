@@ -43,6 +43,9 @@ class _FakeAuthRepository implements AuthRepository {
   Future<Result<AppUser>> signUp(String email, String password) => _responder(_livia);
 
   @override
+  Future<Result<AppUser>> signInWithGoogle() => _responder(_livia);
+
+  @override
   Future<Result<void>> signOut() async {
     saidas++;
     _atualEmMemoria = null;
@@ -106,6 +109,18 @@ void main() {
       expect(find.byType(LoginPage), findsOneWidget);
 
       await _preencherEEnviar(tester);
+
+      expect(find.byType(HomePage), findsOneWidget);
+      expect(find.byType(LoginPage), findsNothing);
+    });
+
+    testWidgets('entrar com Google leva da tela de login para a home', (tester) async {
+      await _abrir(tester, _FakeAuthRepository());
+      expect(find.byType(LoginPage), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Entrar com Google'));
+      await tester.pump(); // dispara a requisição
+      await tester.pump(); // entrega a mudança de sessão
 
       expect(find.byType(HomePage), findsOneWidget);
       expect(find.byType(LoginPage), findsNothing);

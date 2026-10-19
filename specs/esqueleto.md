@@ -84,9 +84,14 @@ enriquecimento do `GET /acervo` com título/pôster.
    com o Firebase. Também ficou sem o deploy do web no Hosting, pela mesma razão.
 2. **Login e-mail/senha** ponta a ponta — página, ViewModel, `AuthRepository(Impl)`,
    `AppError`, os testes da feature, o `AuthGate` e o interceptor do token.
-   🟡 **Entregue no PR #2 com CI verde; falta o merge.**
+   ✅ **Entregue, revisada em 6 ondas e mergeada em 16/10** (PR #2, merge `a11a67f`;
+   109 testes verdes, CI verde nos 3 jobs).
 3. **Google Sign-In + acabamento** — `debug.keystore` + SHA-1, deploy do web no Hosting,
    domínio autorizado no Auth.
+   🟡 **Em andamento (19/10)**: chaveiro compartilhado, SHA-1 cadastrada, plugin
+   `google-services` e o fluxo de login no código (Android pelo `google_sign_in`, web pelo
+   popup do Firebase). Falta a validação do dono num aparelho e o merge que publica — o CORS
+   da origem publicada já está liberado no backend.
 
 ## Casos de aceite da fatia 2 (login e-mail/senha)
 
@@ -123,6 +128,33 @@ Firebase responde igual nos dois casos para não revelar quais e-mails têm cont
 
 **Fora desta fatia** (não existe ainda): "esqueci minha senha", trocar senha ou
 e-mail, excluir conta, verificação de e-mail e Google Sign-In (esse é a fatia 3).
+
+## Casos de aceite da fatia 3 (Google)
+
+**Como o app assina (a parte que quebra na máquina dos colegas)**
+
+O Android assina com o `android/app/debug.keystore` **versionado no repo**, apontado em
+`signingConfigs.debug` — senha e alias são os padrões públicos de debug do Android, não
+segredo. A SHA-1 dessa chave (`44:0E:30:FB:AC:A8:C0:24:B1:FF:96:65:3D:C2:F4:90:7A:AC:99:A2`)
+está cadastrada no app Android do Firebase, e o plugin `com.google.gms.google-services`
+(4.4.4) é quem injeta o cliente OAuth no build. Sem os três, o Google responde
+`ApiException: 10` (Play Services) ou `clientConfigurationError`/`providerConfigurationError`
+(SDK 7) — mensagens que não dizem nada a quem lê.
+
+**O que a tela faz**
+
+| caso | o que acontece |
+|---|---|
+| tocar em "Entrar com Google" no Android | abre o seletor de contas; escolher uma conta entra na home |
+| tocar em "Entrar com Google" na web | abre a janela do Google; concluir entra na home |
+| fechar o seletor ou a janela | "Entrada com o Google cancelada." |
+| e-mail que já tem conta com senha | "Esse e-mail já tem conta com senha. Entre com a sua senha." |
+| ambiente sem suporte (navegador embutido) | "Entrar com o Google não está disponível aqui. Use e-mail e senha." |
+| janela bloqueada pelo navegador | "O navegador bloqueou a janela do Google. Libere as janelas pop-up e tente de novo." |
+| configuração, interrupção ou queda sem código | "Não deu para entrar com o Google. Tente de novo." |
+
+O botão do Google **não passa pela validação do formulário** (e-mail e senha são do outro
+caminho) e desliga junto com os campos enquanto a requisição está em voo.
 
 ## Critério de pronto
 

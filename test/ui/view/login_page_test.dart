@@ -20,9 +20,13 @@ class _FakeAuthRepository implements AuthRepository {
   final StreamController<AppUser?> _sessao = StreamController<AppUser?>.broadcast();
   int entradas = 0;
   int criadas = 0;
+  int comGoogle = 0;
 
   /// Se não-nulo, o `signIn` pendura até alguém completar (deixa `isSubmitting` em voo).
   Completer<Result<AppUser>>? portaDoLogin;
+
+  /// O mesmo, para o caminho do Google.
+  Completer<Result<AppUser>>? portaDoGoogle;
 
   @override
   Stream<AppUser?> get sessionStream => _sessao.stream;
@@ -40,6 +44,13 @@ class _FakeAuthRepository implements AuthRepository {
   @override
   Future<Result<AppUser>> signUp(String email, String password) async {
     criadas++;
+    return _resposta;
+  }
+
+  @override
+  Future<Result<AppUser>> signInWithGoogle() async {
+    comGoogle++;
+    if (portaDoGoogle != null) return portaDoGoogle!.future;
     return _resposta;
   }
 
@@ -123,6 +134,63 @@ void main() {
       expect(find.text('E-mail'), findsOneWidget);
       expect(find.text('Senha'), findsOneWidget);
       expect(find.widgetWithText(FilledButton, 'Entrar'), findsOneWidget);
+      expect(find.widgetWithText(OutlinedButton, 'Entrar com Google'), findsOneWidget);
+    });
+
+    testWidgets('o botão do Google entra sem passar pela validação dos campos', (tester) async {
+      final repo = await _montar(tester);
+
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Entrar com Google'));
+      await tester.pump();
+
+      // Nada preenchido e o caminho do Google tem de sair assim mesmo: a
+      // validação do formulário é do login por e-mail.
+      expect(repo.comGoogle, 1);
+      expect(repo.entradas, 0);
+      expect(find.text('Informe o e-mail'), findsNothing);
+    });
+
+    testWidgets('o progresso aparece no botão que ela apertou', (tester) async {
+      final repo = _FakeAuthRepository()..portaDoGoogle = Completer<Result<AppUser>>();
+      await _montar(tester, null, repo);
+
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Entrar com Google'));
+      await tester.pump();
+
+      expect(
+        find.descendant(
+          of: find.byType(OutlinedButton),
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsOneWidget,
+        reason: 'o progresso é do botão do Google',
+      );
+      expect(
+        find.widgetWithText(FilledButton, 'Entrar'),
+        findsOneWidget,
+        reason: 'o botão de e-mail não pode virar spinner',
+      );
+
+      repo.portaDoGoogle!.complete(const Result<AppUser>.ok(_livia));
+      await tester.pump();
+    });
+
+    testWidgets('"esse e-mail já tem conta com senha" devolve a tela ao modo entrar', (tester) async {
+      await _montar(tester, const Result<AppUser>.error(ContaDeOutroMetodoError()));
+
+      await tester.tap(find.widgetWithText(TextButton, 'Ainda não tenho conta'));
+      await tester.pump();
+      expect(find.widgetWithText(FilledButton, 'Criar conta'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Entrar com Google'));
+      await tester.pump();
+
+      expect(find.text('Esse e-mail já tem conta com senha. Entre com a sua senha.'), findsOneWidget);
+      expect(
+        find.widgetWithText(FilledButton, 'Entrar'),
+        findsOneWidget,
+        reason: 'a frase manda entrar com a senha: o botão tem de dizer isso',
+      );
     });
 
     testWidgets('campos vazios não chamam o repositório', (tester) async {

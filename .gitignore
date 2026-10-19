@@ -32,6 +32,7 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+.firebase/
 
 # Symbolication related
 app.*.symbols
@@ -49,3 +50,8 @@ app.*.map.json
 .env
 .env.*
 android/key.properties
+
+# Service-account keys (Firebase deploy, etc.): the credential that publishes
+# the site must never be committed.
+firebase-adminsdk*.json
+*-service-account*.json
