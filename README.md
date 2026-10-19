@@ -72,25 +72,32 @@ numa origem nova, ela precisa entrar lá, senão o app abre, loga e não consegu
 
 ## Como criar uma feature nova (7 passos)
 
-A feature de **login** é o molde completo, ponta a ponta. Copie o caminho dela:
+A feature de **login** é o molde completo das camadas (Service → Repository → ViewModel → View).
+Para rota nomeada e DTO de backend, o exemplo vivo é a feature de **health**
+(`data/api_models/health_status.dart` e a estrutura de `utils/routes_config.dart`), que o
+login ainda não usa. Copie o caminho dela:
 
 1. branch a partir da `main`: `git checkout main && git pull && git checkout -b feature/AP-XX-nome-curto`
 2. `<Nome>Service` em `data/services/` — o acesso ao mundo externo, **sem estado**.
    Fala com a API do backend pelo `RestClient`, ou esconde outro provedor (o
    `AuthService` esconde o Firebase Auth): nenhum tipo do provedor passa daqui
 3. modelo em `data/api_models/` (`@JsonSerializable()` + `part '<nome>.g.dart';` quando
-   vem do backend) e contrato + implementação em `data/repositories/`:
+   vem do backend — exemplo: `health_status.dart`) e contrato + implementação em
+   `data/repositories/`:
    `<Nome>Repository` (abstrato, devolve `Future<Result<T>>`) e `<Nome>RepositoryImpl`
    (recebe o **Service** e traduz o erro dele em `AppError`)
 4. ViewModel em `ui/view_model/<nome>_view_model.dart` (`extends ChangeNotifier`, recebe
    o repository no construtor, tem getters públicos e chama `notifyListeners()`)
 5. página + widgets em `ui/view/<nome>_page.dart` (`context.watch` no ViewModel; estado
-   efêmero de tela fica na View)
+   efêmero de tela fica na View) e **registra o ViewModel no `MultiProvider` do
+   `main.dart`** — é a injeção de dependência do app; sem isso o `context.watch` quebra
+   em runtime, não no analyze
 6. **testes por camada** (é critério de aceite, não enfeite): repository com o Service
    dublado, ViewModel com repository falso e o widget test da tela
 7. telas internas registram a sua rota em `utils/routes_config.dart` e navegam com
    `Navigator.pushNamed`. **`login` e `home` não são rotas**: quem decide entre elas é o
-   `AuthGate` (`app.dart`), pelo estado da sessão
+   `AuthGate` (`app.dart`), pelo estado da sessão. `Routes.mapa` ainda está vazio: a
+   primeira tela interna é quem o cria — siga a estrutura do arquivo
 
 Antes de abrir o PR: `dart run build_runner build --delete-conflicting-outputs` (se mexeu
 em DTO ou no `RestClient`), `flutter analyze && flutter test`.

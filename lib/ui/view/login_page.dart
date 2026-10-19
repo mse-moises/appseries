@@ -7,7 +7,7 @@ import '../view_model/login_view_model.dart';
 
 /// Login and sign-up with e-mail/password (Firebase Auth).
 ///
-/// Google sign-in lands in AP-25. The screen only talks to its ViewModel: the
+/// Google sign-in (AP-25) lives here. The screen only talks to its ViewModel: the
 /// ephemeral part of the form (controllers, focus, validation) stays here, as
 /// `constitution.md` §1 requires.
 class LoginPage extends StatefulWidget {
