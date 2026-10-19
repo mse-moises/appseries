@@ -58,7 +58,19 @@ class FirebaseAuthService implements AuthService {
   }
 
   @override
-  Future<void> signOut() => _auth.signOut();
+  Future<void> signOut() async {
+    // The Google session outlives the Firebase one. Without this, the next
+    // `authenticate()` reuses the account that just "left" (shared device), and
+    // the SDK's own docs say not to authenticate again before a sign-out.
+    if (!kIsWeb && _googleInitialized != null) {
+      try {
+        await GoogleSignIn.instance.signOut();
+      } catch (_) {
+        // A failed Google sign-out must not keep the Firebase session alive.
+      }
+    }
+    await _auth.signOut();
+  }
 
   /// `GoogleSignIn.initialize` must run exactly once per process, before any
   /// other call on the instance: the future is cached so a second tap reuses it.
