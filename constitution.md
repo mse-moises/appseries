@@ -54,8 +54,11 @@ em `data/repositories/` e o DTO em `data/api_models/`. Sem pasta por feature.
 - Todo método de repository devolve `Future<Result<T>>` (`utils/result.dart`).
 - Erro é **tipado**: `AppError` (`utils/app_error.dart`), um caso por família
   (`Network`, `TempoEsgotado`, `Unauthorized`, `NotFound`, `Conflict`, `RateLimit`,
-  `Server`), carregando o **código da origem** (o cru quando veio do backend ou do
-  Firebase; um sentinela do próprio app quando a falha nasceu aqui, como em `Network` e
+  `Server`) mais as famílias do login (credenciais, e-mail em uso, senha fraca, e-mail
+  inválido, muitas tentativas, conta desativada) e as do Google (cancelado, conta de outro
+  método, indisponível no ambiente, janela bloqueada, falha sem código), carregando o
+  **código da origem** (o cru quando veio do backend, do Firebase ou do SDK do Google; um
+  sentinela do próprio app quando a falha nasceu aqui, como em `Network` e
   `TempoEsgotado`) e a **frase em português** que a tela mostra. Nunca jogar `Exception`
   genérica na tela.
 - Mensagem para o usuário **sem termo técnico** ("e-mail ou senha inválidos", não
@@ -102,9 +105,9 @@ Um item só está pronto quando:
 - A `baseUrl` vem por `--dart-define`; o **default** (`https://gdn.vps-kinghost.net`) fica
   no código **de propósito**, para o app rodar sem flag nenhuma (item 13 do grill).
   Trocar de host é `--dart-define`, não editar o fonte.
-- `debug.keystore` **do projeto** será versionado (é chave de debug: não publica na loja),
-  e ainda **não existe no repo**: nasce na fatia 3, junto com a SHA-1 cadastrada no
-  Firebase. Keystore de **release** não entra no repositório, vai por segredo de CI.
+- `debug.keystore` **do projeto** é versionado (é chave de debug: não publica na loja) e a
+  SHA-1 dele está cadastrada no Firebase; o plugin `google-services` injeta o cliente OAuth
+  no build Android. Keystore de **release** não entra no repositório, vai por segredo de CI.
 - `google-services.json` e `firebase_options.dart` são versionados (a config do Firebase
   é pública por natureza); qualquer outro `.json` de credencial, não.
 - Comando destrutivo (`push --force`, `rm -rf` em pasta do projeto, `drop`) só com OK

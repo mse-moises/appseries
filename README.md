@@ -34,6 +34,37 @@ Verificação antes de abrir PR:
 flutter analyze && flutter test
 ```
 
+## Login com Google
+
+**Android**: o app assina com o `android/app/debug.keystore` **do repositório**
+(`signingConfigs.debug`; alias e senha são os padrões públicos de debug do Android) e pega o
+id token pelo `google_sign_in`. A SHA-1 dessa chave está cadastrada no app Android do
+Firebase, e o plugin `com.google.gms.google-services` injeta o cliente OAuth no build. Sem
+qualquer um dos três, o Google responde `ApiException: 10`, que não diz nada a quem lê.
+
+**Web**: o botão chama `signInWithPopup(GoogleAuthProvider())` do `firebase_auth`. O pacote
+`google_sign_in` não é usado ali: na web ele exige um botão renderizado pelo próprio SDK.
+
+## Deploy do web
+
+Publicar é automático: **todo merge na `main`** publica em
+<https://pos-app-c4297.web.app> pelo job `deploy-web` do `.github/workflows/ci.yml`. Pull
+request **não** publica.
+
+O job usa a conta de serviço guardada no secret `FIREBASE_SERVICE_ACCOUNT` do repositório
+(chave gerada em Console do Firebase → Configurações do projeto → Contas de serviço). Sem o
+secret, o deploy falha e o site não muda.
+
+Na mão, de uma máquina com `firebase-tools` logado:
+
+```bash
+flutter build web --release
+firebase deploy --only hosting
+```
+
+A origem publicada precisa estar em `CORS_ORIGINS` no backend, senão o app abre, loga e não
+consegue ler a API (o navegador bloqueia a resposta).
+
 ## Como criar uma feature nova (7 passos)
 
 A feature de **login** é o molde completo, ponta a ponta. Copie o caminho dela:
@@ -78,6 +109,6 @@ em DTO ou no `RestClient`), `flutter analyze && flutter test`.
   API but is not endorsed or certified by TMDB" + logo)
 - nenhum segredo no app; o keystore de **release** não entra no repositório (vai por
   segredo de CI)
-- o `debug.keystore` **do projeto** (chave de debug, nunca publicada na loja) ainda **não
-  existe no repo**: entra na fatia 3, junto com o cadastro da SHA-1 no Firebase. Sem ele,
-  cada dev tem a SHA-1 do próprio keystore e o Google Sign-In quebra por máquina
+- o `debug.keystore` **do projeto** está versionado (chave de debug, nunca publicada na
+  loja): é ele que dá uma SHA-1 só para todos os devs. A SHA-1 está cadastrada no Firebase,
+  e o plugin `google-services` é o que injeta o cliente OAuth no build
