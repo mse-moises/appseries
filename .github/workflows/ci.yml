@@ -6,6 +6,11 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Least privilege: only the deploy job needs to write (it doesn't even need that
+# here), so every job starts read-only by default.
+permissions:
+  contents: read
+
 jobs:
   # Runner pinned on purpose: `ubuntu-latest` migrates to Ubuntu 26 on 19/10/2026, and
   # with it the whole build toolchain would change without a single commit here. Bump it
