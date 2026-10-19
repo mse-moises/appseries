@@ -1,15 +1,17 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/services.dart' show MissingPluginException, PlatformException;
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../../utils/app_error.dart';
 import '../api_models/user.dart';
 
 /// Access to Firebase Auth, the app's identity provider.
 ///
 /// A Service is the boundary with the outside world and holds **no state**
-/// (`constitution.md` §1). Everything above it (repository, ViewModel, View)
-/// knows only [AppUser], so no Firebase type leaks into the app — and the
-/// repository can be tested with a double of this contract.
+/// (`constitution.md` §1). It also **hides the SDK**: every failure leaves here
+/// as an [AppError], so no Firebase or Google type — success or error — leaks
+/// into the repository, the ViewModel or the View.
 abstract class AuthService {
   /// Emits on every sign-in/sign-out, starting with the current state.
   Stream<AppUser?> get sessionStream;
@@ -41,20 +43,28 @@ class FirebaseAuthService implements AuthService {
 
   @override
   Future<AppUser> signIn(String email, String password) async {
-    final UserCredential credential = await _auth.signInWithEmailAndPassword(
-      email: email.trim(),
-      password: password,
-    );
-    return _toUser(credential.user)!;
+    try {
+      final UserCredential credential = await _auth.signInWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
+      return _toUser(credential.user)!;
+    } on FirebaseAuthException catch (e) {
+      throw appErrorFromFirebase(e.code);
+    }
   }
 
   @override
   Future<AppUser> signUp(String email, String password) async {
-    final UserCredential credential = await _auth.createUserWithEmailAndPassword(
-      email: email.trim(),
-      password: password,
-    );
-    return _toUser(credential.user)!;
+    try {
+      final UserCredential credential = await _auth.createUserWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
+      return _toUser(credential.user)!;
+    } on FirebaseAuthException catch (e) {
+      throw appErrorFromFirebase(e.code);
+    }
   }
 
   @override
@@ -72,7 +82,11 @@ class FirebaseAuthService implements AuthService {
         // A failed Google sign-out must not keep the Firebase session alive.
       }
     }
-    await _auth.signOut();
+    try {
+      await _auth.signOut();
+    } on FirebaseAuthException catch (e) {
+      throw appErrorFromFirebase(e.code);
+    }
   }
 
   /// `GoogleSignIn.initialize` must run exactly once per process, before any
@@ -99,10 +113,25 @@ class FirebaseAuthService implements AuthService {
 
   @override
   Future<AppUser> signInWithGoogle() async {
-    final UserCredential credential = kIsWeb
-        ? await _auth.signInWithPopup(GoogleAuthProvider())
-        : await _auth.signInWithCredential(await _googleCredential());
-    return _toUser(credential.user)!;
+    try {
+      final UserCredential credential = kIsWeb
+          ? await _auth.signInWithPopup(GoogleAuthProvider())
+          : await _auth.signInWithCredential(await _googleCredential());
+      return _toUser(credential.user)!;
+    } on FirebaseAuthException catch (e) {
+      throw appErrorFromFirebase(e.code);
+    } on GoogleSignInException catch (e) {
+      // The SDK's enum travels as a string so `utils/app_error.dart` stays free
+      // of the plugin import.
+      throw appErrorFromGoogle(e.code.name);
+    } on PlatformException {
+      // google_sign_in has no desktop implementation: the plugin channel does
+      // not exist there, so the SDK answers with a platform exception instead
+      // of a GoogleSignInException. Pointing at the form is the honest answer.
+      throw const GoogleIndisponivelError();
+    } on MissingPluginException {
+      throw const GoogleIndisponivelError();
+    }
   }
 
   Future<OAuthCredential> _googleCredential() async {
@@ -115,10 +144,7 @@ class FirebaseAuthService implements AuthService {
       // Without an id token Firebase has nothing to trade: reported as a Google
       // failure so the error mapper tells the person what happened, instead of
       // the generic "server slipped" a raw exception would earn.
-      throw const GoogleSignInException(
-        code: GoogleSignInExceptionCode.unknownError,
-        description: 'authenticate() returned no id token',
-      );
+      throw const GoogleFalhouError();
     }
     return GoogleAuthProvider.credential(idToken: idToken);
   }

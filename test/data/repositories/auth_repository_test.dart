@@ -5,9 +5,7 @@ import 'package:appseries/data/repositories/auth_repository_impl.dart';
 import 'package:appseries/data/services/auth_service.dart';
 import 'package:appseries/utils/app_error.dart';
 import 'package:appseries/utils/result.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 
 const AppUser _livia = AppUser(id: 'u1', email: 'livia@exemplo.com');
 
@@ -44,7 +42,7 @@ class _FakeAuthService implements AuthService {
   @override
   Future<void> signOut() async {
     saidas++;
-    if (erroAoNaoSair == true) throw FirebaseAuthException(code: 'internal-error');
+    if (erroAoNaoSair == true) throw const ServerError();
   }
 
   @override
@@ -105,11 +103,9 @@ void main() {
       expect(result.valueOrNull?.email, 'livia@exemplo.com');
     });
 
-    test('fechar o seletor do Google vira frase de cancelamento', () async {
+    test('o erro do Google traduzido no Service chega intacto ao app', () async {
       final repo = AuthRepositoryImpl(
-        _FakeAuthService(
-          error: const GoogleSignInException(code: GoogleSignInExceptionCode.canceled),
-        ),
+        _FakeAuthService(error: const GoogleCanceladoError()),
       );
 
       final result = await repo.signInWithGoogle();
@@ -120,9 +116,7 @@ void main() {
 
     test('e-mail que já tem conta por senha pede a senha', () async {
       final repo = AuthRepositoryImpl(
-        _FakeAuthService(
-          error: FirebaseAuthException(code: 'account-exists-with-different-credential'),
-        ),
+        _FakeAuthService(error: const ContaDeOutroMetodoError()),
       );
 
       final result = await repo.signInWithGoogle();
@@ -158,11 +152,9 @@ void main() {
       expect(result.errorOrNull, isA<TempoEsgotadoError>());
     });
 
-    test('traduz credencial inválida na frase da tela', () async {
+    test('o erro de credencial do Service chega com a frase pronta', () async {
       final repo = AuthRepositoryImpl(
-        _FakeAuthService(
-          error: FirebaseAuthException(code: 'invalid-credential'),
-        ),
+        _FakeAuthService(error: const CredenciaisInvalidasError()),
       );
 
       final result = await repo.signIn('livia@exemplo.com', 'errada');
@@ -173,11 +165,9 @@ void main() {
       expect(result.errorOrNull?.mensagem, isNot(contains('Firebase')));
     });
 
-    test('traduz e-mail já cadastrado no cadastro', () async {
+    test('o erro de e-mail em uso do Service passa intacto', () async {
       final repo = AuthRepositoryImpl(
-        _FakeAuthService(
-          error: FirebaseAuthException(code: 'email-already-in-use'),
-        ),
+        _FakeAuthService(error: const EmailJaEmUsoError()),
       );
 
       final result = await repo.signUp('livia@exemplo.com', 'segredo123');
@@ -185,11 +175,9 @@ void main() {
       expect(result.errorOrNull, isA<EmailJaEmUsoError>());
     });
 
-    test('traduz queda de rede do Firebase em NetworkError', () async {
+    test('o erro de rede do Service passa intacto', () async {
       final repo = AuthRepositoryImpl(
-        _FakeAuthService(
-          error: FirebaseAuthException(code: 'network-request-failed'),
-        ),
+        _FakeAuthService(error: const NetworkError()),
       );
 
       final result = await repo.signIn('livia@exemplo.com', 'segredo123');
@@ -231,7 +219,7 @@ void main() {
       // `.timeout` não cancela a origem: o erro que chega depois não muda o Result
       // já devolvido e não escapa como exceção não tratada (se escapasse, o
       // próprio teste falharia por erro assíncrono).
-      service.falharTarde(FirebaseAuthException(code: 'internal-error'));
+      service.falharTarde(const ServerError());
       await Future<void>.delayed(const Duration(milliseconds: 20));
 
       expect(result.errorOrNull, isA<TempoEsgotadoError>());

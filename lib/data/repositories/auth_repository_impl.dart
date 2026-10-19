@@ -1,8 +1,5 @@
 import 'dart:async';
 
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-
 import '../../utils/app_error.dart';
 import '../../utils/result.dart';
 import '../api_models/user.dart';
@@ -11,6 +8,9 @@ import 'auth_repository.dart';
 
 /// Talks to Firebase Auth through [AuthService] and answers
 /// `Future<Result<...>>`, like every repository in this project.
+///
+/// The Service already translated the SDK into [AppError], so this layer only
+/// maps that onto a [Result] and keeps its own concern: the deadline.
 class AuthRepositoryImpl implements AuthRepository {
   AuthRepositoryImpl(
     this._auth, {
@@ -54,8 +54,8 @@ class AuthRepositoryImpl implements AuthRepository {
       return const Result<void>.ok(null);
     } on TimeoutException {
       return const Result<void>.error(TempoEsgotadoError());
-    } on FirebaseAuthException catch (e) {
-      return Result<void>.error(appErrorFromFirebase(e.code));
+    } on AppError catch (e) {
+      return Result<void>.error(e);
     } catch (_) {
       // Same rule as the rest of the project: the contract of a repository is
       // to always answer a Result, so no screen has to guard against a raw
@@ -80,14 +80,8 @@ class AuthRepositoryImpl implements AuthRepository {
       // is already on screen. Accepted — the alternative was waiting with no way
       // out, and Firebase Auth offers no cancellation.
       return const Result<AppUser>.error(TempoEsgotadoError());
-    } on FirebaseAuthException catch (e) {
-      // `e.code` is the raw code; the mapper turns it into the sentence the
-      // screen shows.
-      return Result.error(appErrorFromFirebase(e.code));
-    } on GoogleSignInException catch (e) {
-      // The SDK's enum travels as a string so `utils/app_error.dart` stays free
-      // of the plugin import.
-      return Result.error(appErrorFromGoogle(e.code.name));
+    } on AppError catch (e) {
+      return Result.error(e);
     } catch (_) {
       return const Result<AppUser>.error(ServerError());
     }
