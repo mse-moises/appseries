@@ -130,6 +130,34 @@ void main() {
       expect(result.errorOrNull, isA<ContaDeOutroMetodoError>());
     });
 
+    test('o caminho do Google não herda o prazo curto de rede', () async {
+      final repo = AuthRepositoryImpl(
+        _FakeAuthServiceQuePendura(),
+        timeLimit: const Duration(milliseconds: 20),
+        interactiveLimit: const Duration(milliseconds: 400),
+      );
+
+      bool respondeu = false;
+      unawaited(repo.signInWithGoogle().then((_) => respondeu = true));
+
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+
+      // Escolher uma conta leva tempo humano: estourar aqui devolveria a frase
+      // "Demorou demais" com o seletor ainda aberto na tela.
+      expect(respondeu, isFalse, reason: 'herdou o prazo de rede de 20 ms');
+    });
+
+    test('o prazo do caminho interativo também estoura, com a frase certa', () async {
+      final repo = AuthRepositoryImpl(
+        _FakeAuthServiceQuePendura(),
+        interactiveLimit: const Duration(milliseconds: 50),
+      );
+
+      final result = await repo.signInWithGoogle();
+
+      expect(result.errorOrNull, isA<TempoEsgotadoError>());
+    });
+
     test('traduz credencial inválida na frase da tela', () async {
       final repo = AuthRepositoryImpl(
         _FakeAuthService(
