@@ -253,10 +253,7 @@ class AcervoViewModel extends ChangeNotifier {
       switch (await _repository.listar()) {
         case Ok<List<AcervoItem>>(:final value):
           _itens = List<AcervoItem>.unmodifiable(value);
-          _estados = <String, EstadoAcervo>{
-            for (final AcervoItem item in _itens)
-              if (item.tipo != TipoMidia.desconhecido) item.chave: item.estado,
-          };
+          _estados = _mapaDeEstados(_itens);
         case Error<List<AcervoItem>>(:final error):
           _error = error.mensagem;
       }
@@ -267,6 +264,32 @@ class AcervoViewModel extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  /// Builds the `(tipo, tmdbId) -> estado` lookup.
+  ///
+  /// A line written before migration 008 has no `tipo`, and we cannot know
+  /// which space the id belongs to: it answers for both, the same rule the
+  /// backend uses when vetoing recommendations. Typed lines are written last so
+  /// they win over the ambiguous one.
+  static Map<String, EstadoAcervo> _mapaDeEstados(List<AcervoItem> itens) {
+    final Map<String, EstadoAcervo> mapa = <String, EstadoAcervo>{};
+
+    for (final AcervoItem item in itens) {
+      if (item.tipo == null || item.tipo == TipoMidia.desconhecido) {
+        mapa[chaveEstado(TipoMidia.movie, item.tmdbId)] = item.estado;
+        mapa[chaveEstado(TipoMidia.tv, item.tmdbId)] = item.estado;
+      }
+    }
+
+    for (final AcervoItem item in itens) {
+      final TipoMidia? tipo = item.tipo;
+      if (tipo != null && tipo != TipoMidia.desconhecido) {
+        mapa[chaveEstado(tipo, item.tmdbId)] = item.estado;
+      }
+    }
+
+    return Map<String, EstadoAcervo>.unmodifiable(mapa);
   }
 }
 ```
@@ -392,4 +415,10 @@ verdade).
 
 | commit | o que entrou | o que aprendi |
 |---|---|---|
-| _(a preencher)_ | | |
+| `docs(acervo)` | spec + este guia + link no README | separar doc de código deixa o PR legível: quem revisa lê o plano antes |
+| `feat(acervo): model` | `acervo_item.dart` + `.g.dart` | o `unknownEnumValue` do `json_serializable` resolve enum desconhecido sem `fromJson` na mão |
+| `feat(acervo): endpoint` | método no `RestClient` + `.g.dart` | **membro novo no `RestClient` quebra TODOS os dublês dele**: o `_FakeRestClient` do teste de health parou de compilar e o `analyze` entregou a linha exata |
+| `feat(acervo): repository` | contrato + impl + 4 testes | corpo em formato inesperado (`FormatException`) tem de virar `ServerError`, senão a tela fica presa |
+| `feat(acervo): view model` | VM + 7 testes | **provei o teste por mutação**: removi o reset do `load()` e 2 testes falharam; restaurei e voltaram os 7 verdes. Teste que nunca falhou não é teste |
+| `feat(acervo): carrega no login` | providers + `_AcervoResumo` + testes | mudar a View quebra os testes de quem MONTA a tela(`auth_gate`, `login_flow`): os três precisaram do provider novo |
+| `docs(acervo): fecha` | este diário + o helper do mapa no guia | editar bloco de fecho por `patch` pode duplicar `}`: o `analyze` apontou na hora (`Expected to find ')'`) e o conserto foi no mesmo turno |

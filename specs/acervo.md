@@ -61,6 +61,7 @@ usuário). Campos reais, conferidos em `specs/contrato-api.md` do backend:
 | carga | no `initState` da `HomePage`, igual ao health | o ViewModel é criado uma vez no `main.dart`; a tela é remontada a cada login, e é isso que faz a conta nova começar limpa |
 | reset | o `load()` **zera a lista e avisa** antes de buscar | senão a conta nova vê o acervo da anterior por um frame |
 | falha do acervo | não derruba a home: a home mostra o health e uma linha do acervo com "tentar de novo" | o acervo é um bloco da tela, não a tela |
+| linha antiga sem `tipo` | o estado dela responde aos **dois** espaços (`movie` e `tv`), e a linha tipada do mesmo id tem precedência | sem isso, uma linha anterior à 008 nunca seria encontrada por `estadoDe(tipo, id)`; a precedência evita que ela apague o estado de um filme/série já tipado |
 
 ## Arquivos
 
