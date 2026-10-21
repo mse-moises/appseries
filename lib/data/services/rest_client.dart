@@ -2,7 +2,9 @@ import 'package:dio/dio.dart';
 import 'package:retrofit/retrofit.dart';
 
 import '../api_models/acervo_item.dart';
+import '../api_models/feedback_item.dart';
 import '../api_models/marcar_acervo_request.dart';
+import '../api_models/marcar_feedback_request.dart';
 import '../api_models/preferencias.dart';
 import '../api_models/titulo_detalhe.dart';
 import '../api_models/titulos_response.dart';
@@ -61,4 +63,21 @@ abstract class RestClient {
   /// `PUT /api/v1/preferencias` — upsert; echoes what was saved.
   @PUT('/api/v1/preferencias')
   Future<Preferencias> salvarPreferencias(@Body() Preferencias corpo);
+
+  /// `GET /api/v1/feedback` — the 👍/👎 signals of the signed-in user, newest
+  /// first. No pagination.
+  @GET('/api/v1/feedback')
+  Future<List<FeedbackItem>> feedback();
+
+  /// `PUT /api/v1/feedback/:tmdbId` — creates or replaces the signal of that
+  /// `(tipo, tmdbId)` and answers the whole item (201 on create, 200 on update).
+  @PUT('/api/v1/feedback/{tmdbId}')
+  Future<FeedbackItem> marcarFeedback(
+    @Path('tmdbId') int tmdbId,
+    @Body() MarcarFeedbackRequest corpo,
+  );
+
+  /// `DELETE /api/v1/feedback/:tmdbId?tipo=` — removes **that** signal only.
+  @DELETE('/api/v1/feedback/{tmdbId}')
+  Future<void> removerFeedback(@Path('tmdbId') int tmdbId, @Query('tipo') String tipo);
 }
