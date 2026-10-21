@@ -73,7 +73,7 @@ numa origem nova, ela precisa entrar lá, senão o app abre, loga e não consegu
 ## Como criar uma feature nova (7 passos)
 
 A feature de **login** é o molde completo das camadas (Service → Repository → ViewModel → View).
-Para rota nomeada e DTO de backend, o exemplo vivo é a feature de **health**
+Para DTO de backend e rota nova, o exemplo vivo são os **carrosséis da home**
 (os carrosséis da home: `data/api_models/tmdb_item.dart`, `titulos_response.dart` e
 `data/repositories/titulo_repository*.dart`, mais a estrutura de `utils/routes_config.dart`). **O exemplo comentado, passo a passo e com as armadilhas medidas, é a
 feature de acervo em [`docs/tutorial-acervo.md`](docs/tutorial-acervo.md)** — leia antes de

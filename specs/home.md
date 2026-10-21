@@ -151,6 +151,28 @@ Duas revisões independentes, **2 bloqueantes** (ambos reproduzidos por teste an
 | nenhum teste do model | `test/data/api_models/tmdb_item_test.dart` com o literal do contrato, lista vazia, `posterPath` nulo e tipo desconhecido |
 | docs ainda apontavam para o health removido (README, tutorial, `Result`) | atualizados para a home |
 
+### Segunda rodada (concluída)
+
+Depois do conserto, duas revisões independentes de novo — **0 bloqueante de regressão** e **3 testes
+falso-verdes**, todos fechados (cada um provado por mutação, com o teste falhando antes do ajuste):
+
+| teste que prometia e não cobria | conserto |
+|---|---|
+| "a segunda carga não devolve os títulos da sessão anterior" — as fixtures da 2ª carga eram vazias, então apagar o reset do `load()` continuava verde | reescrito: durante o reload afirma `carregando` e listas vazias |
+| "em tela pequena (360x640)" — o fake de auth nunca emitia usuário, então o e-mail (e o `maxLines` do fix anterior) não era exercitado | emite usuário com e-mail longo e afirma `maxLines == 1` + `ellipsis` |
+| "primeiro frame após o login" — só o `HomeViewModel` vinha sujo; apagar `AcervoViewModel.reset()` do `initState` passava | o acervo também entra sujo (3 itens) e a contagem antiga tem de sumir |
+
+Também fechados: dedupe com o **mesmo id em tipos diferentes** (filme 550 × série 550), `carregando == true`
+afirmado (o reset não pode virar "Nada por aqui agora"), mensagem exata no teste do `Error`, **401 sem corpo**
+no `TituloRepository` (o switch do `error_mapper` não era exercitado), `id` decimal no model, e teste do
+`PosterCard` para pôster nulo, título vazio e ano vazio.
+
+Ajustes de código que vieram junto: o retry agora **preserva os itens** da seção (sem isso o dedupe soltava os
+títulos duplicados durante a recarga), `SafeArea` no rodapé (gesture bar) e log com stack no `catch`.
+
+Backlog declarado: retry durante um `load()` em voo pode disparar duas requisições para a mesma seção
+(resolver com token por seção) — a UI esconde o botão durante a carga, então não é observável hoje.
+
 Decisão mantida: a carga continua **sequencial** (o segundo carrossel precisa do primeiro para o dedupe). O `finally` garante que "Populares" roda mesmo se "Em alta" falhar.
 
 ## Riscos
