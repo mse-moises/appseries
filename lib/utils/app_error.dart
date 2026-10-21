@@ -205,11 +205,11 @@ AppError appErrorFromCodigo(String? codigo) => switch (codigo) {
       'invalid_tipo' ||
       'invalid_generos' ||
       'invalid_momento' ||
-      'momento_too_long' ||
-      'invalid_sinal' ||
-      'invalid_peso' ||
-      'invalid_origem' =>
+      'momento_too_long' =>
         const ConflictError(),
+      // Corpo de feedback fora do contrato só acontece por bug de serialização
+      // do app: repetir a mesma chamada falharia igual.
+      'invalid_sinal' || 'invalid_peso' || 'invalid_origem' => const FeedbackIndisponivelError(),
       'query_too_short' || 'query_too_long' => const BuscaInvalidaError(),
       'rec_limit' => const RateLimitError(),
       _ => const ServerError(),

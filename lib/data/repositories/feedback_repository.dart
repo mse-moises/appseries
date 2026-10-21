@@ -9,6 +9,10 @@ abstract class FeedbackRepository {
   Future<Result<List<FeedbackItem>>> listar();
 
   /// Grava ou troca o sinal. `peso` 2 é forte, 1 é fraco (só vale no 👎).
+  ///
+  /// **Substitui o registro, não faz merge**: um re-PUT sem `origem` grava
+  /// `fechamento` e sem `peso` grava 2. Quem quer preservar a origem lê o item
+  /// e repassa o valor atual.
   Future<Result<FeedbackItem>> marcar(
     TipoMidia tipo,
     int tmdbId,
@@ -17,7 +21,10 @@ abstract class FeedbackRepository {
     OrigemFeedback origem = OrigemFeedback.fechamento,
   });
 
-  /// Apaga o sinal **daquele** tipo; sem o tipo o servidor apaga todas as linhas
-  /// daquele id.
+  /// Apaga o sinal **daquele** tipo (o `tipo` é obrigatório aqui, então o app
+  /// nunca apaga os dois tipos de uma vez).
+  ///
+  /// O backend responde `404 not_found` quando o sinal já não estava lá: para
+  /// quem chama, isso é o objetivo alcançado — a tela pode tratar como sucesso.
   Future<Result<void>> remover(TipoMidia tipo, int tmdbId);
 }

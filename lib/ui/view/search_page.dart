@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Stub criado pela fundação (AP-108); o corpo é da trilha. The route already exists so
+/// Stub da fundação (AP-108): a rota, o endpoint e o repositório estão abertos. The route already exists so
 /// the real screen does not have to touch `routes_config.dart`.
 ///
 /// Whoever takes **AP-44** replaces the body below and nothing else; the route,

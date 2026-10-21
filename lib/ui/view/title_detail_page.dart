@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../navegacao/titulo_ref.dart';
 
-/// Stub criado pela fundação (AP-108); o corpo é da trilha.
+/// Stub da fundação (AP-108): a rota, o endpoint e o repositório estão abertos.
 ///
 /// Whoever takes **AP-47** replaces the body and keeps the signature: the screen
 /// reads the [TituloRef] from the route arguments, so callers already send the

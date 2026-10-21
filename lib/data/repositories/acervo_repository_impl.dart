@@ -38,7 +38,7 @@ class AcervoRepositoryImpl implements AcervoRepository {
       return const Result<AcervoItem>.error(AcervoIndisponivelError());
     }
     if (estado == EstadoAcervo.desconhecido) {
-      // Guarda de contrato para chamador programático: o `SeletorEstado` só
+      // Guarda de contrato para chamador programático: o `AcervoActionButton` só
       // emite os quatro estados reais, então este ramo não vem da tela.
       return const Result<AcervoItem>.error(AcervoIndisponivelError());
     }

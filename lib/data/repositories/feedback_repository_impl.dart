@@ -33,7 +33,7 @@ class FeedbackRepositoryImpl implements FeedbackRepository {
     OrigemFeedback origem = OrigemFeedback.fechamento,
   }) async {
     final String? wire = tipoWire(tipo);
-    if (wire == null || sinal == SinalGosto.desconhecido) {
+    if (wire == null || sinal == SinalGosto.desconhecido || origem == OrigemFeedback.desconhecido) {
       // Valor que esta versão não conhece: o servidor recusaria com 400 e a
       // pessoa receberia "servidor escorregou" por um problema que não é dele.
       return const Result<FeedbackItem>.error(FeedbackIndisponivelError());
@@ -42,8 +42,9 @@ class FeedbackRepositoryImpl implements FeedbackRepository {
       final MarcarFeedbackRequest corpo = MarcarFeedbackRequest(
         sinal: sinal,
         tipo: tipo,
-        // Só 1 e 2 são válidos; qualquer outra coisa cai no default forte.
-        peso: peso == 1 ? 1 : 2,
+        // Só 1 e 2 são válidos, e um 👍 é sempre forte: o corpo não pode
+        // contradizer o contrato ("peso só tem efeito no 👎").
+        peso: sinal == SinalGosto.dislike && peso == 1 ? 1 : 2,
         origem: origem,
       );
       return Result.ok(await _api.marcarFeedback(tmdbId, corpo));
