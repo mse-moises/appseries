@@ -36,6 +36,7 @@ void main() {
 
       expect(a.ultima.method, 'GET');
       expect(a.ultima.path, '/api/v1/em-alta');
+      expect(a.ultima.queryParameters, isEmpty);
       expect(resposta.resultados.single.titulo, 'Game of Thrones');
     });
 
@@ -46,6 +47,7 @@ void main() {
 
       expect(a.ultima.method, 'GET');
       expect(a.ultima.path, '/api/v1/populares');
+      expect(a.ultima.queryParameters, isEmpty);
       expect(resposta.resultados, hasLength(1));
     });
 
@@ -84,6 +86,7 @@ void main() {
       expect(a.ultima.method, 'PUT');
       expect(a.ultima.path, '/api/v1/acervo/1399');
       expect(a.ultima.data, <String, dynamic>{'estado': 'watching', 'tipo': 'tv'});
+      expect(a.ultima.contentType, startsWith('application/json'));
     });
 
     test('remover é DELETE com o tipo na query e aceita 204 sem corpo', () async {
@@ -116,6 +119,7 @@ void main() {
       expect(a.ultima.method, 'PUT');
       expect(a.ultima.path, '/api/v1/preferencias');
       expect(a.ultima.data, <String, dynamic>{'momento': 'domingo', 'generos': <String>['Drama']});
+      expect(a.ultima.contentType, startsWith('application/json'));
     });
   });
 }

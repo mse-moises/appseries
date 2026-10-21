@@ -159,6 +159,33 @@ void main() {
       expect(result.errorOrNull, isA<ServerError>());
     });
 
+    test('corpo de erro real do Dio é decodificado (não só a exceção feita à mão)', () async {
+      // o DioException dos outros testes já nasce com `data` Map; aqui o corpo
+      // passa pelo pipeline real do Dio
+      final AdapterFalso a = AdapterFalso('{"error":"query_too_short"}', status: 400);
+
+      final result = await TituloRepositoryImpl(clienteFalso(a)).buscar('a');
+
+      expect(result.errorOrNull, isA<BuscaInvalidaError>());
+    });
+
+    test('código do corpo vence um status que tem mapa próprio (401)', () async {
+      // 401 sozinho viraria UnauthorizedError; com código no corpo, o código manda
+      final AdapterFalso a = AdapterFalso('{"error":"query_too_short"}', status: 401);
+
+      final result = await TituloRepositoryImpl(clienteFalso(a)).buscar('a');
+
+      expect(result.errorOrNull, isA<BuscaInvalidaError>());
+    });
+
+    test('corpo que não é JSON não sequestra o mapa por status', () async {
+      final AdapterFalso a = AdapterFalso('<html>502</html>', status: 502);
+
+      final result = await TituloRepositoryImpl(clienteFalso(a)).emAlta();
+
+      expect(result.errorOrNull, isA<ServerError>());
+    });
+
     test('JSON fora de forma vira ServerError no caminho real de decodificação', () async {
       // não é exceção do dublê: é o fromJson estourando de verdade
       final AdapterFalso a = AdapterFalso('{"resultados":"não é lista"}');

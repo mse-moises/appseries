@@ -45,7 +45,7 @@ void main() {
 
       final result = await repo.marcar(TipoMidia.movie, 1, EstadoAcervo.desconhecido);
 
-      expect(result.errorOrNull, isA<ConflictError>());
+      expect(result.errorOrNull, isA<AcervoIndisponivelError>());
       expect(api.chamadas, isEmpty);
     });
 
@@ -55,7 +55,7 @@ void main() {
 
       final result = await repo.marcar(TipoMidia.desconhecido, 1, EstadoAcervo.watched);
 
-      expect(result.errorOrNull, isA<TituloIndisponivelError>());
+      expect(result.errorOrNull, isA<AcervoIndisponivelError>());
       expect(api.chamadas, isEmpty);
     });
 
@@ -83,7 +83,7 @@ void main() {
 
       final result = await AcervoRepositoryImpl(api).remover(TipoMidia.desconhecido, 550);
 
-      expect(result.errorOrNull, isA<TituloIndisponivelError>());
+      expect(result.errorOrNull, isA<AcervoIndisponivelError>());
       expect(api.chamadas, isEmpty,
           reason: 'DELETE sem tipo apaga as duas linhas daquele id');
     });
