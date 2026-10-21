@@ -1,5 +1,9 @@
 import 'package:json_annotation/json_annotation.dart';
 
+import 'tipo_midia.dart';
+
+export 'tipo_midia.dart';
+
 part 'acervo_item.g.dart';
 
 /// The four states a title can have on the user's shelf.
@@ -15,16 +19,6 @@ enum EstadoAcervo {
   watched,
   @JsonValue('dropped')
   dropped,
-  @JsonValue('desconhecido')
-  desconhecido,
-}
-
-/// `movie` or `tv` — the TMDB numbers each one in its own space.
-enum TipoMidia {
-  @JsonValue('movie')
-  movie,
-  @JsonValue('tv')
-  tv,
   @JsonValue('desconhecido')
   desconhecido,
 }
