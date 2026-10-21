@@ -33,8 +33,8 @@ View (tela)  →  ViewModel  →  Repository  →  Service  →  backend
   `notifyListeners()`.
 - **View**: desenha e repassa toque. Nunca chama Service.
 
-O `login` é o molde completo dessas camadas; o `health` é o molde mais curto e é o que vamos
-copiar aqui, porque ele também só **lê** um endpoint.
+O `login` é o molde completo dessas camadas; a **home** é o molde mais curto (só lê endpoints:
+`titulo_repository*.dart` e `home_view_model.dart`) e é a que vamos usar como referência aqui.
 
 ## Passo 0 — branch
 
@@ -440,7 +440,8 @@ class _FakeRestClient implements RestClient {
   }
 
   @override
-  Future<HealthStatus> health() => throw UnimplementedError(); // interface exige
+  Future<TitulosResponse> emAlta() => throw UnimplementedError(); // interface exige
+  Future<TitulosResponse> populares() => throw UnimplementedError();
 }
 ```
 

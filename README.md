@@ -74,8 +74,8 @@ numa origem nova, ela precisa entrar lá, senão o app abre, loga e não consegu
 
 A feature de **login** é o molde completo das camadas (Service → Repository → ViewModel → View).
 Para rota nomeada e DTO de backend, o exemplo vivo é a feature de **health**
-(`data/api_models/health_status.dart` e a estrutura de `utils/routes_config.dart`), que o
-login ainda não usa. **O exemplo comentado, passo a passo e com as armadilhas medidas, é a
+(os carrosséis da home: `data/api_models/tmdb_item.dart`, `titulos_response.dart` e
+`data/repositories/titulo_repository*.dart`, mais a estrutura de `utils/routes_config.dart`). **O exemplo comentado, passo a passo e com as armadilhas medidas, é a
 feature de acervo em [`docs/tutorial-acervo.md`](docs/tutorial-acervo.md)** — leia antes de
 começar a sua. Copie o caminho dela:
 
@@ -84,7 +84,7 @@ começar a sua. Copie o caminho dela:
    Fala com a API do backend pelo `RestClient`, ou esconde outro provedor (o
    `AuthService` esconde o Firebase Auth): nenhum tipo do provedor passa daqui
 3. modelo em `data/api_models/` (`@JsonSerializable()` + `part '<nome>.g.dart';` quando
-   vem do backend — exemplo: `health_status.dart`) e contrato + implementação em
+   vem do backend — exemplo: `tmdb_item.dart`) e contrato + implementação em
    `data/repositories/`:
    `<Nome>Repository` (abstrato, devolve `Future<Result<T>>`) e `<Nome>RepositoryImpl`
    (recebe o **Service** e traduz o erro dele em `AppError`)

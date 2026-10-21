@@ -134,10 +134,29 @@ saem (se o dono aprovar):
 - **aberto**: ver na tela logado (a leitura depende de sessão), rolar os carrosséis e conferir
   ausência de overflow em 360x640
 
+## Review (21/10) — o que mudou depois
+
+Duas revisões independentes, **2 bloqueantes** (ambos reproduzidos por teste antes do conserto):
+
+| achado | correção |
+|---|---|
+| **bloqueante**: o carregador da carga velha punha a seção em `carregando` e notificava **antes** do check de geração, então uma carga antiga que terminasse depois da nova deixava "Populares" girando para sempre, com o conteúdo apagado | o check de geração passou a ser a primeira linha dos dois carregadores; teste de corrida com `Completer` (carga A terminando depois de B) |
+| **bloqueante**: a invalidação por geração não tinha teste (removendo os dois `if`, a suíte continuava verde) | o mesmo teste de corrida cobre: a resposta da conta anterior não entra e nenhuma seção fica `carregando` |
+| `on Exception` não pega `Error` (cast quebrado, `StateError`) e a seção ficava girando | `catch` genérico no `_resultado`, com teste que lança `StateError` |
+| dedupe por `id` só, e congelado na carga (retry de "Em alta" duplicava título) | dedupe **derivado na leitura**, com `chaveTitulo(tipo, id)`; teste de retry |
+| atribuição e conta logada só apareciam depois de rolar | viraram **rodapé fixo**, fora do scroll |
+| o e-mail da conta logada tinha desaparecido na reescrita | voltou, no rodapé, com teste |
+| `posterPath`/`ano` vazios (`""` do backend) deixavam linha fantasma | card trata vazio como ausente |
+| fixture do 502 usava código inexistente (`tmdb_unavailable`) | `tmdb_error`, fiel ao contrato |
+| nenhum teste do model | `test/data/api_models/tmdb_item_test.dart` com o literal do contrato, lista vazia, `posterPath` nulo e tipo desconhecido |
+| docs ainda apontavam para o health removido (README, tutorial, `Result`) | atualizados para a home |
+
+Decisão mantida: a carga continua **sequencial** (o segundo carrossel precisa do primeiro para o dedupe). O `finally` garante que "Populares" roda mesmo se "Em alta" falhar.
+
 ## Riscos
 
 - `home_page_test`, `auth_gate_test` e `login_flow_test` montam a home: todos passam a precisar
-  dos providers novos, e os três esperam o texto "Backend respondeu: ok"
+  dos providers novos (o texto "Backend respondeu: ok" saiu junto com o health)
 - `cached_network_image` no web usa o cache do navegador; provar o cache no DevTools, não por
   impressão
 - o `posterPath` às vezes vem nulo: teste com ele nulo, não só com o caminho feliz
