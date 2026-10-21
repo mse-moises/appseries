@@ -1,5 +1,5 @@
 import 'package:appseries/data/api_models/acervo_item.dart';
-import 'package:appseries/data/api_models/health_status.dart';
+import 'package:appseries/data/api_models/titulos_response.dart';
 import 'package:appseries/data/repositories/acervo_repository_impl.dart';
 import 'package:appseries/data/services/rest_client.dart';
 import 'package:appseries/utils/app_error.dart';
@@ -20,8 +20,12 @@ class _FakeRestClient implements RestClient {
     return itens!;
   }
 
+
   @override
-  Future<HealthStatus> health() => throw UnimplementedError();
+  Future<TitulosResponse> emAlta() => throw UnimplementedError();
+
+  @override
+  Future<TitulosResponse> populares() => throw UnimplementedError();
 }
 
 AcervoItem _item({

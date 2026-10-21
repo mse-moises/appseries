@@ -33,6 +33,10 @@ class LoadingView extends StatelessWidget {
 }
 
 /// Centered error with an optional retry action.
+///
+/// A home não usa este bloco (cada carrossel tem o seu estado, senão um erro
+/// derrubaria a tela inteira), mas ele é o padrão para tela que depende de um
+/// único dado — detalhe e busca, quando chegarem.
 class ErrorView extends StatelessWidget {
   const ErrorView({super.key, required this.mensagem, this.onRetry});
 

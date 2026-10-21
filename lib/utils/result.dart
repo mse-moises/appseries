@@ -7,8 +7,8 @@ import 'app_error.dart';
 ///
 /// ```dart
 /// switch (result) {
-///   case Ok<HealthStatus>(:final value): mostra(value);
-///   case Error<HealthStatus>(:final error): mostraErro(error.mensagem);
+///   case Ok<List<TmdbItem>>(:final value): mostra(value);
+///   case Error<List<TmdbItem>>(:final error): mostraErro(error.mensagem);
 /// }
 /// ```
 sealed class Result<T> {

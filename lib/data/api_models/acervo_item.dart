@@ -1,5 +1,9 @@
 import 'package:json_annotation/json_annotation.dart';
 
+import 'tipo_midia.dart';
+
+export 'tipo_midia.dart';
+
 part 'acervo_item.g.dart';
 
 /// The four states a title can have on the user's shelf.
@@ -19,23 +23,8 @@ enum EstadoAcervo {
   desconhecido,
 }
 
-/// `movie` or `tv` — the TMDB numbers each one in its own space.
-enum TipoMidia {
-  @JsonValue('movie')
-  movie,
-  @JsonValue('tv')
-  tv,
-  @JsonValue('desconhecido')
-  desconhecido,
-}
-
-/// Key of a shelf line.
-///
-/// The id alone is not enough: `550` is *Fight Club* (movie) **and**
-/// *Till Death Us Do Part* (series), so a map keyed only by the TMDB id would
-/// answer the wrong state for one of them. The same pair is the primary key on
-/// the backend since migration 008.
-String chaveEstado(TipoMidia tipo, int tmdbId) => '${tipo.name}:$tmdbId';
+/// Key of a shelf line (alias de [chaveTitulo], o nome do domínio).
+String chaveEstado(TipoMidia tipo, int tmdbId) => chaveTitulo(tipo, tmdbId);
 
 /// One line of `GET /api/v1/acervo`.
 ///

@@ -4,12 +4,13 @@ import 'package:provider/provider.dart';
 import '../view_model/acervo_view_model.dart';
 import '../view_model/auth_view_model.dart';
 import '../view_model/home_view_model.dart';
-import '../widgets/status_view.dart';
+import '../widgets/carousel_section.dart';
 
-/// Home shell.
+/// Home: the entry point of the product.
 ///
-/// Proves the whole chain works against the real backend (View → ViewModel →
-/// Repository → RestClient → Result). The carousels land in AP-31.
+/// Two carousels with real titles from our backend (never from the TMDB
+/// directly: the key stays on the server). Each section owns its loading/error,
+/// so one failing does not take the screen down.
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -21,28 +22,27 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    // The ViewModel is created once, at the root, so its `create` ran a single
-    // time: after a sign-out and a new sign-in the screen showed the previous
-    // account's answer, error screen included, without asking the backend again.
-    // Loading from here — and this widget is mounted anew on every login — is
-    // what makes the second account start clean.
-    //
-    // The shelf is cleared synchronously (no notify: this is inside the build
-    // phase) so its count never appears for a frame before the request.
+    // Both ViewModels are created once at the root, so their `create` ran a
+    // single time: after a sign-out and a new sign-in they still hold the
+    // previous account's data. Clearing here is synchronous (no notify: this is
+    // the build phase) and is what keeps the old titles off the first frame;
+    // the load below is what notifies.
+    context.read<HomeViewModel>().reset();
     context.read<AcervoViewModel>().reset();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      // They load on their own: a failure in one does not take the other down.
       context.read<HomeViewModel>().load();
-      // AP-28: the shelf comes from the server too, and it loads on its own so a
-      // failure there does not take the whole home down.
       context.read<AcervoViewModel>().load();
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final HomeViewModel vm = context.watch<HomeViewModel>();
+    final HomeViewModel home = context.watch<HomeViewModel>();
     final AuthViewModel auth = context.watch<AuthViewModel>();
+    final AcervoViewModel acervo = context.watch<AcervoViewModel>();
 
     return Scaffold(
       appBar: AppBar(
@@ -81,94 +81,129 @@ class _HomePageState extends State<HomePage> {
                 ),
               ],
             ),
-          Expanded(child: _corpo(context, vm, auth)),
-          _AcervoResumo(acervo: context.watch<AcervoViewModel>()),
+          Expanded(
+            child: ListView(
+              children: <Widget>[
+                const SizedBox(height: 8),
+                CarouselSection(
+                  titulo: 'Em alta',
+                  secao: home.emAlta,
+                  onRetry: home.recarregarEmAlta,
+                ),
+                const SizedBox(height: 20),
+                CarouselSection(
+                  titulo: 'Populares',
+                  secao: home.populares,
+                  onRetry: home.recarregarPopulares,
+                ),
+                const SizedBox(height: 12),
+              ],
+            ),
+          ),
+          // Fora do scroll: quem está logado e a atribuição do TMDB têm de
+          // estar visíveis sem rolar (a atribuição é exigência de uso da API).
+          _Rodape(auth: auth, acervo: acervo),
         ],
       ),
     );
   }
+}
 
-  Widget _corpo(BuildContext context, HomeViewModel vm, AuthViewModel auth) {
-    if (vm.isLoading) {
-      return const LoadingView(mensagem: 'Falando com o backend...');
-    }
+/// Fixed footer: the signed-in account, the shelf count and the TMDB credit.
+class _Rodape extends StatelessWidget {
+  const _Rodape({required this.auth, required this.acervo});
 
-    if (vm.error != null) {
-      return ErrorView(mensagem: vm.error!, onRetry: vm.load);
-    }
+  final AuthViewModel auth;
+  final AcervoViewModel acervo;
 
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) =>
-          SingleChildScrollView(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: constraints.maxHeight),
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  const Icon(Icons.check_circle_outline, size: 48),
-                  const SizedBox(height: 12),
-                  Text('Backend respondeu: ${vm.status?.status ?? '-'}'),
-                  const SizedBox(height: 8),
-                  if (auth.user?.email != null) Text(auth.user!.email!),
-                  const SizedBox(height: 24),
-                  FilledButton.tonal(onPressed: vm.load, child: const Text('Tentar de novo')),
-                ],
-              ),
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme texto = Theme.of(context).textTheme;
+    final Color discreto = Theme.of(context).colorScheme.onSurfaceVariant;
+
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: Column(
+        children: <Widget>[
+          // Whose account is this? Without it the only way to know was the
+          // login screen.
+          if (auth.user?.email != null)
+            Row(
+              children: <Widget>[
+                Icon(Icons.person_outline, size: 18, color: discreto),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    auth.user!.email!,
+                    style: texto.bodySmall?.copyWith(color: discreto),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
+          const SizedBox(height: 6),
+          _AcervoResumo(
+            isLoading: acervo.isLoading,
+            erro: acervo.error,
+            total: acervo.total,
+            onRetry: acervo.load,
           ),
+          const SizedBox(height: 6),
+            Text(
+              'This product uses the TMDB API but is not endorsed or certified by TMDB.',
+              textAlign: TextAlign.center,
+              style: texto.labelSmall?.copyWith(color: discreto),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-/// One line about the shelf.
-///
-/// It is the visible proof that AP-28 works (the number comes from the server)
-/// and the place that says the shelf could not be read, without hiding the
-/// health answer above — a shelf that fails is a block of the screen, not the
-/// screen.
+/// One line about the shelf: the count, or the failure with a retry.
 class _AcervoResumo extends StatelessWidget {
-  const _AcervoResumo({required this.acervo});
+  const _AcervoResumo({
+    required this.isLoading,
+    required this.erro,
+    required this.total,
+    required this.onRetry,
+  });
 
-  final AcervoViewModel acervo;
+  final bool isLoading;
+  final String? erro;
+  final int total;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
     final Widget conteudo;
-    if (acervo.isLoading) {
+    if (isLoading) {
       conteudo = const Text('Carregando seu acervo...');
-    } else if (acervo.error != null) {
+    } else if (erro != null) {
       conteudo = Row(
         children: <Widget>[
-          Expanded(child: Text(acervo.error!)),
+          Expanded(child: Text(erro!)),
           TextButton(
             key: const Key('acervo-retry'),
-            onPressed: acervo.load,
+            onPressed: onRetry,
             child: const Text('Tentar de novo'),
           ),
         ],
       );
     } else {
-      final int total = acervo.total;
       conteudo = Text('Seu acervo: ${total == 1 ? '1 título' : '$total títulos'}');
     }
 
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-        child: Row(
-          children: <Widget>[
-            const Icon(Icons.video_library_outlined, size: 18),
-            const SizedBox(width: 8),
-            Expanded(child: conteudo),
-          ],
-        ),
-      ),
+    return Row(
+      children: <Widget>[
+        const Icon(Icons.video_library_outlined, size: 18),
+        const SizedBox(width: 8),
+        Expanded(child: conteudo),
+      ],
     );
   }
 }

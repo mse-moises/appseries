@@ -1,11 +1,11 @@
 import 'dart:async';
 
 import 'package:appseries/data/api_models/acervo_item.dart';
-import 'package:appseries/data/api_models/health_status.dart';
+import 'package:appseries/data/api_models/tmdb_item.dart';
 import 'package:appseries/data/api_models/user.dart';
 import 'package:appseries/data/repositories/acervo_repository.dart';
 import 'package:appseries/data/repositories/auth_repository.dart';
-import 'package:appseries/data/repositories/health_repository.dart';
+import 'package:appseries/data/repositories/titulo_repository.dart';
 import 'package:appseries/ui/view/auth_gate.dart';
 import 'package:appseries/ui/view/home_page.dart';
 import 'package:appseries/ui/view/login_page.dart';
@@ -56,10 +56,14 @@ class _FakeAcervoRepository implements AcervoRepository {
       const Result<List<AcervoItem>>.ok(<AcervoItem>[]);
 }
 
-class _FakeHealthRepository implements HealthRepository {
+class _FakeTituloRepository implements TituloRepository {
   @override
-  Future<Result<HealthStatus>> check() async =>
-      const Result<HealthStatus>.ok(HealthStatus(status: 'ok'));
+  Future<Result<List<TmdbItem>>> emAlta() async =>
+      const Result<List<TmdbItem>>.ok(<TmdbItem>[]);
+
+  @override
+  Future<Result<List<TmdbItem>>> populares() async =>
+      const Result<List<TmdbItem>>.ok(<TmdbItem>[]);
 }
 
 Widget _tela(AuthRepository auth) => MultiProvider(
@@ -72,7 +76,7 @@ Widget _tela(AuthRepository auth) => MultiProvider(
         ),
         ChangeNotifierProvider<HomeViewModel>(
           // Sem `..load()`: quem carrega é a `HomePage` (igual ao `main.dart`).
-          create: (_) => HomeViewModel(_FakeHealthRepository()),
+          create: (_) => HomeViewModel(_FakeTituloRepository()),
         ),
         ChangeNotifierProvider<AcervoViewModel>(
           create: (_) => AcervoViewModel(_FakeAcervoRepository()),
