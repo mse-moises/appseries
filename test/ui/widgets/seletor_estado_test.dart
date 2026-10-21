@@ -53,7 +53,24 @@ void main() {
       await tester.tap(find.text('Assistido'));
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.check), findsOneWidget, reason: 'só o estado atual leva o check');
+      expect(
+        find.descendant(
+          of: find.widgetWithText(PopupMenuItem<EstadoAcervo>, 'Assistido'),
+          matching: find.byIcon(Icons.check),
+        ),
+        findsOneWidget,
+        reason: 'o check tem de estar no estado atual, não em qualquer item',
+      );
+      for (final String outro in <String>['Quero ver', 'Assistindo', 'Abandonei']) {
+        expect(
+          find.descendant(
+            of: find.widgetWithText(PopupMenuItem<EstadoAcervo>, outro),
+            matching: find.byIcon(Icons.check),
+          ),
+          findsNothing,
+          reason: outro,
+        );
+      }
     });
 
     testWidgets('entrega o estado escolhido, não um valor fixo', (tester) async {

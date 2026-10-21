@@ -28,6 +28,16 @@ void main() {
       });
     });
 
+    test('tipoWire e o JSON do corpo falam o mesmo dialeto', () {
+      for (final TipoMidia tipo in <TipoMidia>[TipoMidia.movie, TipoMidia.tv]) {
+        final Map<String, dynamic> json =
+            MarcarAcervoRequest(estado: EstadoAcervo.watched, tipo: tipo).toJson();
+        expect(tipoWire(tipo), json['tipo'],
+            reason: 'query (GET/DELETE) e corpo (PUT) não podem divergir');
+      }
+      expect(tipoWire(TipoMidia.desconhecido), isNull);
+    });
+
     test('quero ver vai como plan_to_watch', () {
       final Map<String, dynamic> json = const MarcarAcervoRequest(
         estado: EstadoAcervo.planToWatch,

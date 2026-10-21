@@ -29,7 +29,8 @@ class FakeRestClient implements RestClient {
   AcervoItem? respostaMarcar;
   Preferencias? respostaPreferencias;
 
-  /// What `PUT /preferencias` echoes; by default it echoes the request body.
+  /// What `PUT /preferencias` echoes. Configure it even when it equals the body:
+  /// echoing the body by default would hide a server that answers something else.
   Preferencias? respostaSalvar;
 
   // what the repository sent
@@ -41,6 +42,9 @@ class FakeRestClient implements RestClient {
   String? removido;
   final List<String> chamadas = <String>[];
 
+  /// Aviso: o `StateError` é `Error`, e os repositórios têm `catch (_)` — se um
+  /// teste esquecer de configurar, o repositório converte isto em `ServerError`.
+  /// Teste de caminho de erro deve passar `error:`, não depender do esquecimento.
   T _exige<T>(T? valor, String campo) {
     if (valor == null) {
       throw StateError('configure $campo no FakeRestClient');
@@ -110,6 +114,6 @@ class FakeRestClient implements RestClient {
   Future<Preferencias> salvarPreferencias(Preferencias corpo) async {
     preferenciasEnviadas = corpo;
     _talvezFalhe('salvarPreferencias');
-    return respostaSalvar ?? corpo;
+    return _exige(respostaSalvar, 'respostaSalvar');
   }
 }

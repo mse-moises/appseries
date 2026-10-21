@@ -6,6 +6,7 @@ import 'package:appseries/utils/app_error.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../support/adapter_falso.dart';
 import '../../support/fake_rest_client.dart';
 
 TmdbItem _item(int id, {TipoMidia tipo = TipoMidia.movie}) => TmdbItem(
@@ -81,7 +82,7 @@ void main() {
 
       final result = await repo.titulo(TipoMidia.desconhecido, 1399);
 
-      expect(result.errorOrNull, isA<ConflictError>());
+      expect(result.errorOrNull, isA<TituloIndisponivelError>());
       expect(api.chamadas, isEmpty, reason: 'não vale gastar requisição que o servidor recusa');
     });
   });
@@ -107,12 +108,25 @@ void main() {
     });
 
     test('traduz 502 do backend em ServerError', () async {
-      final repo = TituloRepositoryImpl(FakeRestClient(error: _erroHttp(502, <String, String>{})));
+      final repo = TituloRepositoryImpl(
+        FakeRestClient(error: _erroHttp(502, <String, String>{'error': 'tmdb_error'})),
+      );
 
       final result = await repo.emAlta();
 
       expect(result.errorOrNull, isA<ServerError>());
       expect(result.errorOrNull?.mensagem, const ServerError().mensagem);
+    });
+
+    test('código do corpo vence o status HTTP', () async {
+      final repo = TituloRepositoryImpl(
+        FakeRestClient(error: _erroHttp(400, <String, String>{'error': 'query_too_short'})),
+      );
+
+      final result = await repo.buscar('a');
+
+      expect(result.errorOrNull, isA<BuscaInvalidaError>());
+      expect(result.errorOrNull?.mensagem, const BuscaInvalidaError().mensagem);
     });
 
     test('401 sem corpo de erro vira UnauthorizedError (sessão expirada)', () async {
@@ -141,6 +155,15 @@ void main() {
       final repo = TituloRepositoryImpl(FakeRestClient(error: StateError('json quebrado')));
 
       final result = await repo.emAlta();
+
+      expect(result.errorOrNull, isA<ServerError>());
+    });
+
+    test('JSON fora de forma vira ServerError no caminho real de decodificação', () async {
+      // não é exceção do dublê: é o fromJson estourando de verdade
+      final AdapterFalso a = AdapterFalso('{"resultados":"não é lista"}');
+
+      final result = await TituloRepositoryImpl(clienteFalso(a)).emAlta();
 
       expect(result.errorOrNull, isA<ServerError>());
     });

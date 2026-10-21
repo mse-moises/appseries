@@ -1,61 +1,58 @@
-import 'dart:typed_data';
-
 import 'package:appseries/data/api_models/acervo_item.dart';
 import 'package:appseries/data/api_models/marcar_acervo_request.dart';
 import 'package:appseries/data/api_models/preferencias.dart';
-import 'package:appseries/data/services/rest_client.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Prova o **fio**: método, caminho, query e corpo de cada endpoint novo.
+import '../../support/adapter_falso.dart';
+
+/// Prova o **fio de cada método do RestClient**: método, caminho, query e corpo.
 ///
 /// Sem este arquivo, todos os outros testes trocam o `RestClient` por um dublê —
-/// e um typo em `@GET('/api/v1/titulos/{tmdbId}')` ou um `@Query('tipo')`
-/// esquecido deixariam a suíte inteira verde enquanto o app toma 404/400.
-class _AdapterFalso implements HttpClientAdapter {
-  _AdapterFalso(this.corpo, {this.status = 200});
-
-  final String corpo;
-  final int status;
-  late RequestOptions ultima;
-
-  @override
-  Future<ResponseBody> fetch(
-    RequestOptions options,
-    Stream<Uint8List>? requestStream,
-    Future<void>? cancelFuture,
-  ) async {
-    ultima = options;
-    return ResponseBody.fromString(
-      corpo,
-      status,
-      headers: <String, List<String>>{
-        Headers.contentTypeHeader: <String>[Headers.jsonContentType],
-      },
-    );
-  }
-
-  @override
-  void close({bool force = false}) {}
-}
-
-RestClient _cliente(_AdapterFalso adaptador) {
-  final Dio dio = Dio(BaseOptions(baseUrl: 'https://exemplo.test'));
-  dio.httpClientAdapter = adaptador;
-  return RestClient(dio);
-}
-
+/// e um typo em `@GET('/api/v1/em-alta')` ou um `@Query('tipo')` esquecido
+/// deixariam a suíte inteira verde enquanto o app toma 404/400.
 const String _itemJson =
     '{"tmdbId":1399,"estado":"watching","tipo":"tv","titulo":"Game of Thrones","ano":"2011"}';
+const String _listaJson =
+    '{"resultados":[{"id":1399,"tipo":"tv","titulo":"Game of Thrones","ano":"2011"}]}';
 
 void main() {
   group('RestClient — contrato de fio', () {
-    test('busca vai para /api/v1/busca com a consulta em q', () async {
-      final _AdapterFalso a = _AdapterFalso(
-        '{"resultados":[{"id":1399,"tipo":"tv","titulo":"Game of Thrones","ano":"2011"}]}',
-      );
+    test('acervo é GET em /api/v1/acervo e recebe um array no topo', () async {
+      final AdapterFalso a = AdapterFalso('[$_itemJson]');
 
-      final resposta = await _cliente(a).busca('game of thrones');
+      final itens = await clienteFalso(a).acervo();
+
+      expect(a.ultima.method, 'GET');
+      expect(a.ultima.path, '/api/v1/acervo');
+      expect(a.ultima.queryParameters, isEmpty);
+      expect(itens.single.titulo, 'Game of Thrones');
+      expect(itens.single.estado, EstadoAcervo.watching);
+    });
+
+    test('em alta é GET em /api/v1/em-alta e desembrulha resultados', () async {
+      final AdapterFalso a = AdapterFalso(_listaJson);
+
+      final resposta = await clienteFalso(a).emAlta();
+
+      expect(a.ultima.method, 'GET');
+      expect(a.ultima.path, '/api/v1/em-alta');
+      expect(resposta.resultados.single.titulo, 'Game of Thrones');
+    });
+
+    test('populares é GET em /api/v1/populares', () async {
+      final AdapterFalso a = AdapterFalso(_listaJson);
+
+      final resposta = await clienteFalso(a).populares();
+
+      expect(a.ultima.method, 'GET');
+      expect(a.ultima.path, '/api/v1/populares');
+      expect(resposta.resultados, hasLength(1));
+    });
+
+    test('busca vai para /api/v1/busca com a consulta em q', () async {
+      final AdapterFalso a = AdapterFalso(_listaJson);
+
+      final resposta = await clienteFalso(a).busca('game of thrones');
 
       expect(a.ultima.method, 'GET');
       expect(a.ultima.path, '/api/v1/busca');
@@ -64,11 +61,11 @@ void main() {
     });
 
     test('detalhe põe o id no caminho e o tipo na query', () async {
-      final _AdapterFalso a = _AdapterFalso(
+      final AdapterFalso a = AdapterFalso(
         '{"id":1399,"tipo":"tv","titulo":"Game of Thrones","sinopse":"x","nota":8.4,"generos":["Drama"]}',
       );
 
-      final ficha = await _cliente(a).titulo(1399, 'tv');
+      final ficha = await clienteFalso(a).titulo(1399, 'tv');
 
       expect(a.ultima.method, 'GET');
       expect(a.ultima.path, '/api/v1/titulos/1399');
@@ -77,9 +74,9 @@ void main() {
     });
 
     test('marcar é PUT no acervo com estado e tipo no corpo', () async {
-      final _AdapterFalso a = _AdapterFalso(_itemJson);
+      final AdapterFalso a = AdapterFalso(_itemJson);
 
-      await _cliente(a).marcar(
+      await clienteFalso(a).marcar(
         1399,
         const MarcarAcervoRequest(estado: EstadoAcervo.watching, tipo: TipoMidia.tv),
       );
@@ -90,9 +87,9 @@ void main() {
     });
 
     test('remover é DELETE com o tipo na query e aceita 204 sem corpo', () async {
-      final _AdapterFalso a = _AdapterFalso('', status: 204);
+      final AdapterFalso a = AdapterFalso('', status: 204);
 
-      await _cliente(a).remover(550, 'movie');
+      await clienteFalso(a).remover(550, 'movie');
 
       expect(a.ultima.method, 'DELETE');
       expect(a.ultima.path, '/api/v1/acervo/550');
@@ -100,9 +97,9 @@ void main() {
     });
 
     test('ler preferências é GET em /api/v1/preferencias', () async {
-      final _AdapterFalso a = _AdapterFalso('{"momento":"domingo","generos":["Drama"]}');
+      final AdapterFalso a = AdapterFalso('{"momento":"domingo","generos":["Drama"]}');
 
-      final p = await _cliente(a).preferencias();
+      final p = await clienteFalso(a).preferencias();
 
       expect(a.ultima.method, 'GET');
       expect(a.ultima.path, '/api/v1/preferencias');
@@ -110,9 +107,9 @@ void main() {
     });
 
     test('salvar preferências é PUT com momento e gêneros no corpo', () async {
-      final _AdapterFalso a = _AdapterFalso('{"momento":"domingo","generos":["Drama"]}');
+      final AdapterFalso a = AdapterFalso('{"momento":"domingo","generos":["Drama"]}');
 
-      await _cliente(a).salvarPreferencias(
+      await clienteFalso(a).salvarPreferencias(
         const Preferencias(momento: 'domingo', generos: <String>['Drama']),
       );
 

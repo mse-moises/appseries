@@ -55,7 +55,7 @@ void main() {
 
       final result = await repo.marcar(TipoMidia.desconhecido, 1, EstadoAcervo.watched);
 
-      expect(result.errorOrNull, isA<ConflictError>());
+      expect(result.errorOrNull, isA<TituloIndisponivelError>());
       expect(api.chamadas, isEmpty);
     });
 
@@ -76,6 +76,16 @@ void main() {
 
       expect(result.isOk, isTrue);
       expect(api.removido, 'tv:550');
+    });
+
+    test('remover com tipo desconhecido recusa antes da rede', () async {
+      final FakeRestClient api = FakeRestClient();
+
+      final result = await AcervoRepositoryImpl(api).remover(TipoMidia.desconhecido, 550);
+
+      expect(result.errorOrNull, isA<TituloIndisponivelError>());
+      expect(api.chamadas, isEmpty,
+          reason: 'DELETE sem tipo apaga as duas linhas daquele id');
     });
 
     test('remover título que não estava no acervo vira NotFoundError', () async {
@@ -109,11 +119,14 @@ void main() {
     });
 
     test('traduz 401 do backend em UnauthorizedError', () async {
-      final repo = AcervoRepositoryImpl(FakeRestClient(error: _erroHttp(401, <String, String>{})));
+      final repo = AcervoRepositoryImpl(
+        FakeRestClient(error: _erroHttp(401, <String, String>{'error': 'unauthorized'})),
+      );
 
       final result = await repo.listar();
 
       expect(result.errorOrNull, isA<UnauthorizedError>());
+      expect(result.errorOrNull?.mensagem, const UnauthorizedError().mensagem);
     });
 
     test('resposta em formato inesperado não escapa como exceção crua', () async {
