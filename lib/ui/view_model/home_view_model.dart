@@ -18,45 +18,78 @@ class HomeViewModel extends ChangeNotifier {
   // Start loading: this ViewModel is created once at the root, so on the next
   // login the first frame must not draw the previous account's carousels.
   SecaoTitulos _emAlta = const SecaoTitulos(carregando: true);
-  SecaoTitulos _populares = const SecaoTitulos(carregando: true);
+  SecaoTitulos _popularesCrus = const SecaoTitulos(carregando: true);
   int _geracao = 0;
 
   SecaoTitulos get emAlta => _emAlta;
-  SecaoTitulos get populares => _populares;
+
+  /// "Populares" without what "Em alta" already shows.
+  ///
+  /// Derived on read, not stored: a snapshot taken during the load goes stale as
+  /// soon as the other carousel reloads (the server cache is 60 s, the TMDB
+  /// changes), and the same title would show in both rows.
+  SecaoTitulos get populares {
+    final SecaoTitulos crus = _popularesCrus;
+    if (crus.carregando || crus.erro != null || _emAlta.itens.isEmpty) return crus;
+
+    final Set<String> vistos = <String>{
+      for (final TmdbItem item in _emAlta.itens) chaveTitulo(item.tipo, item.id),
+    };
+    return SecaoTitulos(
+      itens: List<TmdbItem>.unmodifiable(<TmdbItem>[
+        for (final TmdbItem item in crus.itens)
+          if (!vistos.contains(chaveTitulo(item.tipo, item.id))) item,
+      ]),
+    );
+  }
 
   /// Clears the previous session's state **without notifying**.
   ///
   /// Called from `initState`, before the first build: notifying there is not
-  /// allowed, and without the reset the new account would see the previous
-  /// one's titles for a frame. `load()` right after does the notifying.
+  /// allowed, and without the reset the new account would see the previous one's
+  /// titles for a frame. `load()` right after does the notifying.
   void reset() {
     _geracao++;
     _emAlta = const SecaoTitulos(carregando: true);
-    _populares = const SecaoTitulos(carregando: true);
+    _popularesCrus = const SecaoTitulos(carregando: true);
   }
 
   /// Loads both carousels, one after the other.
   ///
-  /// Sequential on purpose: "Populares" drops what "Em alta" already shows, so
-  /// it needs the first list in hand.
+  /// Sequential on purpose: the second carousel is deduplicated against the
+  /// first. The `finally` is what guarantees it still runs when the first one
+  /// fails or blows up.
   Future<void> load() async {
     final int geracao = ++_geracao;
     _emAlta = const SecaoTitulos(carregando: true);
-    _populares = const SecaoTitulos(carregando: true);
+    _popularesCrus = const SecaoTitulos(carregando: true);
     notifyListeners();
 
-    await _carregaEmAlta(geracao);
-    await _carregaPopulares(geracao);
+    try {
+      await _carregaEmAlta(geracao);
+    } finally {
+      await _carregaPopulares(geracao);
+    }
   }
 
   /// Retry of a single section: the other one keeps what it has.
-  Future<void> recarregarEmAlta() => _carregaEmAlta(_geracao);
-
-  Future<void> recarregarPopulares() => _carregaPopulares(_geracao);
-
-  Future<void> _carregaEmAlta(int geracao) async {
+  Future<void> recarregarEmAlta() async {
     _emAlta = const SecaoTitulos(carregando: true);
     notifyListeners();
+    await _carregaEmAlta(_geracao);
+  }
+
+  Future<void> recarregarPopulares() async {
+    _popularesCrus = const SecaoTitulos(carregando: true);
+    notifyListeners();
+    await _carregaPopulares(_geracao);
+  }
+
+  Future<void> _carregaEmAlta(int geracao) async {
+    // First thing: a request from a session that already ended must not touch
+    // the state at all. Touching it first is what left the section spinning
+    // forever, because the answer is discarded right after.
+    if (geracao != _geracao) return;
 
     final Result<List<TmdbItem>> resultado = await _resultado(() => _repository.emAlta());
     if (geracao != _geracao) return;
@@ -66,37 +99,27 @@ class HomeViewModel extends ChangeNotifier {
   }
 
   Future<void> _carregaPopulares(int geracao) async {
-    _populares = const SecaoTitulos(carregando: true);
-    notifyListeners();
+    if (geracao != _geracao) return;
 
     final Result<List<TmdbItem>> resultado = await _resultado(() => _repository.populares());
     if (geracao != _geracao) return;
 
-    switch (resultado) {
-      case Ok<List<TmdbItem>>(:final value):
-        // The TMDB repeats titles between the two lists: the second carousel
-        // never shows what the first one already showed.
-        final Set<int> jaMostrados = <int>{for (final TmdbItem item in _emAlta.itens) item.id};
-        _populares = SecaoTitulos(
-          itens: List<TmdbItem>.unmodifiable(
-            <TmdbItem>[for (final TmdbItem item in value) if (!jaMostrados.contains(item.id)) item],
-          ),
-        );
-      case Error<List<TmdbItem>>():
-        _populares = _secaoDe(resultado);
-    }
+    _popularesCrus = _secaoDe(resultado);
     notifyListeners();
   }
 
   /// A repository answers a `Result` and never throws; the guard exists so a
   /// contract break becomes a sentence on the screen instead of a section stuck
   /// in "loading".
+  ///
+  /// `catch` and not `on Exception`: a cast error or a `StateError` is an
+  /// `Error`, and it would escape `on Exception` and leave the section loading.
   Future<Result<List<TmdbItem>>> _resultado(
     Future<Result<List<TmdbItem>>> Function() chamada,
   ) async {
     try {
       return await chamada();
-    } on Exception catch (error) {
+    } catch (error) {
       debugPrint('[AppSeries] home fora do contrato: $error');
       return const Result<List<TmdbItem>>.error(ServerError());
     }

@@ -23,13 +23,8 @@ enum EstadoAcervo {
   desconhecido,
 }
 
-/// Key of a shelf line.
-///
-/// The id alone is not enough: `550` is *Fight Club* (movie) **and**
-/// *Till Death Us Do Part* (series), so a map keyed only by the TMDB id would
-/// answer the wrong state for one of them. The same pair is the primary key on
-/// the backend since migration 008.
-String chaveEstado(TipoMidia tipo, int tmdbId) => '${tipo.name}:$tmdbId';
+/// Key of a shelf line (alias de [chaveTitulo], o nome do domínio).
+String chaveEstado(TipoMidia tipo, int tmdbId) => chaveTitulo(tipo, tmdbId);
 
 /// One line of `GET /api/v1/acervo`.
 ///

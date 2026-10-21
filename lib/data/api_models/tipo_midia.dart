@@ -15,3 +15,9 @@ enum TipoMidia {
   @JsonValue('desconhecido')
   desconhecido,
 }
+
+/// Chave de um título: `tipo:id`.
+///
+/// O id do TMDB não é único entre filme e série (`550` é *Clube da Luta* e
+/// também uma série), então toda comparação de título usa este par.
+String chaveTitulo(TipoMidia tipo, int tmdbId) => '${tipo.name}:$tmdbId';
