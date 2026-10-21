@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../utils/app_error.dart';
 import '../../utils/result.dart';
+import '../api_models/titulo_detalhe.dart';
 import '../api_models/titulos_response.dart';
 import '../api_models/tmdb_item.dart';
 import '../services/error_mapper.dart';
@@ -22,6 +23,20 @@ class TituloRepositoryImpl implements TituloRepository {
 
   @override
   Future<Result<List<TmdbItem>>> populares() => _lista(_api.populares);
+
+  @override
+  Future<Result<List<TmdbItem>>> buscar(String q) => _lista(() => _api.busca(q));
+
+  @override
+  Future<Result<TituloDetalhe>> titulo(TipoMidia tipo, int tmdbId) async {
+    try {
+      return Result.ok(await _api.titulo(tmdbId, tipo.name));
+    } on DioException catch (e) {
+      return Result.error(appErrorFromDio(e));
+    } catch (_) {
+      return const Result<TituloDetalhe>.error(ServerError());
+    }
+  }
 
   Future<Result<List<TmdbItem>>> _lista(Future<TitulosResponse> Function() chamada) async {
     try {
