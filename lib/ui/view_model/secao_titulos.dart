@@ -17,6 +17,4 @@ class SecaoTitulos {
 
   /// Loaded, without error and without titles: the section shows "nada aqui".
   bool get vazio => !carregando && erro == null && itens.isEmpty;
-
-  bool get carregada => !carregando;
 }
