@@ -102,8 +102,12 @@ entram:
 - ViewModel: monta o mapa por `(tipo, tmdbId)` e uma segunda carga não devolve dado da
   sessão anterior (teste com respostas em sequência)
 - ao entrar com uma conta que tem acervo, a home mostra o número certo de títulos
-- ao entrar com conta vazia, mostra `0` — **validado ao vivo em 21/10**, na 8080, com a conta
-  do dono: apareceu `Seu acervo: 0 títulos` (chamada autenticada, lista vazia do servidor)
+- ao entrar com conta vazia, mostra `0`
+- **validado ao vivo em 21/10** (Chrome na 8080, backend de produção): conta de teste com 3
+  títulos marcados pela API mostrou `Seu acervo: 3 títulos`; sair e entrar de novo com a mesma
+  conta mostrou `3` de novo (mesmo acervo em sessão nova); voltar para a conta do dono
+  mostrou `0` (isolamento por conta). Os títulos vieram do servidor com pôster e ano
+  (`Clube da Luta` 1999, `Game of Thrones` 2011, `A Origem` 2010)
 - `flutter run -d chrome --web-port 8080` logado: a contagem vem do servidor, não de constante
 - as horas restantes do AP-28 atualizadas no Jira (a estimativa de 1 h não cobre os 7 passos;
   corrigir para 3–4 h na mesma passada)
