@@ -1,5 +1,6 @@
 import 'package:appseries/data/api_models/acervo_item.dart';
 import 'package:appseries/data/api_models/health_status.dart';
+import 'package:appseries/data/api_models/titulos_response.dart';
 import 'package:appseries/data/repositories/health_repository_impl.dart';
 import 'package:appseries/data/services/rest_client.dart';
 import 'package:appseries/utils/app_error.dart';
@@ -20,10 +21,17 @@ class _FakeRestClient implements RestClient {
     return status!;
   }
 
-  /// Not used by this test: the contract grew with the acervo endpoint (AP-28)
-  /// and every double of `RestClient` has to answer it.
+  /// Not used by this test: the contract grew with the acervo (AP-28) and the
+  /// catalogue (AP-31) endpoints, and every double of `RestClient` has to
+  /// answer all of them.
   @override
   Future<List<AcervoItem>> acervo() => throw UnimplementedError();
+
+  @override
+  Future<TitulosResponse> emAlta() => throw UnimplementedError();
+
+  @override
+  Future<TitulosResponse> populares() => throw UnimplementedError();
 }
 
 DioException _erroHttp(int statusCode, Object corpo) => DioException.badResponse(
