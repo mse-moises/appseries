@@ -39,6 +39,24 @@ final class ConflictError extends AppError {
   const ConflictError() : super('conflict', 'Não deu para salvar agora. Tente de novo.');
 }
 
+/// Consulta de busca que o backend recusa (menos de 3 ou mais de 100 letras).
+///
+/// Não é [ConflictError]: num GET não se salva nada, e "tente de novo" seria um
+/// convite a repetir a mesma consulta inválida.
+final class BuscaInvalidaError extends AppError {
+  const BuscaInvalidaError()
+      : super('busca_invalida', 'Confira o que você digitou: a busca precisa de 3 a 100 letras.');
+}
+
+/// Título cujo tipo esta versão do app não conhece (resposta mais nova que o app).
+///
+/// Também não é [ConflictError]: não há o que salvar, e "tente de novo" repetiria
+/// a falha para sempre. A saída é atualizar o app.
+final class TituloIndisponivelError extends AppError {
+  const TituloIndisponivelError()
+      : super('titulo_indisponivel', 'Não foi possível abrir este título. Atualize o app.');
+}
+
 final class RateLimitError extends AppError {
   const RateLimitError() : super('rec_limit', 'Você chegou no limite de hoje. Volte amanhã.');
 }
@@ -163,10 +181,9 @@ AppError appErrorFromCodigo(String? codigo) => switch (codigo) {
       'invalid_tipo' ||
       'invalid_generos' ||
       'invalid_momento' ||
-      'momento_too_long' ||
-      'query_too_short' ||
-      'query_too_long' =>
+      'momento_too_long' =>
         const ConflictError(),
+      'query_too_short' || 'query_too_long' => const BuscaInvalidaError(),
       'rec_limit' => const RateLimitError(),
       _ => const ServerError(),
     };

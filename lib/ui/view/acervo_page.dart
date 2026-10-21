@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 ///
 /// Whoever takes **AP-60** replaces the body below and nothing else; the route,
 /// the endpoint and the repository are already open. The ViewModel and the
-/// screen are yours: `main.dart` still needs one line for your provider.
+/// screen are yours. Here `AcervoViewModel` and its provider already exist: the
+/// work is adding `marcar`/`remover` to it and writing the screen.
 class AcervoPage extends StatelessWidget {
   const AcervoPage({super.key});
 

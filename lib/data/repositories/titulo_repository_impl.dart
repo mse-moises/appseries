@@ -33,7 +33,7 @@ class TituloRepositoryImpl implements TituloRepository {
     if (wire == null) {
       // Tipo desconhecido veio de uma resposta mais nova que este app: o backend
       // responderia 400 invalid_tipo, então nem vale gastar a requisição.
-      return const Result<TituloDetalhe>.error(ConflictError());
+      return const Result<TituloDetalhe>.error(TituloIndisponivelError());
     }
     try {
       return Result.ok(await _api.titulo(tmdbId, wire));

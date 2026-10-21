@@ -32,9 +32,14 @@ class AcervoRepositoryImpl implements AcervoRepository {
   @override
   Future<Result<AcervoItem>> marcar(TipoMidia tipo, int tmdbId, EstadoAcervo estado) async {
     final String? wire = tipoWire(tipo);
-    if (wire == null || estado == EstadoAcervo.desconhecido) {
-      // `desconhecido` só existe para decodificar valor mais novo que o app; o
-      // servidor recusa com 400 invalid_tipo / invalid_estado.
+    if (wire == null) {
+      // Tipo fora do contrato: o servidor recusaria com 400 e não há o que
+      // atualizar no acervo, então nem vale a requisição.
+      return const Result<AcervoItem>.error(TituloIndisponivelError());
+    }
+    if (estado == EstadoAcervo.desconhecido) {
+      // Estado que esta versão não conhece: a pessoa precisa escolher um dos
+      // quatro na tela, não repetir o que veio do servidor.
       return const Result<AcervoItem>.error(ConflictError());
     }
     try {
@@ -50,7 +55,7 @@ class AcervoRepositoryImpl implements AcervoRepository {
   @override
   Future<Result<void>> remover(TipoMidia tipo, int tmdbId) async {
     final String? wire = tipoWire(tipo);
-    if (wire == null) return const Result<void>.error(ConflictError());
+    if (wire == null) return const Result<void>.error(TituloIndisponivelError());
     try {
       await _api.remover(tmdbId, wire);
       return const Result<void>.ok(null);
