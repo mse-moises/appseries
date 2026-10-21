@@ -1,110 +1,177 @@
-import 'package:appseries/data/api_models/health_status.dart';
-import 'package:appseries/data/repositories/health_repository.dart';
+import 'package:appseries/data/api_models/tmdb_item.dart';
+import 'package:appseries/data/repositories/titulo_repository.dart';
 import 'package:appseries/ui/view_model/home_view_model.dart';
 import 'package:appseries/utils/app_error.dart';
 import 'package:appseries/utils/result.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Dublê do contrato: o ViewModel nunca depende da implementação de verdade.
-class _FakeHealthRepository implements HealthRepository {
-  _FakeHealthRepository(this._resposta);
+class _FakeTituloRepository implements TituloRepository {
+  _FakeTituloRepository({this.respostaEmAlta, this.respostaPopulares});
 
-  final Result<HealthStatus> _resposta;
-
-  @override
-  Future<Result<HealthStatus>> check() async => _resposta;
-}
-
-/// Fura o contrato: lança em vez de devolver `Result`.
-class _FakeHealthRepositoryQueLanca implements HealthRepository {
-  int chamadas = 0;
+  Result<List<TmdbItem>>? respostaEmAlta;
+  Result<List<TmdbItem>>? respostaPopulares;
+  int chamadasEmAlta = 0;
+  int chamadasPopulares = 0;
 
   @override
-  Future<Result<HealthStatus>> check() async {
-    chamadas++;
-    throw const FormatException('contrato furado');
+  Future<Result<List<TmdbItem>>> emAlta() async {
+    chamadasEmAlta++;
+    return respostaEmAlta!;
+  }
+
+  @override
+  Future<Result<List<TmdbItem>>> populares() async {
+    chamadasPopulares++;
+    return respostaPopulares!;
   }
 }
 
-/// Devolve uma resposta por chamada, na ordem — é o que permite testar recarga.
-class _FakeRespostasSequenciais implements HealthRepository {
-  _FakeRespostasSequenciais(this._respostas);
-
-  final List<Result<HealthStatus>> _respostas;
-  int _chamadas = 0;
+/// Fura o contrato em "em alta" e responde normal em "populares".
+class _FakeQueLanca implements TituloRepository {
+  @override
+  Future<Result<List<TmdbItem>>> emAlta() async => throw const FormatException('contrato furado');
 
   @override
-  Future<Result<HealthStatus>> check() async => _respostas[_chamadas++];
+  Future<Result<List<TmdbItem>>> populares() async =>
+      Result<List<TmdbItem>>.ok(<TmdbItem>[_item(9)]);
 }
+
+TmdbItem _item(int id) => TmdbItem(
+      id: id,
+      tipo: TipoMidia.movie,
+      titulo: 'Título $id',
+      ano: '2025',
+      posterPath: '/p$id.jpg',
+    );
+
+Result<List<TmdbItem>> _ok(List<int> ids) =>
+    Result<List<TmdbItem>>.ok(<TmdbItem>[for (final int id in ids) _item(id)]);
 
 void main() {
   group('HomeViewModel', () {
-    test('começa carregando e termina com o dado', () async {
+    test('carrega as duas seções', () async {
       final vm = HomeViewModel(
-        _FakeHealthRepository(const Result<HealthStatus>.ok(HealthStatus(status: 'ok'))),
-      );
-
-      expect(vm.isLoading, isTrue);
-
-      await vm.load();
-
-      expect(vm.isLoading, isFalse);
-      expect(vm.status?.status, 'ok');
-      expect(vm.error, isNull);
-    });
-
-    test('erro tipado vira mensagem pronta para a tela', () async {
-      final vm = HomeViewModel(
-        _FakeHealthRepository(const Result<HealthStatus>.error(NetworkError())),
+        _FakeTituloRepository(
+          respostaEmAlta: _ok(<int>[1, 2]),
+          respostaPopulares: _ok(<int>[3, 4, 5]),
+        ),
       );
 
       await vm.load();
 
-      expect(vm.status, isNull);
-      expect(vm.error, 'Sem conexão com a internet. Confira sua rede e tente de novo.');
+      expect(vm.emAlta.itens, hasLength(2));
+      expect(vm.populares.itens, hasLength(3));
+      expect(vm.emAlta.carregando, isFalse);
+      expect(vm.populares.carregando, isFalse);
+      expect(vm.emAlta.erro, isNull);
     });
 
-    test('avisa a View no começo e no fim da carga', () async {
+    test('o segundo carrossel não repete o que o primeiro mostrou', () async {
       final vm = HomeViewModel(
-        _FakeHealthRepository(const Result<HealthStatus>.ok(HealthStatus(status: 'ok'))),
+        _FakeTituloRepository(
+          respostaEmAlta: _ok(<int>[1, 2]),
+          respostaPopulares: _ok(<int>[2, 3]),
+        ),
       );
-      int avisos = 0;
-      vm.addListener(() => avisos++);
 
       await vm.load();
 
-      expect(avisos, 2);
+      expect(vm.emAlta.itens.map((TmdbItem t) => t.id), <int>[1, 2]);
+      expect(vm.populares.itens.map((TmdbItem t) => t.id), <int>[3]);
     });
 
-    test('repository que lança não deixa a home presa em carregando', () async {
-      final repo = _FakeHealthRepositoryQueLanca();
+    test('erro em uma seção não apaga a outra', () async {
+      final vm = HomeViewModel(
+        _FakeTituloRepository(
+          respostaEmAlta: const Result<List<TmdbItem>>.error(NetworkError()),
+          respostaPopulares: _ok(<int>[3]),
+        ),
+      );
+
+      await vm.load();
+
+      expect(vm.emAlta.erro, 'Sem conexão com a internet. Confira sua rede e tente de novo.');
+      expect(vm.emAlta.itens, isEmpty);
+      expect(vm.populares.itens, hasLength(1));
+      expect(vm.populares.erro, isNull);
+    });
+
+    test('lista vazia deixa a seção vazia, não em erro', () async {
+      final vm = HomeViewModel(
+        _FakeTituloRepository(
+          respostaEmAlta: _ok(<int>[]),
+          respostaPopulares: _ok(<int>[]),
+        ),
+      );
+
+      await vm.load();
+
+      expect(vm.emAlta.vazio, isTrue);
+      expect(vm.populares.vazio, isTrue);
+      expect(vm.emAlta.erro, isNull);
+    });
+
+    test('retry de uma seção não recarrega a outra', () async {
+      final repo = _FakeTituloRepository(
+        respostaEmAlta: _ok(<int>[1]),
+        respostaPopulares: const Result<List<TmdbItem>>.error(NetworkError()),
+      );
       final vm = HomeViewModel(repo);
 
       await vm.load();
+      expect(vm.populares.erro, isNotNull);
 
-      expect(vm.isLoading, isFalse, reason: 'a tela não pode travar no carregando');
-      expect(vm.error, 'O servidor deu uma escorregada. Tente em instantes.');
+      repo.respostaPopulares = _ok(<int>[2]);
+      await vm.recarregarPopulares();
 
-      // O retry continua saindo depois de o contrato ser furado.
-      await vm.load();
-      expect(repo.chamadas, 2);
+      expect(vm.populares.itens, hasLength(1));
+      expect(vm.populares.erro, isNull);
+      expect(repo.chamadasEmAlta, 1, reason: 'em alta não pode ser recarregado junto');
+      expect(repo.chamadasPopulares, 2);
     });
 
-    test('falha na recarga não deixa o dado antigo no estado', () async {
-      final vm = HomeViewModel(
-        _FakeRespostasSequenciais(<Result<HealthStatus>>[
-          const Result<HealthStatus>.ok(HealthStatus(status: 'ok')),
-          const Result<HealthStatus>.error(NetworkError()),
-        ]),
+    test('a segunda carga não devolve os títulos da sessão anterior', () async {
+      final repo = _FakeTituloRepository(
+        respostaEmAlta: _ok(<int>[1, 2, 3]),
+        respostaPopulares: _ok(<int>[4, 5, 6]),
       );
+      final vm = HomeViewModel(repo);
 
       await vm.load();
-      expect(vm.status?.status, 'ok');
+      expect(vm.emAlta.itens, hasLength(3));
+
+      repo.respostaEmAlta = _ok(<int>[]);
+      repo.respostaPopulares = _ok(<int>[]);
+      await vm.load();
+
+      expect(vm.emAlta.itens, isEmpty);
+      expect(vm.populares.itens, isEmpty);
+    });
+
+    test('o reset zera o que a conta anterior tinha, sem avisar a View', () async {
+      final vm = HomeViewModel(
+        _FakeTituloRepository(respostaEmAlta: _ok(<int>[1]), respostaPopulares: _ok(<int>[2])),
+      );
+      await vm.load();
+
+      int avisos = 0;
+      vm.addListener(() => avisos++);
+      vm.reset();
+
+      expect(vm.emAlta.itens, isEmpty);
+      expect(vm.populares.itens, isEmpty);
+      expect(avisos, 0, reason: 'reset roda no initState: não pode notificar');
+    });
+
+    test('repository que lança não deixa a seção presa em carregando', () async {
+      final vm = HomeViewModel(_FakeQueLanca());
 
       await vm.load();
 
-      expect(vm.status, isNull);
-      expect(vm.error, isNotNull);
+      expect(vm.emAlta.carregando, isFalse);
+      expect(vm.emAlta.erro, 'O servidor deu uma escorregada. Tente em instantes.');
+      expect(vm.populares.itens, hasLength(1));
     });
   });
 }
