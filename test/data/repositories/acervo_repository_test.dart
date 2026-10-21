@@ -1,96 +1,140 @@
 import 'package:appseries/data/api_models/acervo_item.dart';
-import 'package:appseries/data/api_models/titulos_response.dart';
 import 'package:appseries/data/repositories/acervo_repository_impl.dart';
-import 'package:appseries/data/services/rest_client.dart';
 import 'package:appseries/utils/app_error.dart';
-import 'package:appseries/utils/result.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Dublê do RestClient: nenhum teste desta camada toca a rede.
-class _FakeRestClient implements RestClient {
-  _FakeRestClient({this.itens, this.error});
+import '../../support/fake_rest_client.dart';
 
-  final List<AcervoItem>? itens;
-  final Object? error;
+const AcervoItem _got = AcervoItem(
+  tmdbId: 1399,
+  estado: EstadoAcervo.watching,
+  tipo: TipoMidia.tv,
+  titulo: 'Game of Thrones',
+);
 
-  @override
-  Future<List<AcervoItem>> acervo() async {
-    if (error != null) throw error!;
-    return itens!;
-  }
-
-
-  @override
-  Future<TitulosResponse> emAlta() => throw UnimplementedError();
-
-  @override
-  Future<TitulosResponse> populares() => throw UnimplementedError();
-}
-
-AcervoItem _item({
-  required int tmdbId,
-  EstadoAcervo estado = EstadoAcervo.planToWatch,
-  TipoMidia? tipo = TipoMidia.movie,
-}) =>
-    AcervoItem(tmdbId: tmdbId, estado: estado, tipo: tipo, titulo: 'Título $tmdbId');
-
-DioException _erroHttp(int statusCode, Object corpo) => DioException.badResponse(
+DioException _erroHttp(int statusCode, Object corpo, {String path = '/api/v1/acervo/1'}) =>
+    DioException.badResponse(
       statusCode: statusCode,
-      requestOptions: RequestOptions(path: '/api/v1/acervo'),
+      requestOptions: RequestOptions(path: path),
       response: Response<Object>(
-        requestOptions: RequestOptions(path: '/api/v1/acervo'),
+        requestOptions: RequestOptions(path: path),
         statusCode: statusCode,
         data: corpo,
       ),
     );
 
 void main() {
+  group('marcar e remover', () {
+    test('marcar manda tipo e estado no corpo e devolve o item salvo', () async {
+      final FakeRestClient api = FakeRestClient()..respostaMarcar = _got;
+      final repo = AcervoRepositoryImpl(api);
+
+      final result = await repo.marcar(TipoMidia.tv, 1399, EstadoAcervo.watching);
+
+      expect(result.valueOrNull?.estado, EstadoAcervo.watching);
+      expect(api.idRecebido, 1399);
+      expect(api.corpoRecebido?.tipo, TipoMidia.tv,
+          reason: 'sem tipo o backend responde 400 invalid_tipo');
+      expect(api.corpoRecebido?.estado, EstadoAcervo.watching);
+    });
+
+    test('estado desconhecido recusa antes da rede', () async {
+      final FakeRestClient api = FakeRestClient();
+      final repo = AcervoRepositoryImpl(api);
+
+      final result = await repo.marcar(TipoMidia.movie, 1, EstadoAcervo.desconhecido);
+
+      expect(result.errorOrNull, isA<AcervoIndisponivelError>());
+      expect(api.chamadas, isEmpty);
+    });
+
+    test('tipo desconhecido recusa antes da rede', () async {
+      final FakeRestClient api = FakeRestClient();
+      final repo = AcervoRepositoryImpl(api);
+
+      final result = await repo.marcar(TipoMidia.desconhecido, 1, EstadoAcervo.watched);
+
+      expect(result.errorOrNull, isA<AcervoIndisponivelError>());
+      expect(api.chamadas, isEmpty);
+    });
+
+    test('marcar com 401 vira UnauthorizedError', () async {
+      final repo = AcervoRepositoryImpl(FakeRestClient(error: _erroHttp(401, <String, String>{})));
+
+      final result = await repo.marcar(TipoMidia.movie, 1, EstadoAcervo.watched);
+
+      expect(result.errorOrNull, isA<UnauthorizedError>());
+    });
+
+    test('remover passa o tipo, para não apagar o outro título de mesmo id', () async {
+      final FakeRestClient api = FakeRestClient();
+      final repo = AcervoRepositoryImpl(api);
+
+      // série, não filme: com 'movie' chumbado no código o teste passaria à toa
+      final result = await repo.remover(TipoMidia.tv, 550);
+
+      expect(result.isOk, isTrue);
+      expect(api.removido, 'tv:550');
+    });
+
+    test('remover com tipo desconhecido recusa antes da rede', () async {
+      final FakeRestClient api = FakeRestClient();
+
+      final result = await AcervoRepositoryImpl(api).remover(TipoMidia.desconhecido, 550);
+
+      expect(result.errorOrNull, isA<AcervoIndisponivelError>());
+      expect(api.chamadas, isEmpty,
+          reason: 'DELETE sem tipo apaga as duas linhas daquele id');
+    });
+
+    test('remover título que não estava no acervo vira NotFoundError', () async {
+      final repo = AcervoRepositoryImpl(FakeRestClient(
+        error: _erroHttp(404, <String, String>{'error': 'not_found'}, path: '/api/v1/acervo/550'),
+      ));
+
+      final result = await repo.remover(TipoMidia.movie, 550);
+
+      expect(result.errorOrNull, isA<NotFoundError>());
+    });
+  });
+
   group('AcervoRepositoryImpl', () {
     test('devolve Ok com os itens que o backend mandou', () async {
-      final repo = AcervoRepositoryImpl(
-        _FakeRestClient(itens: <AcervoItem>[
-          _item(tmdbId: 1399, estado: EstadoAcervo.watching, tipo: TipoMidia.tv),
-          _item(tmdbId: 550),
-        ]),
-      );
+      final repo = AcervoRepositoryImpl(FakeRestClient()..respostaAcervo = const <AcervoItem>[_got]);
 
       final result = await repo.listar();
 
-      expect(result, isA<Ok<List<AcervoItem>>>());
-      expect(result.valueOrNull, hasLength(2));
-      expect(result.valueOrNull?.first.estado, EstadoAcervo.watching);
+      expect(result.valueOrNull?.single.titulo, 'Game of Thrones');
     });
 
     test('acervo vazio é Ok com lista vazia, não é erro', () async {
-      final repo = AcervoRepositoryImpl(_FakeRestClient(itens: <AcervoItem>[]));
+      final repo = AcervoRepositoryImpl(FakeRestClient()
+        ..respostaAcervo = const <AcervoItem>[]);
 
       final result = await repo.listar();
 
-      expect(result, isA<Ok<List<AcervoItem>>>());
       expect(result.valueOrNull, isEmpty);
+      expect(result.errorOrNull, isNull);
     });
 
     test('traduz 401 do backend em UnauthorizedError', () async {
       final repo = AcervoRepositoryImpl(
-        _FakeRestClient(error: _erroHttp(401, <String, String>{'error': 'unauthorized'})),
+        FakeRestClient(error: _erroHttp(401, <String, String>{'error': 'unauthorized'})),
       );
 
       final result = await repo.listar();
 
       expect(result.errorOrNull, isA<UnauthorizedError>());
-      expect(result.errorOrNull?.codigo, 'unauthorized');
+      expect(result.errorOrNull?.mensagem, const UnauthorizedError().mensagem);
     });
 
     test('resposta em formato inesperado não escapa como exceção crua', () async {
-      final repo = AcervoRepositoryImpl(
-        _FakeRestClient(error: const FormatException('corpo em formato inesperado')),
-      );
+      final repo = AcervoRepositoryImpl(FakeRestClient(error: StateError('json quebrado')));
 
       final result = await repo.listar();
 
       expect(result.errorOrNull, isA<ServerError>());
-      expect(result.valueOrNull, isNull);
     });
   });
 }

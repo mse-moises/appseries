@@ -129,8 +129,26 @@ void main() {
     });
 
     test('os códigos de corpo inválido viram conflito', () {
-      for (final String codigo in <String>['invalid_estado', 'invalid_tmdb_id', 'invalid_body']) {
+      const List<String> codigos = <String>[
+        'invalid_estado',
+        'invalid_tmdb_id',
+        'invalid_body',
+        'invalid_tipo',
+        'invalid_generos',
+        'invalid_momento',
+        'momento_too_long',
+      ];
+      for (final String codigo in codigos) {
         expect(appErrorFromCodigo(codigo), isA<ConflictError>(), reason: codigo);
+      }
+    });
+
+    test('consulta inválida tem mensagem própria: não se"salva" numa busca', () {
+      for (final String codigo in <String>['query_too_short', 'query_too_long']) {
+        final AppError error = appErrorFromCodigo(codigo);
+        expect(error, isA<BuscaInvalidaError>(), reason: codigo);
+        expect(error.mensagem, contains('3 a 100'), reason: codigo);
+        expect(error.mensagem, isNot(contains('salvar')), reason: codigo);
       }
     });
 

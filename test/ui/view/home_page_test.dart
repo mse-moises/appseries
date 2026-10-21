@@ -15,6 +15,7 @@ import 'package:appseries/utils/app_error.dart';
 import 'package:appseries/utils/result.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:appseries/data/api_models/titulo_detalhe.dart';
 import 'package:provider/provider.dart';
 
 const AppUser _livia = AppUser(id: 'u1', email: 'livia@exemplo.com');
@@ -41,6 +42,12 @@ class _FakeTituloRepository implements TituloRepository {
     chamadasPopulares++;
     return respostaPopulares!;
   }
+
+  @override
+  Future<Result<List<TmdbItem>>> buscar(String q) => throw UnimplementedError();
+
+  @override
+  Future<Result<TituloDetalhe>> titulo(TipoMidia tipo, int tmdbId) => throw UnimplementedError();
 }
 
 Result<List<TmdbItem>> _lista(List<int> ids) =>
@@ -50,6 +57,13 @@ class _FakeAcervoRepository implements AcervoRepository {
   @override
   Future<Result<List<AcervoItem>>> listar() async =>
       const Result<List<AcervoItem>>.ok(<AcervoItem>[]);
+
+  @override
+  Future<Result<AcervoItem>> marcar(TipoMidia tipo, int tmdbId, EstadoAcervo estado) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<void>> remover(TipoMidia tipo, int tmdbId) => throw UnimplementedError();
 }
 
 class _FakeAcervoComItens implements AcervoRepository {
@@ -60,6 +74,13 @@ class _FakeAcervoComItens implements AcervoRepository {
             AcervoItem(tmdbId: i, estado: EstadoAcervo.watched, tipo: TipoMidia.movie),
         ],
       );
+
+  @override
+  Future<Result<AcervoItem>> marcar(TipoMidia tipo, int tmdbId, EstadoAcervo estado) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<void>> remover(TipoMidia tipo, int tmdbId) => throw UnimplementedError();
 }
 
 /// Falha na primeira chamada e responde vazio na segunda: prova o retry.
@@ -72,6 +93,13 @@ class _FakeAcervoFalhaDepoisOk implements AcervoRepository {
     if (chamadas == 1) return const Result<List<AcervoItem>>.error(NetworkError());
     return const Result<List<AcervoItem>>.ok(<AcervoItem>[]);
   }
+
+  @override
+  Future<Result<AcervoItem>> marcar(TipoMidia tipo, int tmdbId, EstadoAcervo estado) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<void>> remover(TipoMidia tipo, int tmdbId) => throw UnimplementedError();
 }
 
 class _FakeAuthRepository implements AuthRepository {

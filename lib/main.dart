@@ -10,6 +10,8 @@ import 'data/repositories/acervo_repository.dart';
 import 'data/repositories/acervo_repository_impl.dart';
 import 'data/repositories/auth_repository.dart';
 import 'data/repositories/auth_repository_impl.dart';
+import 'data/repositories/preferencias_repository.dart';
+import 'data/repositories/preferencias_repository_impl.dart';
 import 'data/repositories/titulo_repository.dart';
 import 'data/repositories/titulo_repository_impl.dart';
 import 'data/services/auth_interceptor.dart';
@@ -80,6 +82,11 @@ class AppSeries extends StatelessWidget {
           ),
           ChangeNotifierProvider<AcervoViewModel>(
             create: (ctx) => AcervoViewModel(ctx.read<AcervoRepository>()),
+          ),
+          // AP-108: the taste lives on the server too; the onboarding screen
+          // (AP-37) is the first consumer.
+          Provider<PreferenciasRepository>(
+            create: (ctx) => PreferenciasRepositoryImpl(ctx.read<RestClient>()),
           ),
         ],
         child: const App(),

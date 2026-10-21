@@ -6,6 +6,7 @@ import 'package:appseries/ui/view_model/home_view_model.dart';
 import 'package:appseries/utils/app_error.dart';
 import 'package:appseries/utils/result.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:appseries/data/api_models/titulo_detalhe.dart';
 
 /// Dublê do contrato: o ViewModel nunca depende da implementação de verdade.
 class _FakeTituloRepository implements TituloRepository {
@@ -27,6 +28,12 @@ class _FakeTituloRepository implements TituloRepository {
     chamadasPopulares++;
     return respostaPopulares!;
   }
+
+  @override
+  Future<Result<List<TmdbItem>>> buscar(String q) => throw UnimplementedError();
+
+  @override
+  Future<Result<TituloDetalhe>> titulo(TipoMidia tipo, int tmdbId) => throw UnimplementedError();
 }
 
 /// Cada chamada fica pendente até o teste responder: é como se prova a corrida.
@@ -53,6 +60,12 @@ class _FakeControlado implements TituloRepository {
     popularesPend.add(c);
     return c.future;
   }
+
+  @override
+  Future<Result<List<TmdbItem>>> buscar(String q) => throw UnimplementedError();
+
+  @override
+  Future<Result<TituloDetalhe>> titulo(TipoMidia tipo, int tmdbId) => throw UnimplementedError();
 }
 
 /// Fura o contrato em "em alta" e responde normal em "populares".
@@ -63,6 +76,12 @@ class _FakeQueLanca implements TituloRepository {
   @override
   Future<Result<List<TmdbItem>>> populares() async =>
       Result<List<TmdbItem>>.ok(<TmdbItem>[_item(9)]);
+
+  @override
+  Future<Result<List<TmdbItem>>> buscar(String q) => throw UnimplementedError();
+
+  @override
+  Future<Result<TituloDetalhe>> titulo(TipoMidia tipo, int tmdbId) => throw UnimplementedError();
 }
 
 TmdbItem _item(int id) => TmdbItem(
@@ -326,4 +345,10 @@ class _FakeQueLancaError implements TituloRepository {
   @override
   Future<Result<List<TmdbItem>>> populares() async =>
       Result<List<TmdbItem>>.ok(<TmdbItem>[_item(9)]);
+
+  @override
+  Future<Result<List<TmdbItem>>> buscar(String q) => throw UnimplementedError();
+
+  @override
+  Future<Result<TituloDetalhe>> titulo(TipoMidia tipo, int tmdbId) => throw UnimplementedError();
 }

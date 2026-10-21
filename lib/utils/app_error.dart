@@ -39,6 +39,40 @@ final class ConflictError extends AppError {
   const ConflictError() : super('conflict', 'Não deu para salvar agora. Tente de novo.');
 }
 
+/// Consulta de busca que o backend recusa (menos de 3 ou mais de 100 letras).
+///
+/// Não é [ConflictError]: num GET não se salva nada, e "tente de novo" seria um
+/// convite a repetir a mesma consulta inválida.
+const int kBuscaMin = 3;
+const int kBuscaMax = 100;
+
+final class BuscaInvalidaError extends AppError {
+  const BuscaInvalidaError()
+      : super(
+          'busca_invalida',
+          'Confira o que você digitou: a busca precisa de $kBuscaMin a $kBuscaMax letras.',
+        );
+}
+
+/// Título que não dá para abrir porque o tipo veio fora do contrato.
+///
+/// Não é [ConflictError]: não há o que salvar, e "tente de novo" repetiria a
+/// falha para sempre. Na leitura, atualizar o app resolve.
+final class TituloIndisponivelError extends AppError {
+  const TituloIndisponivelError()
+      : super('titulo_indisponivel', 'Não foi possível abrir este título. Atualize o app.');
+}
+
+/// Mesma causa (tipo desconhecido), mas numa AÇÃO do acervo.
+///
+/// A mensagem não diz "abrir" nem manda atualizar o app: a origem pode ser uma
+/// linha anterior à migração 008, que vem com `tipo` nulo — nada a ver com a
+/// versão instalada. Sem ação possível, o texto só precisa não mentir.
+final class AcervoIndisponivelError extends AppError {
+  const AcervoIndisponivelError()
+      : super('acervo_indisponivel', 'Não deu para mexer neste título no acervo agora.');
+}
+
 final class RateLimitError extends AppError {
   const RateLimitError() : super('rec_limit', 'Você chegou no limite de hoje. Volte amanhã.');
 }
@@ -157,7 +191,15 @@ AppError appErrorFromGoogle(String? codigo) => switch (codigo) {
 AppError appErrorFromCodigo(String? codigo) => switch (codigo) {
       'unauthorized' => const UnauthorizedError(),
       'not_found' => const NotFoundError(),
-      'invalid_estado' || 'invalid_tmdb_id' || 'invalid_body' => const ConflictError(),
+      'invalid_estado' ||
+      'invalid_tmdb_id' ||
+      'invalid_body' ||
+      'invalid_tipo' ||
+      'invalid_generos' ||
+      'invalid_momento' ||
+      'momento_too_long' =>
+        const ConflictError(),
+      'query_too_short' || 'query_too_long' => const BuscaInvalidaError(),
       'rec_limit' => const RateLimitError(),
       _ => const ServerError(),
     };

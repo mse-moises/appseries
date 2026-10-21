@@ -1,4 +1,5 @@
 import '../../utils/result.dart';
+import '../api_models/titulo_detalhe.dart';
 import '../api_models/tmdb_item.dart';
 
 /// Contract of the catalogue (the two home carousels).
@@ -10,4 +11,10 @@ abstract class TituloRepository {
   Future<Result<List<TmdbItem>>> emAlta();
 
   Future<Result<List<TmdbItem>>> populares();
+
+  /// Searches the TMDB catalogue. The caller guarantees `q` has 3+ characters.
+  Future<Result<List<TmdbItem>>> buscar(String q);
+
+  /// Full sheet of one title; `tipo` disambiguates movie from series.
+  Future<Result<TituloDetalhe>> titulo(TipoMidia tipo, int tmdbId);
 }
