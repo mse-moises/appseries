@@ -137,6 +137,9 @@ void main() {
         'invalid_generos',
         'invalid_momento',
         'momento_too_long',
+        'invalid_sinal',
+        'invalid_peso',
+        'invalid_origem',
       ];
       for (final String codigo in codigos) {
         expect(appErrorFromCodigo(codigo), isA<ConflictError>(), reason: codigo);
