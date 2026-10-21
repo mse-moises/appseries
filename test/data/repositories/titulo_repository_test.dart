@@ -1,5 +1,4 @@
 import 'package:appseries/data/api_models/acervo_item.dart';
-import 'package:appseries/data/api_models/health_status.dart';
 import 'package:appseries/data/api_models/titulos_response.dart';
 import 'package:appseries/data/api_models/tmdb_item.dart';
 import 'package:appseries/data/repositories/titulo_repository_impl.dart';
@@ -32,8 +31,6 @@ class _FakeRestClient implements RestClient {
   @override
   Future<List<AcervoItem>> acervo() => throw UnimplementedError();
 
-  @override
-  Future<HealthStatus> health() => throw UnimplementedError();
 }
 
 TmdbItem _item(int id, {String tipo = 'movie', String? posterPath = '/p.jpg'}) => TmdbItem(

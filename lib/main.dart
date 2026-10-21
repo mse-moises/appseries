@@ -10,8 +10,8 @@ import 'data/repositories/acervo_repository.dart';
 import 'data/repositories/acervo_repository_impl.dart';
 import 'data/repositories/auth_repository.dart';
 import 'data/repositories/auth_repository_impl.dart';
-import 'data/repositories/health_repository.dart';
-import 'data/repositories/health_repository_impl.dart';
+import 'data/repositories/titulo_repository.dart';
+import 'data/repositories/titulo_repository_impl.dart';
 import 'data/services/auth_interceptor.dart';
 import 'data/services/auth_service.dart';
 import 'data/services/rest_client.dart';
@@ -66,13 +66,13 @@ class AppSeries extends StatelessWidget {
           Provider<RestClient>(
             create: (ctx) => RestClient(ctx.read<Dio>(), baseUrl: Env.apiBaseUrl),
           ),
-          Provider<HealthRepository>(
-            create: (ctx) => HealthRepositoryImpl(ctx.read<RestClient>()),
+          Provider<TituloRepository>(
+            create: (ctx) => TituloRepositoryImpl(ctx.read<RestClient>()),
           ),
           // No `..load()` here: the `HomePage` is what loads, and it is mounted
           // anew on every login (the provider's `create` runs once).
           ChangeNotifierProvider<HomeViewModel>(
-            create: (ctx) => HomeViewModel(ctx.read<HealthRepository>()),
+            create: (ctx) => HomeViewModel(ctx.read<TituloRepository>()),
           ),
           // AP-28: the shelf lives on the server, so the app only reads it.
           Provider<AcervoRepository>(
