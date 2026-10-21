@@ -10,8 +10,11 @@ part 'titulo_detalhe.g.dart';
 ///
 /// It is **not** an extension of [TmdbItem]: the catalogue item has no synopsis,
 /// no rating and no genres, and the detail page cannot count on a field that the
-/// list never sends. `nota` is nullable on purpose — the backend omits it when
-/// the TMDB has no vote average.
+/// list never sends.
+///
+/// `nota` chega **sempre**, como número: o backend manda `0` quando o TMDB não
+/// tem avaliação (não omite o campo). Por isso existe [notaExibivel] — a tela
+/// não deve mostrar "0.0" como se fosse nota ruim.
 @JsonSerializable()
 class TituloDetalhe {
   const TituloDetalhe({
@@ -41,6 +44,10 @@ class TituloDetalhe {
   final double? nota;
 
   final List<String> generos;
+
+  /// `null` quando não há avaliação (o backend manda `0`), para a tela escolher
+  /// entre mostrar a nota e não mostrar nada.
+  double? get notaExibivel => (nota == null || nota == 0) ? null : nota;
 
   Map<String, dynamic> toJson() => _$TituloDetalheToJson(this);
 }

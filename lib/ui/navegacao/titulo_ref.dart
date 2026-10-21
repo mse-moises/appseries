@@ -13,8 +13,6 @@ class TituloRef {
   final TipoMidia tipo;
   final int id;
 
-  String get chave => chaveTitulo(tipo, id);
-
   @override
   String toString() => 'TituloRef(${tipo.name}, $id)';
 }

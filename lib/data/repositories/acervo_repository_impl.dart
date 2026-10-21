@@ -31,6 +31,12 @@ class AcervoRepositoryImpl implements AcervoRepository {
 
   @override
   Future<Result<AcervoItem>> marcar(TipoMidia tipo, int tmdbId, EstadoAcervo estado) async {
+    final String? wire = tipoWire(tipo);
+    if (wire == null || estado == EstadoAcervo.desconhecido) {
+      // `desconhecido` só existe para decodificar valor mais novo que o app; o
+      // servidor recusa com 400 invalid_tipo / invalid_estado.
+      return const Result<AcervoItem>.error(ConflictError());
+    }
     try {
       final MarcarAcervoRequest corpo = MarcarAcervoRequest(estado: estado, tipo: tipo);
       return Result.ok(await _api.marcar(tmdbId, corpo));
@@ -43,8 +49,10 @@ class AcervoRepositoryImpl implements AcervoRepository {
 
   @override
   Future<Result<void>> remover(TipoMidia tipo, int tmdbId) async {
+    final String? wire = tipoWire(tipo);
+    if (wire == null) return const Result<void>.error(ConflictError());
     try {
-      await _api.remover(tmdbId, tipo.name);
+      await _api.remover(tmdbId, wire);
       return const Result<void>.ok(null);
     } on DioException catch (e) {
       return Result.error(appErrorFromDio(e));

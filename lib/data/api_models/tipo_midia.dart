@@ -16,6 +16,18 @@ enum TipoMidia {
   desconhecido,
 }
 
+/// O valor que viaja na rede (`movie`/`tv`), ou `null` quando o tipo é
+/// [TipoMidia.desconhecido].
+///
+/// Existe porque `TipoMidia.name` é uma armadilha: `desconhecido` também tem
+/// nome, e mandá-lo ao backend responde `400 invalid_tipo`. Quem traduz usa
+/// este ponto e recusa antes da rede.
+String? tipoWire(TipoMidia tipo) => switch (tipo) {
+      TipoMidia.movie => 'movie',
+      TipoMidia.tv => 'tv',
+      TipoMidia.desconhecido => null,
+    };
+
 /// Chave de um título: `tipo:id`.
 ///
 /// O id do TMDB não é único entre filme e série (`550` é *Clube da Luta* e

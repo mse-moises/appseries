@@ -29,8 +29,14 @@ class TituloRepositoryImpl implements TituloRepository {
 
   @override
   Future<Result<TituloDetalhe>> titulo(TipoMidia tipo, int tmdbId) async {
+    final String? wire = tipoWire(tipo);
+    if (wire == null) {
+      // Tipo desconhecido veio de uma resposta mais nova que este app: o backend
+      // responderia 400 invalid_tipo, então nem vale gastar a requisição.
+      return const Result<TituloDetalhe>.error(ConflictError());
+    }
     try {
-      return Result.ok(await _api.titulo(tmdbId, tipo.name));
+      return Result.ok(await _api.titulo(tmdbId, wire));
     } on DioException catch (e) {
       return Result.error(appErrorFromDio(e));
     } catch (_) {

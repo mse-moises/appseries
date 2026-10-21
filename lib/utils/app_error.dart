@@ -157,7 +157,16 @@ AppError appErrorFromGoogle(String? codigo) => switch (codigo) {
 AppError appErrorFromCodigo(String? codigo) => switch (codigo) {
       'unauthorized' => const UnauthorizedError(),
       'not_found' => const NotFoundError(),
-      'invalid_estado' || 'invalid_tmdb_id' || 'invalid_body' => const ConflictError(),
+      'invalid_estado' ||
+      'invalid_tmdb_id' ||
+      'invalid_body' ||
+      'invalid_tipo' ||
+      'invalid_generos' ||
+      'invalid_momento' ||
+      'momento_too_long' ||
+      'query_too_short' ||
+      'query_too_long' =>
+        const ConflictError(),
       'rec_limit' => const RateLimitError(),
       _ => const ServerError(),
     };
