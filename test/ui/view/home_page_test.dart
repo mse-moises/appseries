@@ -287,6 +287,19 @@ void main() {
       );
     });
 
+    testWidgets('em tela pequena (360x640) nada estoura e o rodapé cabe', (tester) async {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await _montar(tester);
+      await _assentar(tester);
+
+      expect(tester.takeException(), isNull, reason: 'overflow de layout vira exceção no teste');
+      expect(find.text('Seu acervo: 0 títulos'), findsOneWidget);
+      expect(find.textContaining('TMDB API'), findsOneWidget);
+    });
+
     testWidgets('o botão Sair pede o logout', (tester) async {
       final auth = await _montar(tester);
 

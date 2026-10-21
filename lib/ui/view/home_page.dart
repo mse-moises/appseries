@@ -136,6 +136,7 @@ class _Rodape extends StatelessWidget {
                   child: Text(
                     auth.user!.email!,
                     style: texto.bodySmall?.copyWith(color: discreto),
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
