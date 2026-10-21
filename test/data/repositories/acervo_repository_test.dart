@@ -6,6 +6,9 @@ import 'package:appseries/utils/app_error.dart';
 import 'package:appseries/utils/result.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:appseries/data/api_models/marcar_acervo_request.dart';
+import 'package:appseries/data/api_models/preferencias.dart';
+import 'package:appseries/data/api_models/titulo_detalhe.dart';
 
 /// Dublê do RestClient: nenhum teste desta camada toca a rede.
 class _FakeRestClient implements RestClient {
@@ -13,6 +16,11 @@ class _FakeRestClient implements RestClient {
 
   final List<AcervoItem>? itens;
   final Object? error;
+
+  AcervoItem? respostaMarcar;
+  int? idRecebido;
+  MarcarAcervoRequest? corpoRecebido;
+  String? removido;
 
   @override
   Future<List<AcervoItem>> acervo() async {
@@ -26,6 +34,32 @@ class _FakeRestClient implements RestClient {
 
   @override
   Future<TitulosResponse> populares() => throw UnimplementedError();
+
+  @override
+  Future<TitulosResponse> busca(String q) => throw UnimplementedError();
+
+  @override
+  Future<TituloDetalhe> titulo(int tmdbId, String tipo) => throw UnimplementedError();
+
+  @override
+  Future<AcervoItem> marcar(int tmdbId, MarcarAcervoRequest corpo) async {
+    idRecebido = tmdbId;
+    corpoRecebido = corpo;
+    if (error != null) throw error!;
+    return respostaMarcar!;
+  }
+
+  @override
+  Future<void> remover(int tmdbId, String tipo) async {
+    if (error != null) throw error!;
+    removido = '$tipo:$tmdbId';
+  }
+
+  @override
+  Future<Preferencias> preferencias() => throw UnimplementedError();
+
+  @override
+  Future<Preferencias> salvarPreferencias(Preferencias corpo) => throw UnimplementedError();
 }
 
 AcervoItem _item({
@@ -46,6 +80,72 @@ DioException _erroHttp(int statusCode, Object corpo) => DioException.badResponse
     );
 
 void main() {
+  group('marcar e remover', () {
+    test('marcar manda tipo e estado no corpo e devolve o item salvo', () async {
+      final _FakeRestClient api = _FakeRestClient(itens: const <AcervoItem>[])
+        ..respostaMarcar = const AcervoItem(
+          tmdbId: 1399,
+          estado: EstadoAcervo.watching,
+          tipo: TipoMidia.tv,
+          titulo: 'Game of Thrones',
+        );
+      final repo = AcervoRepositoryImpl(api);
+
+      final result = await repo.marcar(TipoMidia.tv, 1399, EstadoAcervo.watching);
+
+      expect(result.valueOrNull?.estado, EstadoAcervo.watching);
+      expect(api.idRecebido, 1399);
+      expect(api.corpoRecebido?.tipo, TipoMidia.tv,
+          reason: 'sem tipo o backend responde 400 invalid_tipo');
+      expect(api.corpoRecebido?.estado, EstadoAcervo.watching);
+    });
+
+    test('marcar com 401 vira UnauthorizedError', () async {
+      final repo = AcervoRepositoryImpl(_FakeRestClient(
+        error: DioException.badResponse(
+          statusCode: 401,
+          requestOptions: RequestOptions(path: '/api/v1/acervo/1'),
+          response: Response<void>(
+            requestOptions: RequestOptions(path: '/api/v1/acervo/1'),
+            statusCode: 401,
+          ),
+        ),
+      ));
+
+      final result = await repo.marcar(TipoMidia.movie, 1, EstadoAcervo.watched);
+
+      expect(result.errorOrNull, isA<UnauthorizedError>());
+    });
+
+    test('remover passa o tipo, para não apagar o outro título de mesmo id', () async {
+      final _FakeRestClient api = _FakeRestClient(itens: const <AcervoItem>[]);
+      final repo = AcervoRepositoryImpl(api);
+
+      // série, não filme: com 'movie' chumbado no código o teste passaria à toa
+      final result = await repo.remover(TipoMidia.tv, 550);
+
+      expect(result.isOk, isTrue);
+      expect(api.removido, 'tv:550');
+    });
+
+    test('remover título que não estava no acervo vira NotFoundError', () async {
+      final repo = AcervoRepositoryImpl(_FakeRestClient(
+        error: DioException.badResponse(
+          statusCode: 404,
+          requestOptions: RequestOptions(path: '/api/v1/acervo/550'),
+          response: Response<void>(
+            requestOptions: RequestOptions(path: '/api/v1/acervo/550'),
+            statusCode: 404,
+          ),
+        ),
+      ));
+
+      final result = await repo.remover(TipoMidia.movie, 550);
+
+      expect(result.errorOrNull, isA<NotFoundError>());
+    });
+  });
+
   group('AcervoRepositoryImpl', () {
     test('devolve Ok com os itens que o backend mandou', () async {
       final repo = AcervoRepositoryImpl(

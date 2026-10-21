@@ -15,6 +15,13 @@ class _FakeAcervoRepository implements AcervoRepository {
 
   @override
   Future<Result<List<AcervoItem>>> listar() async => _resposta;
+
+  @override
+  Future<Result<AcervoItem>> marcar(TipoMidia tipo, int tmdbId, EstadoAcervo estado) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<void>> remover(TipoMidia tipo, int tmdbId) => throw UnimplementedError();
 }
 
 /// Devolve uma resposta por chamada, na ordem — é o que permite testar recarga.
@@ -26,6 +33,13 @@ class _FakeRespostasSequenciais implements AcervoRepository {
 
   @override
   Future<Result<List<AcervoItem>>> listar() async => _respostas[_chamadas++];
+
+  @override
+  Future<Result<AcervoItem>> marcar(TipoMidia tipo, int tmdbId, EstadoAcervo estado) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<void>> remover(TipoMidia tipo, int tmdbId) => throw UnimplementedError();
 }
 
 AcervoItem _item({
@@ -254,9 +268,23 @@ class _FakeControlado implements AcervoRepository {
     _pendentes.add(c);
     return c.future;
   }
+
+  @override
+  Future<Result<AcervoItem>> marcar(TipoMidia tipo, int tmdbId, EstadoAcervo estado) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<void>> remover(TipoMidia tipo, int tmdbId) => throw UnimplementedError();
 }
 
 class _FakeQueLanca implements AcervoRepository {
   @override
   Future<Result<List<AcervoItem>>> listar() async => throw const FormatException('contrato furado');
+
+  @override
+  Future<Result<AcervoItem>> marcar(TipoMidia tipo, int tmdbId, EstadoAcervo estado) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<void>> remover(TipoMidia tipo, int tmdbId) => throw UnimplementedError();
 }

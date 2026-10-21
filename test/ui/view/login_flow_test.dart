@@ -17,6 +17,7 @@ import 'package:appseries/utils/app_error.dart';
 import 'package:appseries/utils/result.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:appseries/data/api_models/titulo_detalhe.dart';
 import 'package:provider/provider.dart';
 
 const AppUser _livia = AppUser(id: 'u1', email: 'livia@exemplo.com');
@@ -70,6 +71,13 @@ class _FakeAcervoRepository implements AcervoRepository {
   @override
   Future<Result<List<AcervoItem>>> listar() async =>
       const Result<List<AcervoItem>>.ok(<AcervoItem>[]);
+
+  @override
+  Future<Result<AcervoItem>> marcar(TipoMidia tipo, int tmdbId, EstadoAcervo estado) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<void>> remover(TipoMidia tipo, int tmdbId) => throw UnimplementedError();
 }
 
 class _FakeTituloRepository implements TituloRepository {
@@ -80,6 +88,12 @@ class _FakeTituloRepository implements TituloRepository {
   @override
   Future<Result<List<TmdbItem>>> populares() async =>
       const Result<List<TmdbItem>>.ok(<TmdbItem>[]);
+
+  @override
+  Future<Result<List<TmdbItem>>> buscar(String q) => throw UnimplementedError();
+
+  @override
+  Future<Result<TituloDetalhe>> titulo(TipoMidia tipo, int tmdbId) => throw UnimplementedError();
 }
 
 Future<void> _abrir(WidgetTester tester, AuthRepository auth) async {
