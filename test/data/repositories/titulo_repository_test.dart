@@ -84,12 +84,13 @@ void main() {
 
     test('traduz 502 do backend em ServerError', () async {
       final repo = TituloRepositoryImpl(
-        _FakeRestClient(error: _erroHttp(502, <String, String>{'error': 'tmdb_unavailable'})),
+        _FakeRestClient(error: _erroHttp(502, <String, String>{'error': 'tmdb_error'})),
       );
 
       final result = await repo.emAlta();
 
       expect(result.errorOrNull, isA<ServerError>());
+      expect(result.errorOrNull?.mensagem, isNot(contains('502')));
     });
 
     test('queda de conexão vira NetworkError', () async {
@@ -115,6 +116,7 @@ void main() {
       final result = await repo.emAlta();
 
       expect(result.errorOrNull, isA<ServerError>());
+      expect(result.errorOrNull?.mensagem, isNot(contains('502')));
       expect(result.valueOrNull, isNull);
     });
   });
