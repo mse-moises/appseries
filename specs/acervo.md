@@ -102,7 +102,8 @@ entram:
 - ViewModel: monta o mapa por `(tipo, tmdbId)` e uma segunda carga não devolve dado da
   sessão anterior (teste com respostas em sequência)
 - ao entrar com uma conta que tem acervo, a home mostra o número certo de títulos
-- ao entrar com conta vazia, mostra `0`
+- ao entrar com conta vazia, mostra `0` — **validado ao vivo em 21/10**, na 8080, com a conta
+  do dono: apareceu `Seu acervo: 0 títulos` (chamada autenticada, lista vazia do servidor)
 - `flutter run -d chrome --web-port 8080` logado: a contagem vem do servidor, não de constante
 - as horas restantes do AP-28 atualizadas no Jira (a estimativa de 1 h não cobre os 7 passos;
   corrigir para 3–4 h na mesma passada)
