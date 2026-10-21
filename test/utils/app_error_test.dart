@@ -143,6 +143,14 @@ void main() {
       }
     });
 
+    test('corpo de feedback inválido não promete "tentar de novo"', () {
+      for (final String codigo in <String>['invalid_sinal', 'invalid_peso', 'invalid_origem']) {
+        final AppError error = appErrorFromCodigo(codigo);
+        expect(error, isA<FeedbackIndisponivelError>(), reason: codigo);
+        expect(error.mensagem, isNot(contains('salvar')), reason: codigo);
+      }
+    });
+
     test('consulta inválida tem mensagem própria: não se"salva" numa busca', () {
       for (final String codigo in <String>['query_too_short', 'query_too_long']) {
         final AppError error = appErrorFromCodigo(codigo);
@@ -190,6 +198,10 @@ void main() {
       GoogleIndisponivelError(),
       JanelaBloqueadaError(),
       GoogleFalhouError(),
+      BuscaInvalidaError(),
+      TituloIndisponivelError(),
+      AcervoIndisponivelError(),
+      FeedbackIndisponivelError(),
     ];
 
     for (final AppError error in erros) {

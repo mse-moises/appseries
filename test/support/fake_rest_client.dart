@@ -1,4 +1,6 @@
 import 'package:appseries/data/api_models/acervo_item.dart';
+import 'package:appseries/data/api_models/feedback_item.dart';
+import 'package:appseries/data/api_models/marcar_feedback_request.dart';
 import 'package:appseries/data/api_models/marcar_acervo_request.dart';
 import 'package:appseries/data/api_models/preferencias.dart';
 import 'package:appseries/data/api_models/titulo_detalhe.dart';
@@ -32,6 +34,8 @@ class FakeRestClient implements RestClient {
   /// What `PUT /preferencias` echoes. Configure it even when it equals the body:
   /// echoing the body by default would hide a server that answers something else.
   Preferencias? respostaSalvar;
+  List<FeedbackItem>? respostaFeedback;
+  FeedbackItem? respostaMarcarFeedback;
 
   // what the repository sent
   String? qRecebida;
@@ -39,6 +43,7 @@ class FakeRestClient implements RestClient {
   int? idRecebido;
   MarcarAcervoRequest? corpoRecebido;
   Preferencias? preferenciasEnviadas;
+  MarcarFeedbackRequest? feedbackEnviado;
   String? removido;
   final List<String> chamadas = <String>[];
 
@@ -115,5 +120,25 @@ class FakeRestClient implements RestClient {
     preferenciasEnviadas = corpo;
     _talvezFalhe('salvarPreferencias');
     return _exige(respostaSalvar, 'respostaSalvar');
+  }
+
+  @override
+  Future<List<FeedbackItem>> feedback() async {
+    _talvezFalhe('feedback');
+    return _exige(respostaFeedback, 'respostaFeedback');
+  }
+
+  @override
+  Future<FeedbackItem> marcarFeedback(int tmdbId, MarcarFeedbackRequest corpo) async {
+    idRecebido = tmdbId;
+    feedbackEnviado = corpo;
+    _talvezFalhe('marcarFeedback');
+    return _exige(respostaMarcarFeedback, 'respostaMarcarFeedback');
+  }
+
+  @override
+  Future<void> removerFeedback(int tmdbId, String tipo) async {
+    _talvezFalhe('removerFeedback');
+    removido = 'feedback:$tipo:$tmdbId';
   }
 }

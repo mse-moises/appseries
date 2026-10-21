@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../navegacao/titulo_ref.dart';
 
-/// Stub created by the foundation task (AP-108).
+/// Stub da fundação (AP-108): a rota, o endpoint e o repositório estão abertos.
 ///
-/// Whoever takes **AP-47** replaces the body and keeps the signature: the screen
-/// reads the [TituloRef] from the route arguments, so callers already send the
-/// pair `(tipo, id)` — the TMDB numbers movie and series separately.
-class DetalhePage extends StatelessWidget {
-  const DetalhePage({super.key});
+/// Quem pegar **AP-47** troca o corpo e mantém a assinatura: a tela lê o
+/// [TituloRef] dos argumentos da rota, então quem chama já manda o par
+/// `(tipo, id)` — o TMDB numera filme e série em espaços separados.
+class TitleDetailPage extends StatelessWidget {
+  const TitleDetailPage({super.key});
 
   @override
   Widget build(BuildContext context) {

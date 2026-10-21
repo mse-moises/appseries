@@ -20,8 +20,8 @@ String rotuloEstado(EstadoAcervo estado) => switch (estado) {
 /// in three places (home, search result and detail). The screen only tells which
 /// state is current and what to do when the person picks another; saving is the
 /// ViewModel's job, never the widget's.
-class SeletorEstado extends StatelessWidget {
-  const SeletorEstado({super.key, this.atual, required this.onEscolher});
+class AcervoActionButton extends StatelessWidget {
+  const AcervoActionButton({super.key, this.atual, required this.onEscolher});
 
   /// `null` when the title is not on the shelf yet.
   final EstadoAcervo? atual;

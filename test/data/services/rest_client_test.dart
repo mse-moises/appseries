@@ -1,5 +1,7 @@
 import 'package:appseries/data/api_models/acervo_item.dart';
+import 'package:appseries/data/api_models/feedback_item.dart';
 import 'package:appseries/data/api_models/marcar_acervo_request.dart';
+import 'package:appseries/data/api_models/marcar_feedback_request.dart';
 import 'package:appseries/data/api_models/preferencias.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -96,6 +98,56 @@ void main() {
 
       expect(a.ultima.method, 'DELETE');
       expect(a.ultima.path, '/api/v1/acervo/550');
+      expect(a.ultima.queryParameters, <String, dynamic>{'tipo': 'movie'});
+    });
+
+    test('feedback é GET em /api/v1/feedback e recebe array no topo', () async {
+      final AdapterFalso a = AdapterFalso(
+        '[{"tmdbId":1399,"sinal":"dislike","peso":1,"origem":"abandono","tipo":"tv"}]',
+      );
+
+      final sinais = await clienteFalso(a).feedback();
+
+      expect(a.ultima.method, 'GET');
+      expect(a.ultima.path, '/api/v1/feedback');
+      expect(a.ultima.queryParameters, isEmpty);
+      expect(sinais.single.sinal, SinalGosto.dislike);
+      expect(sinais.single.peso, 1);
+    });
+
+    test('marcar feedback é PUT com sinal, tipo, peso e origem no corpo', () async {
+      final AdapterFalso a = AdapterFalso(
+        '{"tmdbId":1399,"sinal":"dislike","peso":1,"origem":"abandono","tipo":"tv"}',
+      );
+
+      await clienteFalso(a).marcarFeedback(
+        1399,
+        const MarcarFeedbackRequest(
+          sinal: SinalGosto.dislike,
+          tipo: TipoMidia.tv,
+          peso: 1,
+          origem: OrigemFeedback.abandono,
+        ),
+      );
+
+      expect(a.ultima.method, 'PUT');
+      expect(a.ultima.path, '/api/v1/feedback/1399');
+      expect(a.ultima.data, <String, dynamic>{
+        'sinal': 'dislike',
+        'tipo': 'tv',
+        'peso': 1,
+        'origem': 'abandono',
+      });
+      expect(a.ultima.contentType, startsWith('application/json'));
+    });
+
+    test('remover feedback é DELETE com o tipo na query', () async {
+      final AdapterFalso a = AdapterFalso('', status: 204);
+
+      await clienteFalso(a).removerFeedback(550, 'movie');
+
+      expect(a.ultima.method, 'DELETE');
+      expect(a.ultima.path, '/api/v1/feedback/550');
       expect(a.ultima.queryParameters, <String, dynamic>{'tipo': 'movie'});
     });
 

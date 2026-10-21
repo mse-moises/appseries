@@ -54,6 +54,14 @@ final class BuscaInvalidaError extends AppError {
         );
 }
 
+/// Sinal de gosto que não deu para registrar.
+///
+/// Separado do acervo de propósito: a ação é outra e a pessoa lê a frase certa.
+final class FeedbackIndisponivelError extends AppError {
+  const FeedbackIndisponivelError()
+      : super('feedback_indisponivel', 'Não deu para registrar seu gosto. Atualize o app.');
+}
+
 /// Título que não dá para abrir porque o tipo veio fora do contrato.
 ///
 /// Não é [ConflictError]: não há o que salvar, e "tente de novo" repetiria a
@@ -199,6 +207,9 @@ AppError appErrorFromCodigo(String? codigo) => switch (codigo) {
       'invalid_momento' ||
       'momento_too_long' =>
         const ConflictError(),
+      // Corpo de feedback fora do contrato só acontece por bug de serialização
+      // do app: repetir a mesma chamada falharia igual.
+      'invalid_sinal' || 'invalid_peso' || 'invalid_origem' => const FeedbackIndisponivelError(),
       'query_too_short' || 'query_too_long' => const BuscaInvalidaError(),
       'rec_limit' => const RateLimitError(),
       _ => const ServerError(),

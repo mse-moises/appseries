@@ -10,6 +10,8 @@ import 'data/repositories/acervo_repository.dart';
 import 'data/repositories/acervo_repository_impl.dart';
 import 'data/repositories/auth_repository.dart';
 import 'data/repositories/auth_repository_impl.dart';
+import 'data/repositories/feedback_repository.dart';
+import 'data/repositories/feedback_repository_impl.dart';
 import 'data/repositories/preferencias_repository.dart';
 import 'data/repositories/preferencias_repository_impl.dart';
 import 'data/repositories/titulo_repository.dart';
@@ -87,6 +89,10 @@ class AppSeries extends StatelessWidget {
           // (AP-37) is the first consumer.
           Provider<PreferenciasRepository>(
             create: (ctx) => PreferenciasRepositoryImpl(ctx.read<RestClient>()),
+          ),
+          // AP-109: 👍/👎 mora no servidor, preso à conta e ao par (tipo, tmdbId).
+          Provider<FeedbackRepository>(
+            create: (ctx) => FeedbackRepositoryImpl(ctx.read<RestClient>()),
           ),
         ],
         child: const App(),
