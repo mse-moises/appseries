@@ -107,6 +107,12 @@ entram:
 - as horas restantes do AP-28 atualizadas no Jira (a estimativa de 1 h não cobre os 7 passos;
   corrigir para 3–4 h na mesma passada)
 
+## Backlog desta fatia (não entra no PR)
+
+- widget test do cenário completo de sessão: requisição da conta A pendente → desmonta → remonta com a
+  conta B → A responde atrasada. Hoje o caso está coberto no ViewModel (ordem invertida dos
+  `Completer`), mas não no nível de widget. Esforço médio, achado da 2ª rodada de review.
+
 ## Riscos
 
 - **`test/ui/view/home_page_test.dart` quebra** quando a `HomePage` passa a ler o

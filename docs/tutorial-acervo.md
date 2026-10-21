@@ -89,7 +89,7 @@ enum TipoMidia {
 /// Key of a shelf line: the same TMDB id can be a movie AND a series
 /// (`550` is *Fight Club* and also *Till Death Us Do Part*), so the id alone
 /// is not enough to know whose state we are reading.
-String chaveEstado(TipoMidia? tipo, int tmdbId) => '${tipo?.name ?? '-'}:$tmdbId';
+String chaveEstado(TipoMidia tipo, int tmdbId) => '${tipo.name}:$tmdbId';
 
 /// One line of `GET /api/v1/acervo`.
 @JsonSerializable()
@@ -119,8 +119,6 @@ class AcervoItem {
   final DateTime? atualizadoEm;
 
   Map<String, dynamic> toJson() => _$AcervoItemToJson(this);
-
-  String get chave => chaveEstado(tipo, tmdbId);
 }
 ```
 
@@ -242,7 +240,16 @@ class AcervoViewModel extends ChangeNotifier {
   int get total => _itens.length;
 
   /// `null` means "not on the shelf" (or unknown yet).
-  EstadoAcervo? estadoDe(TipoMidia? tipo, int tmdbId) => _estados[chaveEstado(tipo, tmdbId)];
+  ///
+  /// O tipo é obrigatório: o id sozinho é ambíguo (filme 550 e série 550 são
+  /// títulos diferentes). Para `desconhecido`, procura nos dois espaços.
+  EstadoAcervo? estadoDe(TipoMidia tipo, int tmdbId) {
+    if (tipo != TipoMidia.desconhecido) {
+      return _estados[chaveEstado(tipo, tmdbId)];
+    }
+    return _estados[chaveEstado(TipoMidia.movie, tmdbId)] ??
+        _estados[chaveEstado(TipoMidia.tv, tmdbId)];
+  }
 
   /// Zera o estado da sessão anterior **sem notificar**.
   ///
@@ -499,3 +506,4 @@ verdade).
 | `docs(acervo): fecha` | este diário + o helper do mapa no guia | editar bloco de fecho por `patch` pode duplicar `}`: o `analyze` apontou na hora (`Expected to find ')'`) e o conserto foi no mesmo turno |
 | `fix(acervo)` pós-review | reset no `initState`, `_isLoading` inicial, contador de geração e `estadoDe` sem tipo anulável | **o bloqueante do review foi real e o meu fix óbvio não fechava**: `_isLoading = true` de saída só cobre o PRIMEIRO login. Na segunda sessão o ViewModel já está com `isLoading=false` e os dados antigos, então o build 1 desenha o número velho. Quem fecha é zerar o estado **de forma síncrona no `initState`**. O teste que escrevi falhou antes do conserto e falha de novo se o `reset()` sai (provei por mutação) |
 | `fix(acervo)`: testes | precedência com a fixture na ordem real, `fromJson`, conta vazia, erro + retry | o teste de precedência antigo passava com um laço único porque a linha ambígua vinha primeiro: **fixture na ordem errada esconde o bug que o teste existe para pegar** |
+| 2ª rodada de review | `reset()` invalida requisição em voo, `estadoDe(desconhecido)` procura nos dois espaços, testes dos guards de geração, 4 valores de wire, `Key` no botão do retry | os dois guards do contador de geração e o ramo do tipo desconhecido podiam ser apagados sem nenhum teste ficar vermelho. Agora cada um derruba um teste quando é removido (provei por mutação). **Teste que morre por mutação é o único que conta** |
