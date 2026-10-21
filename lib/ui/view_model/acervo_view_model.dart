@@ -14,10 +14,14 @@ class AcervoViewModel extends ChangeNotifier {
 
   final AcervoRepository _repository;
 
-  bool _isLoading = false;
+  // Starts loading: this ViewModel outlives the screen (it is created once in
+  // `main.dart`), so on the next login the first frame must not draw the
+  // previous account's shelf while the new request is on its way.
+  bool _isLoading = true;
   String? _error;
   List<AcervoItem> _itens = const <AcervoItem>[];
   Map<String, EstadoAcervo> _estados = const <String, EstadoAcervo>{};
+  int _geracao = 0;
 
   bool get isLoading => _isLoading;
   String? get error => _error;
@@ -25,11 +29,35 @@ class AcervoViewModel extends ChangeNotifier {
   int get total => _itens.length;
 
   /// `null` means "not on the shelf" (or not loaded yet).
-  EstadoAcervo? estadoDe(TipoMidia? tipo, int tmdbId) => _estados[chaveEstado(tipo, tmdbId)];
+  ///
+  /// The type is required: the id alone is ambiguous (movie 550 and series 550
+  /// are different titles), so a caller that does not know the type cannot ask
+  /// this question — it has to wait for the title's data.
+  EstadoAcervo? estadoDe(TipoMidia tipo, int tmdbId) => _estados[chaveEstado(tipo, tmdbId)];
+
+  /// Clears the previous session's state **without notifying**.
+  ///
+  /// The screen calls this from `initState`, before its first build: the
+  /// ViewModel is created once at the root, so on the second login it still
+  /// holds the previous account's shelf, and notifying during `initState` is not
+  /// allowed. Clearing it here is what keeps the old count off the first frame;
+  /// `load()` right after does the notifying.
+  void reset() {
+    _itens = const <AcervoItem>[];
+    _estados = const <String, EstadoAcervo>{};
+    _error = null;
+    _isLoading = true;
+  }
 
   Future<void> load() async {
-    // Reset before asking: this ViewModel is created once at the root, so
-    // without it a new account would see the previous one's shelf for a frame.
+    // Generation counter: a request from the previous account can answer after
+    // the new one (the app does not cancel it on sign-out), and applying it
+    // would repopulate the shelf with someone else's titles. Only the newest
+    // call is allowed to write state.
+    final int geracao = ++_geracao;
+
+    // Reset before asking: without it a new account could see the previous
+    // one's shelf while the request is on its way.
     _itens = const <AcervoItem>[];
     _estados = const <String, EstadoAcervo>{};
     _isLoading = true;
@@ -37,7 +65,9 @@ class AcervoViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      switch (await _repository.listar()) {
+      final Result<List<AcervoItem>> resultado = await _repository.listar();
+      if (geracao != _geracao) return;
+      switch (resultado) {
         case Ok<List<AcervoItem>>(:final value):
           _itens = List<AcervoItem>.unmodifiable(value);
           _estados = _mapaDeEstados(_itens);
@@ -45,14 +75,17 @@ class AcervoViewModel extends ChangeNotifier {
           _error = error.mensagem;
       }
     } on Exception catch (error) {
+      if (geracao != _geracao) return;
       // Same contract as the other ViewModels: a repository answers a `Result`
       // and never throws. Without the `finally` below, a contract break would
       // leave the shelf loading forever, with no retry.
       debugPrint('[AppSeries] acervo fora do contrato: $error');
       _error = const ServerError().mensagem;
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      if (geracao == _geracao) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
   }
 

@@ -26,6 +26,10 @@ class _HomePageState extends State<HomePage> {
     // account's answer, error screen included, without asking the backend again.
     // Loading from here — and this widget is mounted anew on every login — is
     // what makes the second account start clean.
+    //
+    // The shelf is cleared synchronously (no notify: this is inside the build
+    // phase) so its count never appears for a frame before the request.
+    context.read<AcervoViewModel>().reset();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<HomeViewModel>().load();

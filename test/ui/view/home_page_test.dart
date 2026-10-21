@@ -43,6 +43,18 @@ class _FakeAcervoRepository implements AcervoRepository {
   Future<Result<List<AcervoItem>>> listar() async => Result<List<AcervoItem>>.ok(itens);
 }
 
+/// Falha na primeira chamada e responde vazio na segunda: prova o retry.
+class _FakeAcervoFalhaDepoisOk implements AcervoRepository {
+  int chamadas = 0;
+
+  @override
+  Future<Result<List<AcervoItem>>> listar() async {
+    chamadas++;
+    if (chamadas == 1) return const Result<List<AcervoItem>>.error(NetworkError());
+    return const Result<List<AcervoItem>>.ok(<AcervoItem>[]);
+  }
+}
+
 class _FakeAuthRepository implements AuthRepository {
   _FakeAuthRepository({this.saidaFalha = false, this.pendurarSaida = false});
 
@@ -144,6 +156,68 @@ void main() {
       );
 
       expect(find.text('Seu acervo: 1 título'), findsOneWidget);
+    });
+
+    testWidgets('conta sem nada no acervo mostra 0', (tester) async {
+      await _montar(tester);
+
+      expect(find.text('Seu acervo: 0 títulos'), findsOneWidget);
+    });
+
+    testWidgets('acervo que falha não derruba a home e o retry recarrega', (tester) async {
+      final _FakeAcervoFalhaDepoisOk repo = _FakeAcervoFalhaDepoisOk();
+
+      await _montar(tester, acervo: repo);
+
+      expect(
+        find.text('Backend respondeu: ok'),
+        findsOneWidget,
+        reason: 'o health continua na tela: o acervo é um bloco, não a tela',
+      );
+      expect(
+        find.text('Sem conexão com a internet. Confira sua rede e tente de novo.'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.widgetWithText(TextButton, 'Tentar de novo'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(repo.chamadas, 2);
+      expect(find.text('Seu acervo: 0 títulos'), findsOneWidget);
+    });
+
+    testWidgets('no primeiro frame após o login não mostra a contagem da conta anterior',
+        (tester) async {
+      final AcervoViewModel anterior = AcervoViewModel(
+        _FakeAcervoRepository(<AcervoItem>[
+          for (int i = 0; i < 7; i++)
+            AcervoItem(tmdbId: i, estado: EstadoAcervo.watched, tipo: TipoMidia.movie),
+        ]),
+      );
+      await anterior.load();
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<HomeViewModel>(
+              create: (_) => HomeViewModel(_FakeHealthRepository()),
+            ),
+            ChangeNotifierProvider<AuthViewModel>(
+              create: (_) => AuthViewModel(_FakeAuthRepository()),
+            ),
+            ChangeNotifierProvider<AcervoViewModel>.value(value: anterior),
+          ],
+          child: const MaterialApp(home: HomePage()),
+        ),
+      );
+
+      expect(
+        find.text('Seu acervo: 7 títulos'),
+        findsNothing,
+        reason: 'o ViewModel sobrevive ao logout: o frame 1 não pode desenhar o dado da conta anterior',
+      );
+      expect(find.text('Carregando seu acervo...'), findsOneWidget);
     });
 
     testWidgets('mostra o e-mail de quem está logado', (tester) async {

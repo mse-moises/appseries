@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:appseries/data/api_models/acervo_item.dart';
 import 'package:appseries/data/repositories/acervo_repository.dart';
 import 'package:appseries/ui/view_model/acervo_view_model.dart';
@@ -65,10 +67,13 @@ void main() {
     });
 
     test('linha sem tipo não sobrescreve a linha tipada do mesmo id', () async {
+      // A API devolve "mais recente primeiro": a linha realista é a tipada vir
+      // antes. Nesta ordem, um laço único escreveria `dropped` por cima da
+      // série e o teste passaria mentindo — só as duas passadas acertam.
       final vm = AcervoViewModel(
         _FakeAcervoRepository(Result<List<AcervoItem>>.ok(<AcervoItem>[
-          _item(tmdbId: 550, estado: EstadoAcervo.dropped, tipo: null),
           _item(tmdbId: 550, estado: EstadoAcervo.watched, tipo: TipoMidia.tv),
+          _item(tmdbId: 550, estado: EstadoAcervo.dropped, tipo: null),
         ])),
       );
 
@@ -127,6 +132,33 @@ void main() {
       expect(totais, hasLength(2));
     });
 
+    test('resposta de uma carga antiga não sobrescreve a carga nova', () async {
+      final _FakeControlado repo = _FakeControlado();
+      final vm = AcervoViewModel(repo);
+
+      unawaited(vm.load()); // conta A: fica pendente
+      unawaited(vm.load()); // conta B: é a dona do estado
+      expect(repo.pendentes, 2);
+
+      repo.responder(1, Result<List<AcervoItem>>.ok(<AcervoItem>[_item(tmdbId: 550)]));
+      await Future<void>.delayed(Duration.zero);
+      expect(vm.total, 1);
+
+      // a conta anterior responde DEPOIS: tem de ser descartada
+      repo.responder(
+        0,
+        Result<List<AcervoItem>>.ok(<AcervoItem>[
+          _item(tmdbId: 1),
+          _item(tmdbId: 2),
+          _item(tmdbId: 3),
+        ]),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(vm.total, 1, reason: 'a resposta da conta anterior não pode entrar');
+      expect(vm.isLoading, isFalse);
+    });
+
     test('repository que lança não deixa a tela presa em carregando', () async {
       final vm = AcervoViewModel(_FakeQueLanca());
 
@@ -136,6 +168,24 @@ void main() {
       expect(vm.error, 'O servidor deu uma escorregada. Tente em instantes.');
     });
   });
+}
+
+/// Cada chamada fica pendente até o teste responder: é como se prova a ordem.
+class _FakeControlado implements AcervoRepository {
+  final List<Completer<Result<List<AcervoItem>>>> _pendentes =
+      <Completer<Result<List<AcervoItem>>>>[];
+
+  int get pendentes => _pendentes.length;
+
+  void responder(int indice, Result<List<AcervoItem>> resposta) =>
+      _pendentes[indice].complete(resposta);
+
+  @override
+  Future<Result<List<AcervoItem>>> listar() {
+    final Completer<Result<List<AcervoItem>>> c = Completer<Result<List<AcervoItem>>>();
+    _pendentes.add(c);
+    return c.future;
+  }
 }
 
 class _FakeQueLanca implements AcervoRepository {

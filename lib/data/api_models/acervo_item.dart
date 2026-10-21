@@ -35,7 +35,7 @@ enum TipoMidia {
 /// *Till Death Us Do Part* (series), so a map keyed only by the TMDB id would
 /// answer the wrong state for one of them. The same pair is the primary key on
 /// the backend since migration 008.
-String chaveEstado(TipoMidia? tipo, int tmdbId) => '${tipo?.name ?? '-'}:$tmdbId';
+String chaveEstado(TipoMidia tipo, int tmdbId) => '${tipo.name}:$tmdbId';
 
 /// One line of `GET /api/v1/acervo`.
 ///
@@ -73,6 +73,4 @@ class AcervoItem {
   final DateTime? atualizadoEm;
 
   Map<String, dynamic> toJson() => _$AcervoItemToJson(this);
-
-  String get chave => chaveEstado(tipo, tmdbId);
 }
