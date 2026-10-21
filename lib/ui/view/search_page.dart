@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 
-/// Stub da fundação (AP-108): a rota, o endpoint e o repositório estão abertos. The route already exists so
-/// the real screen does not have to touch `routes_config.dart`.
+/// Stub da fundação (AP-108): a rota, o endpoint e o repositório estão abertos.
 ///
-/// Whoever takes **AP-44** replaces the body below and nothing else; the route,
-/// the endpoint and the repository are already open. The ViewModel and the
-/// screen are yours: `main.dart` still needs one line for your provider.
+/// Quem pegar **AP-44** troca o corpo abaixo e nada mais. O ViewModel e a tela
+/// são da trilha; `main.dart` ainda precisa de uma linha para o provider.
 class SearchPage extends StatelessWidget {
   const SearchPage({super.key});
 

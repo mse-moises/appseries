@@ -59,6 +59,8 @@ class FeedbackItem {
   @JsonKey(unknownEnumValue: OrigemFeedback.desconhecido)
   final OrigemFeedback origem;
 
+  /// Nulo em linha anterior à migração 008. Nesse caso não há como remover o
+  /// sinal por tipo: a tela deve esconder a ação, não forçar `tipo!`.
   @JsonKey(unknownEnumValue: TipoMidia.desconhecido)
   final TipoMidia? tipo;
 

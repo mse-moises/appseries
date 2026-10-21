@@ -26,5 +26,9 @@ abstract class FeedbackRepository {
   ///
   /// O backend responde `404 not_found` quando o sinal já não estava lá: para
   /// quem chama, isso é o objetivo alcançado — a tela pode tratar como sucesso.
+  ///
+  /// `tipo` é obrigatório: um `FeedbackItem` com `tipo` nulo (linha anterior à
+  /// migração 008) não tem como ser removido por aqui, então a tela não deve
+  /// oferecer a ação para ele.
   Future<Result<void>> remover(TipoMidia tipo, int tmdbId);
 }

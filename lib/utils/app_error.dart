@@ -59,7 +59,7 @@ final class BuscaInvalidaError extends AppError {
 /// Separado do acervo de propósito: a ação é outra e a pessoa lê a frase certa.
 final class FeedbackIndisponivelError extends AppError {
   const FeedbackIndisponivelError()
-      : super('feedback_indisponivel', 'Não deu para registrar seu gosto agora. Tente de novo.');
+      : super('feedback_indisponivel', 'Não deu para registrar seu gosto. Atualize o app.');
 }
 
 /// Título que não dá para abrir porque o tipo veio fora do contrato.
