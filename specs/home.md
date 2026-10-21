@@ -100,13 +100,14 @@ saem (se o dono aprovar):
 ## Passos (um commit por assunto)
 
 1. `docs(home): spec da home com carrosseis`
-2. `feat(home): models do item de TMDB e da resposta com resultados`
+2. `feat(home): models do item de TMDB e da resposta com resultados` (o `TipoMidia` saiu para
+   `tipo_midia.dart`, para o acervo e o catálogo usarem o mesmo enum)
 3. `feat(home): em-alta e populares no RestClient`
 4. `feat(home): repositorio de titulos com erro tipado` + testes
 5. `feat(home): view model com dois carrosseis independentes` + testes
-6. `feat(home): carrosseis, cards com cache de poster e atribuicao` + widget test
-7. `refactor(home): remove o health da home` (se aprovado)
-8. `docs(home): fecha o tutorial e a spec`
+6. `feat(home): carrosseis com cache de poster e atribuicao, e saida do health` — a remoção do
+   health entrou junto porque é a mesma mudança de tela (a home deixa de ser prova de fiação)
+7. `docs(home): fecha a spec com a validação`
 
 ## Critério de pronto
 
@@ -120,6 +121,18 @@ saem (se o dono aprovar):
 - pôster nulo vira card cinza com ícone (não quebra)
 - pôsteres não são rebaixados ao rolar para baixo e voltar (cache)
 - horas das subtarefas atualizadas no Jira
+
+## Validação feita (21/10)
+
+- `flutter analyze` limpo e `flutter test` **166/166**
+- `flutter build web --release` ok, com as strings dos dois carrosséis e da atribuição no bundle
+- **prova real dos endpoints** com token da conta de teste, contra produção: `/em-alta` e
+  `/populares` devolveram 10 itens cada, **5 filmes + 5 séries intercalados**, todos com
+  `posterPath`. É o dado que a tela desenha
+- teste de widget da home: dois carrosséis, atribuição, contagem do acervo, seção que falha sem
+  derrubar a outra e o primeiro frame sem os títulos da conta anterior
+- **aberto**: ver na tela logado (a leitura depende de sessão), rolar os carrosséis e conferir
+  ausência de overflow em 360x640
 
 ## Riscos
 
