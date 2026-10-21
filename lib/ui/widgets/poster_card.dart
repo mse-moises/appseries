@@ -50,12 +50,13 @@ class PosterCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            item.titulo,
+            item.titulo.isEmpty ? 'Sem título' : item.titulo,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodySmall,
           ),
-          if (item.ano != null)
+          // O backend manda `""` (não null) quando o título não tem data.
+          if (item.ano != null && item.ano!.isNotEmpty)
             Text(
               item.ano!,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(

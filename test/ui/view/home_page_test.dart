@@ -100,16 +100,6 @@ class _FakeAuthRepository implements AuthRepository {
   void emitir(AppUser? user) => _sessao.add(user);
 }
 
-/// O rodapé (contagem do acervo e atribuição) fica abaixo dos carrosséis, e a
-/// `ListView` só constrói o que está perto da tela: o teste precisa rolar.
-Future<void> _rolarParaRodape(WidgetTester tester) async {
-  // O primeiro `ListView` da árvore é o vertical da home (os carrosséis são
-  // `ListView` horizontais dentro dele).
-  await tester.drag(find.byType(ListView).first, const Offset(0, -400));
-  await tester.pump();
-  await tester.pump();
-}
-
 /// A home carrega dois carrosséis em sequência, então precisa de mais de um
 /// frame para assentar.
 Future<void> _assentar(WidgetTester tester) async {
@@ -167,14 +157,12 @@ void main() {
 
     testWidgets('mostra a atribuição do TMDB', (tester) async {
       await _montar(tester);
-      await _rolarParaRodape(tester);
 
       expect(find.textContaining('TMDB API'), findsOneWidget);
     });
 
     testWidgets('conta sem nada no acervo mostra 0', (tester) async {
       await _montar(tester);
-      await _rolarParaRodape(tester);
 
       expect(find.text('Seu acervo: 0 títulos'), findsOneWidget);
     });
@@ -200,7 +188,6 @@ void main() {
       final _FakeAcervoFalhaDepoisOk repo = _FakeAcervoFalhaDepoisOk();
 
       await _montar(tester, acervo: repo);
-      await _rolarParaRodape(tester);
 
       expect(find.text('Título 1'), findsOneWidget, reason: 'os carrosséis continuam na tela');
       expect(
@@ -245,6 +232,58 @@ void main() {
         find.text('Título 7'),
         findsNothing,
         reason: 'o ViewModel sobrevive ao logout: o frame 1 não pode desenhar o dado anterior',
+      );
+    });
+
+    testWidgets('mostra com qual conta ela está logada', (tester) async {
+      final auth = await _montar(tester);
+
+      auth.emitir(_livia);
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('livia@exemplo.com'), findsOneWidget);
+    });
+
+    testWidgets('montar de novo recarrega: a segunda conta não herda a primeira',
+        (tester) async {
+      final _FakeTituloRepository repo = _FakeTituloRepository(
+        respostaEmAlta: _lista(<int>[1]),
+        respostaPopulares: _lista(<int>[2]),
+      );
+      final HomeViewModel homeVm = HomeViewModel(repo);
+      final AcervoViewModel acervoVm = AcervoViewModel(_FakeAcervoRepository());
+
+      Future<void> montar() async {
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider<HomeViewModel>.value(value: homeVm),
+              ChangeNotifierProvider<AuthViewModel>(
+                create: (_) => AuthViewModel(_FakeAuthRepository()),
+              ),
+              ChangeNotifierProvider<AcervoViewModel>.value(value: acervoVm),
+            ],
+            child: const MaterialApp(home: HomePage()),
+          ),
+        );
+        await _assentar(tester);
+      }
+
+      await montar();
+      expect(repo.chamadasEmAlta, 1);
+
+      // O logout desmonta a home: sem esta troca o `pumpWidget` só atualizaria a
+      // árvore existente e o `initState` não rodaria de novo.
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+
+      await montar();
+
+      expect(
+        repo.chamadasEmAlta,
+        2,
+        reason: 'a segunda conta não pode abrir com a resposta da primeira',
       );
     });
 
