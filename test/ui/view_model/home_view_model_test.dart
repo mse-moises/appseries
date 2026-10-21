@@ -109,6 +109,24 @@ void main() {
       expect(vm.populares.itens.map((TmdbItem t) => t.id), <int>[3]);
     });
 
+    test('o mesmo id em tipos diferentes sobrevive ao dedupe', () async {
+      final vm = HomeViewModel(
+        _FakeTituloRepository(
+          respostaEmAlta: Result<List<TmdbItem>>.ok(<TmdbItem>[
+            const TmdbItem(id: 550, tipo: TipoMidia.movie, titulo: 'Filme 550'),
+          ]),
+          respostaPopulares: Result<List<TmdbItem>>.ok(<TmdbItem>[
+            const TmdbItem(id: 550, tipo: TipoMidia.tv, titulo: 'Série 550'),
+          ]),
+        ),
+      );
+
+      await vm.load();
+
+      expect(vm.populares.itens.map((TmdbItem t) => t.titulo), <String>['Série 550'],
+          reason: 'filme 550 e série 550 são títulos diferentes');
+    });
+
     test('erro em uma seção não apaga a outra', () async {
       final vm = HomeViewModel(
         _FakeTituloRepository(
@@ -181,19 +199,28 @@ void main() {
       );
     });
 
-    test('a segunda carga não devolve os títulos da sessão anterior', () async {
-      final repo = _FakeTituloRepository(
-        respostaEmAlta: _ok(<int>[1, 2, 3]),
-        respostaPopulares: _ok(<int>[4, 5, 6]),
-      );
+    test('a segunda carga zera as seções antes de responder', () async {
+      final _FakeControlado repo = _FakeControlado();
       final vm = HomeViewModel(repo);
 
-      await vm.load();
-      expect(vm.emAlta.itens, hasLength(3));
+      unawaited(vm.load());
+      repo.responderEmAlta(0, _ok(<int>[1]));
+      await pumpEventQueue();
+      repo.responderPopulares(0, _ok(<int>[2]));
+      await pumpEventQueue();
+      expect(vm.emAlta.itens, hasLength(1));
 
-      repo.respostaEmAlta = _ok(<int>[]);
-      repo.respostaPopulares = _ok(<int>[]);
-      await vm.load();
+      // segunda carga: começa e fica pendente
+      unawaited(vm.load());
+
+      expect(vm.emAlta.carregando, isTrue);
+      expect(vm.emAlta.itens, isEmpty, reason: 'os títulos antigos saem da tela já no início');
+      expect(vm.populares.carregando, isTrue);
+
+      repo.responderEmAlta(1, _ok(<int>[]));
+      await pumpEventQueue();
+      repo.responderPopulares(1, _ok(<int>[]));
+      await pumpEventQueue();
 
       expect(vm.emAlta.itens, isEmpty);
       expect(vm.populares.itens, isEmpty);
@@ -211,7 +238,25 @@ void main() {
 
       expect(vm.emAlta.itens, isEmpty);
       expect(vm.populares.itens, isEmpty);
+      expect(vm.emAlta.carregando, isTrue, reason: 'o primeiro frame tem de ser o spinner');
+      expect(vm.populares.vazio, isFalse);
       expect(avisos, 0, reason: 'reset roda no initState: não pode notificar');
+    });
+
+    test('reset invalida a requisição em voo mesmo sem load em seguida', () async {
+      final _FakeControlado repo = _FakeControlado();
+      final vm = HomeViewModel(repo);
+
+      unawaited(vm.load());
+      vm.reset();
+
+      // a sessão anterior responde depois do reset, sem nenhum load novo
+      repo.responderEmAlta(0, _ok(<int>[1]));
+      await pumpEventQueue();
+
+      expect(vm.emAlta.itens, isEmpty,
+          reason: 'a resposta da sessão que acabou não pode entrar');
+      expect(vm.emAlta.carregando, isTrue);
     });
 
     test('carga antiga terminando depois da nova não deixa carrossel girando', () async {
@@ -226,9 +271,9 @@ void main() {
 
       // B responde os dois carrosséis e termina
       repo.responderEmAlta(1, _ok(<int>[7]));
-      await Future<void>.delayed(Duration.zero);
+      await pumpEventQueue();
       repo.responderPopulares(0, _ok(<int>[3]));
-      await Future<void>.delayed(Duration.zero);
+      await pumpEventQueue();
 
       expect(vm.emAlta.itens.map((TmdbItem t) => t.id), <int>[7]);
       expect(vm.populares.itens.map((TmdbItem t) => t.id), <int>[3]);
@@ -237,8 +282,8 @@ void main() {
       // e ao resolver ela segue para o SEGUNDO carrossel — que é a carga velha
       // entrando depois de a nova ter terminado
       repo.responderEmAlta(0, _ok(<int>[9]));
-      await Future<void>.delayed(Duration.zero);
-      await Future<void>.delayed(Duration.zero);
+      await pumpEventQueue();
+      await pumpEventQueue();
 
       expect(repo.popularesPend, hasLength(1),
           reason: 'a carga velha não pode nem pedir o segundo carrossel');
@@ -256,7 +301,8 @@ void main() {
       await vm.load();
 
       expect(vm.emAlta.carregando, isFalse);
-      expect(vm.emAlta.erro, isNotNull);
+      expect(vm.emAlta.erro, const ServerError().mensagem);
+      expect(vm.populares.itens, hasLength(1), reason: 'a outra seção carrega normalmente');
     });
 
     test('repository que lança não deixa a seção presa em carregando', () async {

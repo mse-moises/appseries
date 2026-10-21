@@ -48,6 +48,16 @@ void main() {
       expect(item.ano, isEmpty);
     });
 
+    test('id que chega como número decimal continua inteiro', () {
+      final TmdbItem item = TmdbItem.fromJson(<String, dynamic>{
+        'id': 123.0,
+        'tipo': 'movie',
+        'titulo': 'X',
+      });
+
+      expect(item.id, 123);
+    });
+
     test('tipo fora do contrato vira desconhecido em vez de quebrar', () {
       final TmdbItem item = TmdbItem.fromJson(<String, dynamic>{
         'id': 1,

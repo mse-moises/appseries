@@ -10,6 +10,7 @@ import 'package:appseries/ui/view/home_page.dart';
 import 'package:appseries/ui/view_model/acervo_view_model.dart';
 import 'package:appseries/ui/view_model/auth_view_model.dart';
 import 'package:appseries/ui/view_model/home_view_model.dart';
+import 'package:appseries/ui/widgets/carousel_section.dart';
 import 'package:appseries/utils/app_error.dart';
 import 'package:appseries/utils/result.dart';
 import 'package:flutter/material.dart';
@@ -49,6 +50,16 @@ class _FakeAcervoRepository implements AcervoRepository {
   @override
   Future<Result<List<AcervoItem>>> listar() async =>
       const Result<List<AcervoItem>>.ok(<AcervoItem>[]);
+}
+
+class _FakeAcervoComItens implements AcervoRepository {
+  @override
+  Future<Result<List<AcervoItem>>> listar() async => Result<List<AcervoItem>>.ok(
+        <AcervoItem>[
+          for (int i = 0; i < 3; i++)
+            AcervoItem(tmdbId: i, estado: EstadoAcervo.watched, tipo: TipoMidia.movie),
+        ],
+      );
 }
 
 /// Falha na primeira chamada e responde vazio na segunda: prova o retry.
@@ -167,14 +178,13 @@ void main() {
       expect(find.text('Seu acervo: 0 títulos'), findsOneWidget);
     });
 
-    testWidgets('carrossel que falha não derruba o outro', (tester) async {
-      await _montar(
-        tester,
-        titulos: _FakeTituloRepository(
-          respostaEmAlta: const Result<List<TmdbItem>>.error(NetworkError()),
-          respostaPopulares: _lista(<int>[3]),
-        ),
+    testWidgets('carrossel que falha não derruba o outro e o retry recarrega só ele',
+        (tester) async {
+      final _FakeTituloRepository repo = _FakeTituloRepository(
+        respostaEmAlta: const Result<List<TmdbItem>>.error(NetworkError()),
+        respostaPopulares: _lista(<int>[3]),
       );
+      await _montar(tester, titulos: repo);
 
       expect(find.text('Em alta'), findsOneWidget);
       expect(
@@ -182,6 +192,20 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Título 3'), findsOneWidget);
+
+      // o retry do carrossel que falhou, e não o do outro
+      repo.respostaEmAlta = _lista(<int>[1]);
+      await tester.tap(
+        find.descendant(
+          of: find.widgetWithText(CarouselSection, 'Em alta'),
+          matching: find.widgetWithText(TextButton, 'Tentar de novo'),
+        ),
+      );
+      await _assentar(tester);
+
+      expect(find.text('Título 1'), findsOneWidget);
+      expect(repo.chamadasEmAlta, 2);
+      expect(repo.chamadasPopulares, 1, reason: 'Populares não pode ser recarregado junto');
     });
 
     testWidgets('acervo que falha não derruba a home e o retry recarrega', (tester) async {
@@ -202,37 +226,40 @@ void main() {
       expect(find.text('Seu acervo: 0 títulos'), findsOneWidget);
     });
 
-    testWidgets('no primeiro frame após o login não mostra os títulos da conta anterior',
+    testWidgets('no primeiro frame após o login não mostra dados da conta anterior',
         (tester) async {
-      final HomeViewModel anterior = HomeViewModel(
+      // conta anterior, já carregada: dois títulos e três itens no acervo
+      final HomeViewModel homeAnterior = HomeViewModel(
         _FakeTituloRepository(
           respostaEmAlta: _lista(<int>[7, 8]),
           respostaPopulares: _lista(<int>[9]),
         ),
       );
-      await anterior.load();
-      expect(anterior.emAlta.itens, hasLength(2));
+      await homeAnterior.load();
+      final AcervoViewModel acervoAnterior = AcervoViewModel(_FakeAcervoComItens());
+      await acervoAnterior.load();
+      expect(homeAnterior.emAlta.itens, hasLength(2));
+      expect(acervoAnterior.total, 3);
 
       await tester.pumpWidget(
         MultiProvider(
           providers: [
-            ChangeNotifierProvider<HomeViewModel>.value(value: anterior),
+            ChangeNotifierProvider<HomeViewModel>.value(value: homeAnterior),
             ChangeNotifierProvider<AuthViewModel>(
               create: (_) => AuthViewModel(_FakeAuthRepository()),
             ),
-            ChangeNotifierProvider<AcervoViewModel>(
-              create: (_) => AcervoViewModel(_FakeAcervoRepository()),
-            ),
+            ChangeNotifierProvider<AcervoViewModel>.value(value: acervoAnterior),
           ],
           child: const MaterialApp(home: HomePage()),
         ),
       );
 
-      expect(
-        find.text('Título 7'),
-        findsNothing,
-        reason: 'o ViewModel sobrevive ao logout: o frame 1 não pode desenhar o dado anterior',
-      );
+      // o primeiro frame é do reset, não dos dados de quem saiu
+      expect(find.text('Título 7'), findsNothing,
+          reason: 'os títulos da conta anterior não podem aparecer');
+      expect(find.text('Seu acervo: 3 títulos'), findsNothing,
+          reason: 'a contagem da conta anterior não pode aparecer');
+      expect(find.text('Carregando seu acervo...'), findsOneWidget);
     });
 
     testWidgets('mostra com qual conta ela está logada', (tester) async {
@@ -292,10 +319,20 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
 
-      await _montar(tester);
-      await _assentar(tester);
+      final auth = await _montar(tester);
+      // e-mail longo de propósito: o rodapé tem de truncar em uma linha
+      auth.emitir(
+        const AppUser(id: 'u1', email: 'nome.sobrenome.comprido@exemplo-interno.com.br'),
+      );
+      await tester.pump();
+      await tester.pump();
 
       expect(tester.takeException(), isNull, reason: 'overflow de layout vira exceção no teste');
+      expect(find.text('nome.sobrenome.comprido@exemplo-interno.com.br'), findsOneWidget);
+      final Text textoEmail =
+          tester.widget<Text>(find.text('nome.sobrenome.comprido@exemplo-interno.com.br'));
+      expect(textoEmail.maxLines, 1, reason: 'e-mail longo trunca, não quebra a linha');
+      expect(textoEmail.overflow, TextOverflow.ellipsis);
       expect(find.text('Seu acervo: 0 títulos'), findsOneWidget);
       expect(find.textContaining('TMDB API'), findsOneWidget);
     });

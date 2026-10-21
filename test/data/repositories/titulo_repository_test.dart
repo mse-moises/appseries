@@ -90,7 +90,18 @@ void main() {
       final result = await repo.emAlta();
 
       expect(result.errorOrNull, isA<ServerError>());
-      expect(result.errorOrNull?.mensagem, isNot(contains('502')));
+      expect(result.errorOrNull?.mensagem, const ServerError().mensagem);
+    });
+
+    test('401 sem corpo de erro vira UnauthorizedError (sessão expirada)', () async {
+      final repo = TituloRepositoryImpl(
+        _FakeRestClient(error: _erroHttp(401, <String, String>{})),
+      );
+
+      final result = await repo.emAlta();
+
+      expect(result.errorOrNull, isA<UnauthorizedError>());
+      expect(result.errorOrNull?.mensagem, const UnauthorizedError().mensagem);
     });
 
     test('queda de conexão vira NetworkError', () async {
@@ -116,7 +127,7 @@ void main() {
       final result = await repo.emAlta();
 
       expect(result.errorOrNull, isA<ServerError>());
-      expect(result.errorOrNull?.mensagem, isNot(contains('502')));
+      expect(result.errorOrNull?.mensagem, const ServerError().mensagem);
       expect(result.valueOrNull, isNull);
     });
   });
