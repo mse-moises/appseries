@@ -25,6 +25,7 @@ import 'ui/view_model/acervo_view_model.dart';
 import 'ui/view_model/auth_view_model.dart';
 import 'ui/view_model/home_view_model.dart';
 import 'ui/view_model/login_view_model.dart';
+import 'ui/view_model/marcar_acervo_view_model.dart';
 import 'utils/env.dart';
 
 Future<void> main() async {
@@ -93,6 +94,14 @@ class AppSeries extends StatelessWidget {
           // AP-109: 👍/👎 mora no servidor, preso à conta e ao par (tipo, tmdbId).
           Provider<FeedbackRepository>(
             create: (ctx) => FeedbackRepositoryImpl(ctx.read<RestClient>()),
+          ),
+          // AP-56: marcar o estado e, no abandono, gravar o motivo como peso do
+          // gosto. Depende dos dois repositórios, então vem depois deles.
+          ChangeNotifierProvider<MarcarAcervoViewModel>(
+            create: (ctx) => MarcarAcervoViewModel(
+              acervo: ctx.read<AcervoRepository>(),
+              feedback: ctx.read<FeedbackRepository>(),
+            ),
           ),
         ],
         child: const App(),
