@@ -23,7 +23,19 @@ void main() {
       expect(f.origem, OrigemFeedback.abandono);
       expect(f.tipo, TipoMidia.tv);
       expect(f.posterPath, '/x.jpg');
-      expect(f.atualizadoEm, isNotNull);
+      expect(f.titulo, 'Game of Thrones');
+      expect(f.ano, '2011');
+      expect(f.atualizadoEm, DateTime.utc(2026, 10, 20, 12));
+    });
+
+    test('peso que chega como decimal continua inteiro', () {
+      final FeedbackItem f = FeedbackItem.fromJson(<String, dynamic>{
+        'tmdbId': 1,
+        'sinal': 'like',
+        'peso': 2.0,
+      });
+
+      expect(f.peso, 2);
     });
 
     test('sinal e origem fora do contrato não quebram a lista', () {

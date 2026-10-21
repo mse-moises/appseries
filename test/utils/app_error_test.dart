@@ -137,12 +137,17 @@ void main() {
         'invalid_generos',
         'invalid_momento',
         'momento_too_long',
-        'invalid_sinal',
-        'invalid_peso',
-        'invalid_origem',
       ];
       for (final String codigo in codigos) {
         expect(appErrorFromCodigo(codigo), isA<ConflictError>(), reason: codigo);
+      }
+    });
+
+    test('corpo de feedback inválido não promete "tentar de novo"', () {
+      for (final String codigo in <String>['invalid_sinal', 'invalid_peso', 'invalid_origem']) {
+        final AppError error = appErrorFromCodigo(codigo);
+        expect(error, isA<FeedbackIndisponivelError>(), reason: codigo);
+        expect(error.mensagem, isNot(contains('salvar')), reason: codigo);
       }
     });
 
@@ -193,6 +198,10 @@ void main() {
       GoogleIndisponivelError(),
       JanelaBloqueadaError(),
       GoogleFalhouError(),
+      BuscaInvalidaError(),
+      TituloIndisponivelError(),
+      AcervoIndisponivelError(),
+      FeedbackIndisponivelError(),
     ];
 
     for (final AppError error in erros) {
