@@ -75,7 +75,9 @@ numa origem nova, ela precisa entrar lá, senão o app abre, loga e não consegu
 A feature de **login** é o molde completo das camadas (Service → Repository → ViewModel → View).
 Para rota nomeada e DTO de backend, o exemplo vivo é a feature de **health**
 (`data/api_models/health_status.dart` e a estrutura de `utils/routes_config.dart`), que o
-login ainda não usa. Copie o caminho dela:
+login ainda não usa. **O exemplo comentado, passo a passo e com as armadilhas medidas, é a
+feature de acervo em [`docs/tutorial-acervo.md`](docs/tutorial-acervo.md)** — leia antes de
+começar a sua. Copie o caminho dela:
 
 1. branch a partir da `main`: `git checkout main && git pull && git checkout -b feature/AP-XX-nome-curto`
 2. `<Nome>Service` em `data/services/` — o acesso ao mundo externo, **sem estado**.

@@ -1,0 +1,395 @@
+# Tutorial — a feature de acervo, camada por camada
+
+> **Para quem está começando no app.** Este documento é o exemplo real de como uma feature
+> nasce neste repositório, usando a tarefa **AP-26/AP-28 (acervo na nuvem)**. A ideia é que
+> você leia este arquivo e consiga fazer a sua própria task copiando o caminho.
+>
+> Regras do projeto: [`constitution.md`](../constitution.md) · o plano desta fatia:
+> [`specs/acervo.md`](../specs/acervo.md) · o resumo dos 7 passos:
+> [`README.md`](../README.md#como-criar-uma-feature-nova-7-passos).
+>
+> É um guia escrito **junto com a implementação**. Se algum trecho divergir do código, o
+> código é a verdade: abra o arquivo citado e compare.
+
+## O que a feature faz
+
+O acervo é o que a usuária marcou: "quero ver", "assistindo", "assistido", "abandonei".
+Esse dado mora no **servidor**, preso à conta. Nesta fatia o app só **lê** a lista
+(`GET /api/v1/acervo`) e deixa ela disponível para as telas. Não tem tela nova ainda: as
+abas do acervo são a tarefa AP-59.
+
+## Antes de encostar no código: entenda as 4 camadas
+
+```
+View (tela)  →  ViewModel  →  Repository  →  Service  →  backend
+   desenha      estado        contrato+impl    HTTP
+```
+
+- **Service**: fala com o mundo externo. Aqui é o `RestClient` (retrofit sobre o `dio`). Não
+  guarda estado e não sabe se a tela está carregando.
+- **Repository**: recebe o Service e devolve sempre `Result<T>` — `Ok(valor)` ou
+  `Error(AppError)`. Nunca joga exceção para a tela.
+- **ViewModel**: é o dono do estado da tela (carregando, erro, dados) e avisa a View com
+  `notifyListeners()`.
+- **View**: desenha e repassa toque. Nunca chama Service.
+
+O `login` é o molde completo dessas camadas; o `health` é o molde mais curto e é o que vamos
+copiar aqui, porque ele também só **lê** um endpoint.
+
+## Passo 0 — branch
+
+```bash
+git checkout main && git pull
+git checkout -b feature/AP-28-acervo-na-nuvem
+```
+
+O nome segue `feature/<chave-do-Jira>-<nome-curto>`. Só existe `main` como branch de vida
+longa; a volta é sempre por PR com 1 review.
+
+## Passo 1 — model (o formato do dado)
+
+`lib/data/api_models/acervo_item.dart`
+
+**Por que**: o JSON chega como `Map<String, dynamic>`. O model transforma isso em objeto
+tipado, e o `build_runner` gera a tradução (`acervo_item.g.dart`) para você não escrever
+`json['tmdbId']` na mão em cada lugar.
+
+```dart
+import 'package:json_annotation/json_annotation.dart';
+
+part 'acervo_item.g.dart';
+
+/// The four states a title can have on the user's shelf.
+enum EstadoAcervo {
+  @JsonValue('plan_to_watch')
+  planToWatch,
+  @JsonValue('watching')
+  watching,
+  @JsonValue('watched')
+  watched,
+  @JsonValue('dropped')
+  dropped,
+
+  /// A value this app version does not know (server newer than the app).
+  /// It must not break the whole list.
+  @JsonValue('desconhecido')
+  desconhecido,
+}
+
+/// `movie` or `tv` — the TMDB numbers each in its own space.
+enum TipoMidia {
+  @JsonValue('movie')
+  movie,
+  @JsonValue('tv')
+  tv,
+  @JsonValue('desconhecido')
+  desconhecido,
+}
+
+/// Key of a shelf line: the same TMDB id can be a movie AND a series
+/// (`550` is *Fight Club* and also *Till Death Us Do Part*), so the id alone
+/// is not enough to know whose state we are reading.
+String chaveEstado(TipoMidia? tipo, int tmdbId) => '${tipo?.name ?? '-'}:$tmdbId';
+
+/// One line of `GET /api/v1/acervo`.
+@JsonSerializable()
+class AcervoItem {
+  const AcervoItem({
+    required this.tmdbId,
+    required this.estado,
+    this.tipo,
+    this.titulo,
+    this.ano,
+    this.posterPath,
+    this.atualizadoEm,
+  });
+
+  factory AcervoItem.fromJson(Map<String, dynamic> json) => _$AcervoItemFromJson(json);
+
+  final int tmdbId;
+  @JsonKey(unknownEnumValue: EstadoAcervo.desconhecido)
+  final EstadoAcervo estado;
+  @JsonKey(unknownEnumValue: TipoMidia.desconhecido)
+  final TipoMidia? tipo;
+  final String? titulo;
+
+  /// Keeps the API type: the backend sends `"2011"`, not `2011`.
+  final String? ano;
+  final String? posterPath;
+  final DateTime? atualizadoEm;
+
+  Map<String, dynamic> toJson() => _$AcervoItemToJson(this);
+
+  String get chave => chaveEstado(tipo, tmdbId);
+}
+```
+
+Depois de salvar:
+
+```bash
+dart run build_runner build --delete-conflicting-outputs
+```
+
+**Como conferir**: o arquivo `acervo_item.g.dart` apareceu ao lado. Sem ele o compilador
+reclama de `_$AcervoItemFromJson` (erro de `part of`, que assusta e não diz a causa).
+
+**Erro comum**: tratar `ano` como `int`. O backend devolve string, porque ano de série às
+vezes não é número ("2011–2019").
+
+## Passo 2 — endpoint no Service
+
+`lib/data/services/rest_client.dart` (arquivo que já existe)
+
+**Por que**: o `RestClient` é a única porta para o backend, e o token do Firebase entra por
+interceptor do `dio` — por isso **nenhum método recebe token**.
+
+```dart
+/// `GET /api/v1/acervo` — everything the signed-in user marked, newest first.
+@GET('/api/v1/acervo')
+Future<List<AcervoItem>> acervo();
+```
+
+Importe o model no topo (`import '../api_models/acervo_item.dart';`) e rode o
+`build_runner` de novo: o `rest_client.g.dart` muda.
+
+**Erro comum**: usar `@GET('api/v1/acervo')` sem a barra inicial. A `baseUrl` é só o host,
+então o path precisa começar com `/`.
+
+## Passo 3 — repository (contrato + implementação)
+
+`lib/data/repositories/acervo_repository.dart`
+
+```dart
+import '../../utils/result.dart';
+import '../api_models/acervo_item.dart';
+
+/// Contract of the shelf resource. The ViewModel depends on this, never on the
+/// implementation: that is what lets a test pass a fake.
+abstract class AcervoRepository {
+  Future<Result<List<AcervoItem>>> listar();
+}
+```
+
+`lib/data/repositories/acervo_repository_impl.dart`
+
+```dart
+import 'package:dio/dio.dart';
+
+import '../../utils/app_error.dart';
+import '../../utils/result.dart';
+import '../api_models/acervo_item.dart';
+import '../services/error_mapper.dart';
+import '../services/rest_client.dart';
+import 'acervo_repository.dart';
+
+/// Talks to the backend through [RestClient] and always answers a `Result`.
+class AcervoRepositoryImpl implements AcervoRepository {
+  AcervoRepositoryImpl(this._api);
+
+  final RestClient _api;
+
+  @override
+  Future<Result<List<AcervoItem>>> listar() async {
+    try {
+      return Result.ok(await _api.acervo());
+    } on DioException catch (e) {
+      return Result.error(appErrorFromDio(e));
+    } catch (_) {
+      // A body in an unexpected shape (breaking fromJson, for instance) must
+      // not escape either: the screen would stay loading forever.
+      return const Result<List<AcervoItem>>.error(ServerError());
+    }
+  }
+}
+```
+
+**Como conferir**: `flutter analyze` limpo.
+
+**Por que esse `catch (_)`**: o contrato do repository é *sempre* responder `Result`. Se
+deixar uma exceção escapar, o ViewModel precisa adivinhar, e é assim que tela fica presa em
+"carregando".
+
+## Passo 4 — ViewModel (o estado da tela)
+
+`lib/ui/view_model/acervo_view_model.dart`
+
+```dart
+import 'package:flutter/foundation.dart';
+
+import '../../data/api_models/acervo_item.dart';
+import '../../data/repositories/acervo_repository.dart';
+import '../../utils/app_error.dart';
+import '../../utils/result.dart';
+
+/// The user's shelf, as the screens need it: the list plus a lookup by title.
+class AcervoViewModel extends ChangeNotifier {
+  AcervoViewModel(this._repository);
+
+  final AcervoRepository _repository;
+
+  bool _isLoading = false;
+  String? _error;
+  List<AcervoItem> _itens = const <AcervoItem>[];
+  Map<String, EstadoAcervo> _estados = const <String, EstadoAcervo>{};
+
+  bool get isLoading => _isLoading;
+  String? get error => _error;
+  List<AcervoItem> get itens => _itens;
+  int get total => _itens.length;
+
+  /// `null` means "not on the shelf" (or unknown yet).
+  EstadoAcervo? estadoDe(TipoMidia? tipo, int tmdbId) => _estados[chaveEstado(tipo, tmdbId)];
+
+  Future<void> load() async {
+    // Reset first: the ViewModel is created once at the root, so without this
+    // a new account sees the previous one's shelf for a frame.
+    _itens = const <AcervoItem>[];
+    _estados = const <String, EstadoAcervo>{};
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      switch (await _repository.listar()) {
+        case Ok<List<AcervoItem>>(:final value):
+          _itens = List<AcervoItem>.unmodifiable(value);
+          _estados = <String, EstadoAcervo>{
+            for (final AcervoItem item in _itens)
+              if (item.tipo != TipoMidia.desconhecido) item.chave: item.estado,
+          };
+        case Error<List<AcervoItem>>(:final error):
+          _error = error.mensagem;
+      }
+    } on Exception catch (error) {
+      debugPrint('[AppSeries] acervo fora do contrato: $error');
+      _error = const ServerError().mensagem;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+}
+```
+
+**Por que `switch` com `Ok<T>()` / `Error<T>()`**: `Result` é `sealed`, então o compilador
+cobra os dois casos. É o mesmo desenho do `HomeViewModel`.
+
+## Passo 5 — ligar tudo (a injeção é aqui)
+
+`lib/main.dart`, dentro do `MultiProvider`:
+
+```dart
+Provider<AcervoRepository>(
+  create: (ctx) => AcervoRepositoryImpl(ctx.read<RestClient>()),
+),
+ChangeNotifierProvider<AcervoViewModel>(
+  create: (ctx) => AcervoViewModel(ctx.read<AcervoRepository>()),
+),
+```
+
+**Erro comum e caro**: esquecer esta parte. Não dá erro de `analyze` — dá erro em runtime,
+na primeira tela que chamar `context.read<AcervoViewModel>()`.
+
+## Passo 6 — View: carregar no login e provar na tela
+
+`lib/ui/view/home_page.dart`
+
+No `initState`, do lado do load que já existe:
+
+```dart
+WidgetsBinding.instance.addPostFrameCallback((_) {
+  if (!mounted) return;
+  context.read<HomeViewModel>().load();
+  context.read<AcervoViewModel>().load(); // AP-28: each login starts clean
+});
+```
+
+E no corpo, uma linha com a contagem (prova de que o dado veio do servidor):
+
+```dart
+Text('Seu acervo: ${context.watch<AcervoViewModel>().total} título(s)'),
+```
+
+**Por que no `initState` e não no `create` do provider**: o provider roda uma vez só. A tela
+é remontada a cada login, então é ela quem sabe que a sessão mudou.
+
+**Erro comum**: disparar `load()` dentro do `build()` — recarrega a cada rebuild, entra em
+loop com o `notifyListeners`.
+
+## Passo 7 — testes
+
+Dois arquivos, e nenhum toca a rede:
+
+`test/data/repositories/acervo_repository_test.dart` — dublê do `RestClient`:
+
+```dart
+class _FakeRestClient implements RestClient {
+  _FakeRestClient({this.itens, this.error});
+  final List<AcervoItem>? itens;
+  final Object? error;
+
+  @override
+  Future<List<AcervoItem>> acervo() async {
+    if (error != null) throw error!;
+    return itens!;
+  }
+
+  @override
+  Future<HealthStatus> health() => throw UnimplementedError(); // interface exige
+}
+```
+
+Casos mínimos: lista com itens → `Ok`; lista vazia → `Ok` com `[]`; `DioException` de
+credencial → `UnauthorizedError`; corpo inválido → `ServerError`.
+
+`test/ui/view_model/acervo_view_model_test.dart` — dublê do **contrato** `AcervoRepository`
+(um que devolve `Result` fixo e outro que devolve respostas em sequência, para provar a
+recarga). Casos mínimos: monta o mapa; `estadoDe(filme 550)` ≠ `estadoDe(série 550)`;
+segunda carga não devolve o dado da primeira.
+
+**Por que teste de repository e de ViewModel é obrigatório neste projeto**: são as camadas
+onde o bug real mora (erro sem tradução, estado que não volta a zero), e o widget test não
+pega isso. Widget test é bem-vindo, mas não bloqueia o PR.
+
+```bash
+flutter analyze && flutter test
+```
+
+## Passo 8 — verificação ao vivo e PR
+
+```bash
+flutter run -d chrome --web-port 8080
+```
+
+A porta **não é livre**: o backend libera só `http://localhost:8080` no CORS. Em outra porta
+a tela mostra erro de rede, e parece bug do app.
+
+Confira na tela:
+- conta com acervo → "Seu acervo: N título(s)" com o N que o backend tem
+- conta sem acervo → `0`
+- sair e entrar com outra conta → não pode mostrar o número da conta anterior nem por um frame
+
+Depois: `git push -u origin feature/AP-28-acervo-na-nuvem` e abre o PR (`gh pr create`),
+com 1 review de outra pessoa.
+
+## Armadilhas (medidas neste repo)
+
+- **`build_runner` esquecido** = erro de compilação confuso. Rode depois de mexer em DTO ou
+  no `RestClient`, e commite o `.g.dart` junto.
+- **crase no corpo do commit** dentro de aspas duplas vira *command substitution* no bash e
+  corrompe o texto: mensagem longa vai por `git commit -F arquivo`.
+- **arquivo sobrescrito em LF** num repo CRLF aparece inteiro modificado no diff: rode
+  `git diff --numstat <arquivo>` e veja se as deleções são só as linhas que você trocou.
+- **registrants de macos/windows/linux** aparecem modificados com diff vazio depois de
+  `pub get`/`flutter test`: não são seus, não faça stage.
+- **o token não vai em parâmetro**: o interceptor do `dio` põe `Authorization` em toda
+  requisição e desloga em 401. Se você viu 401, o problema está na sessão, não no endpoint.
+
+## Diário da implementação
+
+Preenchido a cada commit (é a parte que o resto do time mais usa: o que deu errado de
+verdade).
+
+| commit | o que entrou | o que aprendi |
+|---|---|---|
+| _(a preencher)_ | | |
