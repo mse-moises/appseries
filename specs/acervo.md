@@ -62,6 +62,10 @@ usuário). Campos reais, conferidos em `specs/contrato-api.md` do backend:
 | reset | o `load()` **zera a lista e avisa** antes de buscar | senão a conta nova vê o acervo da anterior por um frame |
 | falha do acervo | não derruba a home: a home mostra o health e uma linha do acervo com "tentar de novo" | o acervo é um bloco da tela, não a tela |
 | linha antiga sem `tipo` | o estado dela responde aos **dois** espaços (`movie` e `tv`), e a linha tipada do mesmo id tem precedência | sem isso, uma linha anterior à 008 nunca seria encontrada por `estadoDe(tipo, id)`; a precedência evita que ela apague o estado de um filme/série já tipado |
+| linha antiga sem `tipo` (**também** `desconhecido`) | mesma regra: cai no ramo ambíguo e responde aos dois espaços | `desconhecido` é um tipo que o app não sabe traduzir; tratá-lo como ambíguo é melhor que esconder o estado do título |
+| consulta do estado | `estadoDe` exige `TipoMidia` **não anulável** | o id sozinho é ambíguo; um parâmetro anulável devolveria "não está no acervo" em silêncio para quem não sabe o tipo |
+| primeiro frame após novo login | a tela chama `reset()` no `initState` (síncrono, sem notificar) e `_isLoading` nasce `true` | o ViewModel vive mais que a tela: sem isso o build 1 desenha a contagem da conta anterior antes do `postFrame` |
+| cargas concorrentes | contador de geração: só a chamada mais recente escreve estado | a requisição da conta anterior não é cancelada no logout e pode responder depois da nova |
 
 ## Arquivos
 

@@ -227,10 +227,14 @@ class AcervoViewModel extends ChangeNotifier {
 
   final AcervoRepository _repository;
 
-  bool _isLoading = false;
+  // `true` de saída: este ViewModel vive mais que a tela (é criado uma vez no
+  // `main.dart`), então o primeiro frame de um login novo não pode desenhar o
+  // acervo da conta anterior.
+  bool _isLoading = true;
   String? _error;
   List<AcervoItem> _itens = const <AcervoItem>[];
   Map<String, EstadoAcervo> _estados = const <String, EstadoAcervo>{};
+  int _geracao = 0;
 
   bool get isLoading => _isLoading;
   String? get error => _error;
@@ -240,9 +244,25 @@ class AcervoViewModel extends ChangeNotifier {
   /// `null` means "not on the shelf" (or unknown yet).
   EstadoAcervo? estadoDe(TipoMidia? tipo, int tmdbId) => _estados[chaveEstado(tipo, tmdbId)];
 
+  /// Zera o estado da sessão anterior **sem notificar**.
+  ///
+  /// A tela chama isto no `initState`, antes do primeiro build: o ViewModel é
+  /// criado uma vez na raiz, então no segundo login ele ainda tem o acervo da
+  /// conta anterior, e notificar dentro do `initState` não é permitido. Quem
+  /// avisa a View é o `load()` logo depois.
+  void reset() {
+    _itens = const <AcervoItem>[];
+    _estados = const <String, EstadoAcervo>{};
+    _error = null;
+    _isLoading = true;
+  }
+
   Future<void> load() async {
-    // Reset first: the ViewModel is created once at the root, so without this
-    // a new account sees the previous one's shelf for a frame.
+    // Contador de geração: a requisição da conta anterior pode responder DEPOIS
+    // da nova (nada cancela a chamada no logout). Só a chamada mais recente pode
+    // escrever estado, senão a lista volta a ser a de outra pessoa.
+    final int geracao = ++_geracao;
+
     _itens = const <AcervoItem>[];
     _estados = const <String, EstadoAcervo>{};
     _isLoading = true;
@@ -250,7 +270,9 @@ class AcervoViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      switch (await _repository.listar()) {
+      final Result<List<AcervoItem>> resultado = await _repository.listar();
+      if (geracao != _geracao) return;
+      switch (resultado) {
         case Ok<List<AcervoItem>>(:final value):
           _itens = List<AcervoItem>.unmodifiable(value);
           _estados = _mapaDeEstados(_itens);
@@ -258,11 +280,14 @@ class AcervoViewModel extends ChangeNotifier {
           _error = error.mensagem;
       }
     } on Exception catch (error) {
+      if (geracao != _geracao) return;
       debugPrint('[AppSeries] acervo fora do contrato: $error');
       _error = const ServerError().mensagem;
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      if (geracao == _geracao) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -317,21 +342,71 @@ na primeira tela que chamar `context.read<AcervoViewModel>()`.
 
 `lib/ui/view/home_page.dart`
 
-No `initState`, do lado do load que já existe:
+No `initState`, **antes** do load que já existe, o reset síncrono (é ele que
+impede a contagem da conta anterior de aparecer no primeiro frame):
 
 ```dart
-WidgetsBinding.instance.addPostFrameCallback((_) {
-  if (!mounted) return;
-  context.read<HomeViewModel>().load();
-  context.read<AcervoViewModel>().load(); // AP-28: each login starts clean
-});
+@override
+void initState() {
+  super.initState();
+  context.read<AcervoViewModel>().reset(); // sem notify: estamos no build
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (!mounted) return;
+    context.read<HomeViewModel>().load();
+    context.read<AcervoViewModel>().load(); // AP-28: cada login começa limpo
+  });
+}
 ```
 
-E no corpo, uma linha com a contagem (prova de que o dado veio do servidor):
+E no corpo, um bloco com três estados (carregando, erro com retry, contagem):
 
 ```dart
-Text('Seu acervo: ${context.watch<AcervoViewModel>().total} título(s)'),
+_AcervoResumo(acervo: context.watch<AcervoViewModel>()),
 ```
+
+```dart
+class _AcervoResumo extends StatelessWidget {
+  const _AcervoResumo({required this.acervo});
+
+  final AcervoViewModel acervo;
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget conteudo;
+    if (acervo.isLoading) {
+      conteudo = const Text('Carregando seu acervo...');
+    } else if (acervo.error != null) {
+      conteudo = Row(
+        children: <Widget>[
+          Expanded(child: Text(acervo.error!)),
+          TextButton(onPressed: acervo.load, child: const Text('Tentar de novo')),
+        ],
+      );
+    } else {
+      final int total = acervo.total;
+      conteudo = Text('Seu acervo: ${total == 1 ? '1 título' : '$total títulos'}');
+    }
+
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: Row(
+          children: <Widget>[
+            const Icon(Icons.video_library_outlined, size: 18),
+            const SizedBox(width: 8),
+            Expanded(child: conteudo),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+**Por que três ramos e não um `Text`**: o acervo é um **bloco** da tela, não a
+tela. Se ele falhar, o health e o resto da home continuam na frente dela, e o
+retry é só daquele bloco.
 
 **Por que no `initState` e não no `create` do provider**: o provider roda uma vez só. A tela
 é remontada a cada login, então é ela quem sabe que a sessão mudou.
@@ -388,7 +463,7 @@ A porta **não é livre**: o backend libera só `http://localhost:8080` no CORS.
 a tela mostra erro de rede, e parece bug do app.
 
 Confira na tela:
-- conta com acervo → "Seu acervo: N título(s)" com o N que o backend tem
+- conta com acervo → "Seu acervo: N títulos" (ou "1 título") com o N que o backend tem
 - conta sem acervo → `0`
 - sair e entrar com outra conta → não pode mostrar o número da conta anterior nem por um frame
 
@@ -422,3 +497,5 @@ verdade).
 | `feat(acervo): view model` | VM + 7 testes | **provei o teste por mutação**: removi o reset do `load()` e 2 testes falharam; restaurei e voltaram os 7 verdes. Teste que nunca falhou não é teste |
 | `feat(acervo): carrega no login` | providers + `_AcervoResumo` + testes | mudar a View quebra os testes de quem MONTA a tela(`auth_gate`, `login_flow`): os três precisaram do provider novo |
 | `docs(acervo): fecha` | este diário + o helper do mapa no guia | editar bloco de fecho por `patch` pode duplicar `}`: o `analyze` apontou na hora (`Expected to find ')'`) e o conserto foi no mesmo turno |
+| `fix(acervo)` pós-review | reset no `initState`, `_isLoading` inicial, contador de geração e `estadoDe` sem tipo anulável | **o bloqueante do review foi real e o meu fix óbvio não fechava**: `_isLoading = true` de saída só cobre o PRIMEIRO login. Na segunda sessão o ViewModel já está com `isLoading=false` e os dados antigos, então o build 1 desenha o número velho. Quem fecha é zerar o estado **de forma síncrona no `initState`**. O teste que escrevi falhou antes do conserto e falha de novo se o `reset()` sai (provei por mutação) |
+| `fix(acervo)`: testes | precedência com a fixture na ordem real, `fromJson`, conta vazia, erro + retry | o teste de precedência antigo passava com um laço único porque a linha ambígua vinha primeiro: **fixture na ordem errada esconde o bug que o teste existe para pegar** |
