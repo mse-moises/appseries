@@ -74,13 +74,15 @@ class HomeViewModel extends ChangeNotifier {
 
   /// Retry of a single section: the other one keeps what it has.
   Future<void> recarregarEmAlta() async {
-    _emAlta = const SecaoTitulos(carregando: true);
+    // Keep the current items: \"Populares\" is deduplicated against this list, and
+    // emptying it here would show the duplicates again while the retry runs.
+    _emAlta = SecaoTitulos(carregando: true, itens: _emAlta.itens);
     notifyListeners();
     await _carregaEmAlta(_geracao);
   }
 
   Future<void> recarregarPopulares() async {
-    _popularesCrus = const SecaoTitulos(carregando: true);
+    _popularesCrus = SecaoTitulos(carregando: true, itens: _popularesCrus.itens);
     notifyListeners();
     await _carregaPopulares(_geracao);
   }
@@ -119,8 +121,8 @@ class HomeViewModel extends ChangeNotifier {
   ) async {
     try {
       return await chamada();
-    } catch (error) {
-      debugPrint('[AppSeries] home fora do contrato: $error');
+    } catch (error, stack) {
+      debugPrint('[AppSeries] home fora do contrato: $error\n$stack');
       return const Result<List<TmdbItem>>.error(ServerError());
     }
   }

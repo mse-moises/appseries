@@ -121,9 +121,11 @@ class _Rodape extends StatelessWidget {
     final TextTheme texto = Theme.of(context).textTheme;
     final Color discreto = Theme.of(context).colorScheme.onSurfaceVariant;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-      child: Column(
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: Column(
         children: <Widget>[
           // Whose account is this? Without it the only way to know was the
           // login screen.
@@ -150,12 +152,13 @@ class _Rodape extends StatelessWidget {
             onRetry: acervo.load,
           ),
           const SizedBox(height: 6),
-          Text(
-            'This product uses the TMDB API but is not endorsed or certified by TMDB.',
-            textAlign: TextAlign.center,
-            style: texto.labelSmall?.copyWith(color: discreto),
-          ),
-        ],
+            Text(
+              'This product uses the TMDB API but is not endorsed or certified by TMDB.',
+              textAlign: TextAlign.center,
+              style: texto.labelSmall?.copyWith(color: discreto),
+            ),
+          ],
+        ),
       ),
     );
   }
