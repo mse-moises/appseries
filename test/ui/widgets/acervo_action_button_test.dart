@@ -1,4 +1,4 @@
-import 'package:appseries/ui/widgets/seletor_estado.dart';
+import 'package:appseries/ui/widgets/acervo_action_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -11,13 +11,13 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: Center(child: SeletorEstado(atual: atual, onEscolher: onEscolher)),
+          body: Center(child: AcervoActionButton(atual: atual, onEscolher: onEscolher)),
         ),
       ),
     );
   }
 
-  group('SeletorEstado', () {
+  group('AcervoActionButton', () {
     test('rótulo de cada estado, inclusive o de decodificação', () {
       expect(rotuloEstado(EstadoAcervo.planToWatch), 'Quero ver');
       expect(rotuloEstado(EstadoAcervo.watching), 'Assistindo');

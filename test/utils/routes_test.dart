@@ -2,10 +2,10 @@ import 'package:appseries/app.dart';
 import 'package:appseries/data/api_models/user.dart';
 import 'package:appseries/data/repositories/auth_repository.dart';
 import 'package:appseries/ui/navegacao/titulo_ref.dart';
-import 'package:appseries/ui/view/acervo_page.dart';
-import 'package:appseries/ui/view/busca_page.dart';
-import 'package:appseries/ui/view/detalhe_page.dart';
-import 'package:appseries/ui/view/preferencias_page.dart';
+import 'package:appseries/ui/view/acervo_tabs_page.dart';
+import 'package:appseries/ui/view/search_page.dart';
+import 'package:appseries/ui/view/title_detail_page.dart';
+import 'package:appseries/ui/view/preferences_page.dart';
 import 'package:appseries/ui/view_model/auth_view_model.dart';
 import 'package:appseries/ui/view_model/login_view_model.dart';
 import 'package:appseries/utils/app_error.dart';
@@ -86,9 +86,9 @@ void main() {
 
     testWidgets('cada rota abre a sua tela', (tester) async {
       final Map<String, Type> esperado = <String, Type>{
-        Routes.busca: BuscaPage,
-        Routes.acervo: AcervoPage,
-        Routes.preferencias: PreferenciasPage,
+        Routes.busca: SearchPage,
+        Routes.acervo: AcervoTabsPage,
+        Routes.preferencias: PreferencesPage,
       };
 
       for (final MapEntry<String, Type> e in esperado.entries) {
@@ -104,14 +104,14 @@ void main() {
         argumentos: const TituloRef(tipo: TipoMidia.tv, id: 1399),
       );
 
-      expect(find.byType(DetalhePage), findsOneWidget);
+      expect(find.byType(TitleDetailPage), findsOneWidget);
       expect(find.textContaining('tv 1399'), findsOneWidget);
     });
 
     testWidgets('detalhe sem argumento degrada em vez de estourar', (tester) async {
       await _empurrar(tester, Routes.detalhe);
 
-      expect(find.byType(DetalhePage), findsOneWidget);
+      expect(find.byType(TitleDetailPage), findsOneWidget);
       expect(find.textContaining('sem título na rota'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });

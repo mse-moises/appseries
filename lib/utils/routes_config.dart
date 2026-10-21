@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../ui/view/acervo_page.dart';
-import '../ui/view/busca_page.dart';
-import '../ui/view/detalhe_page.dart';
-import '../ui/view/preferencias_page.dart';
+import '../ui/view/acervo_tabs_page.dart';
+import '../ui/view/search_page.dart';
+import '../ui/view/title_detail_page.dart';
+import '../ui/view/preferences_page.dart';
 
 /// Named routes for the whole app.
 ///
@@ -25,9 +25,9 @@ class Routes {
   static const String preferencias = '/preferencias';
 
   static Map<String, WidgetBuilder> get mapa => <String, WidgetBuilder>{
-        busca: (BuildContext _) => const BuscaPage(),
-        detalhe: (BuildContext _) => const DetalhePage(),
-        acervo: (BuildContext _) => const AcervoPage(),
-        preferencias: (BuildContext _) => const PreferenciasPage(),
+        busca: (BuildContext _) => const SearchPage(),
+        detalhe: (BuildContext _) => const TitleDetailPage(),
+        acervo: (BuildContext _) => const AcervoTabsPage(),
+        preferencias: (BuildContext _) => const PreferencesPage(),
       };
 }

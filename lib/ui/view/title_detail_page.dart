@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../navegacao/titulo_ref.dart';
 
-/// Stub created by the foundation task (AP-108).
+/// Stub criado pela fundação (AP-108); o corpo é da trilha.
 ///
 /// Whoever takes **AP-47** replaces the body and keeps the signature: the screen
 /// reads the [TituloRef] from the route arguments, so callers already send the
 /// pair `(tipo, id)` — the TMDB numbers movie and series separately.
-class DetalhePage extends StatelessWidget {
-  const DetalhePage({super.key});
+class TitleDetailPage extends StatelessWidget {
+  const TitleDetailPage({super.key});
 
   @override
   Widget build(BuildContext context) {
