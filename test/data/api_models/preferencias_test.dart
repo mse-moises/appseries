@@ -24,6 +24,17 @@ void main() {
       expect(p.vazio, isTrue);
     });
 
+    test('momento só com espaço conta como vazio; momento preenchido não', () {
+      expect(
+        Preferencias.fromJson(<String, dynamic>{'momento': '   ', 'generos': <String>[]}).vazio,
+        isTrue,
+      );
+      expect(
+        Preferencias.fromJson(<String, dynamic>{'momento': 'x', 'generos': <String>[]}).vazio,
+        isFalse,
+      );
+    });
+
     test('toJson manda as chaves que o PUT espera', () {
       final Map<String, dynamic> json =
           const Preferencias(momento: 'domingo', generos: <String>['Drama']).toJson();

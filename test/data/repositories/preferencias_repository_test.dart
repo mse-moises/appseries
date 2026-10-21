@@ -22,15 +22,16 @@ void main() {
     });
 
     test('salvar manda o corpo inteiro e devolve o que o servidor ecoou', () async {
+      // eco diferente do que foi enviado: sem isso, "devolver o corpo local"
+      // passaria como se o servidor tivesse respondido
       final FakeRestClient api = FakeRestClient()
-        ..respostaPreferencias = const Preferencias(generos: <String>['Drama']);
-      const Preferencias corpo = Preferencias(momento: 'domingo', generos: <String>['Drama']);
+        ..respostaSalvar = const Preferencias(momento: 'domingo', generos: <String>['Drama']);
+      const Preferencias corpo = Preferencias(momento: 'domingo ', generos: <String>['Drama']);
 
       final result = await PreferenciasRepositoryImpl(api).salvar(corpo);
 
-      expect(result.isOk, isTrue);
-      expect(api.preferenciasEnviadas?.momento, 'domingo');
-      expect(api.preferenciasEnviadas?.generos, <String>['Drama']);
+      expect(api.preferenciasEnviadas?.momento, 'domingo ', reason: 'o repositório não normaliza');
+      expect(result.valueOrNull?.momento, 'domingo', reason: 'a tela mostra o que voltou do servidor');
     });
 
     test('falha de rede vira NetworkError, não exceção', () async {

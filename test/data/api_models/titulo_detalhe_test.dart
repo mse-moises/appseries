@@ -20,6 +20,8 @@ void main() {
       expect(t.titulo, 'Game of Thrones');
       expect(t.ano, '2011');
       expect(t.sinopse, startsWith('Nove famílias'));
+      expect(t.posterPath, '/1XS1oqL89opfnbLl8WnZY1O1uJx.jpg',
+          reason: 'é o campo que a tela de detalhe desenha');
       expect(t.nota, 8.4);
       expect(t.generos, <String>['Drama', 'Fantasia']);
     });
@@ -43,9 +45,22 @@ void main() {
       });
 
       expect(t.nota, isNull);
+      expect(t.notaExibivel, isNull);
       expect(t.generos, isEmpty);
       expect(t.posterPath, isNull);
       expect(t.sinopse, isNull);
+    });
+
+    test('nota 0 (sem avaliação no TMDB) não é nota exibível', () {
+      final TituloDetalhe t = TituloDetalhe.fromJson(<String, dynamic>{
+        'id': 9,
+        'tipo': 'movie',
+        'titulo': 'Sem votos',
+        'nota': 0,
+      });
+
+      expect(t.nota, 0.0);
+      expect(t.notaExibivel, isNull, reason: 'a tela não pode mostrar 0.0 como nota');
     });
 
     test('tipo fora do contrato vira desconhecido', () {

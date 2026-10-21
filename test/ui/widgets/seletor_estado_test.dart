@@ -18,6 +18,14 @@ void main() {
   }
 
   group('SeletorEstado', () {
+    test('rótulo de cada estado, inclusive o de decodificação', () {
+      expect(rotuloEstado(EstadoAcervo.planToWatch), 'Quero ver');
+      expect(rotuloEstado(EstadoAcervo.watching), 'Assistindo');
+      expect(rotuloEstado(EstadoAcervo.watched), 'Assistido');
+      expect(rotuloEstado(EstadoAcervo.dropped), 'Abandonei');
+      expect(rotuloEstado(EstadoAcervo.desconhecido), 'Sem estado');
+    });
+
     testWidgets('sem estado mostra "Marcar" e os quatro estados no menu', (tester) async {
       await montar(tester, onEscolher: (_) {});
 
@@ -32,16 +40,23 @@ void main() {
       expect(find.text('Abandonei'), findsOneWidget);
       expect(find.text('Sem estado'), findsNothing,
           reason: 'desconhecido é fallback de decodificação, não opção do menu');
+      expect(find.byIcon(Icons.check), findsNothing,
+          reason: 'sem estado atual, nenhum item pode vir marcado');
     });
 
-    testWidgets('com estado mostra o rótulo atual', (tester) async {
+    testWidgets('com estado mostra o rótulo atual e marca só ele', (tester) async {
       await montar(tester, atual: EstadoAcervo.watched, onEscolher: (_) {});
 
       expect(find.text('Assistido'), findsOneWidget);
       expect(find.text('Marcar'), findsNothing);
+
+      await tester.tap(find.text('Assistido'));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.check), findsOneWidget, reason: 'só o estado atual leva o check');
     });
 
-    testWidgets('escolher entrega o estado tipado, não um texto', (tester) async {
+    testWidgets('entrega o estado escolhido, não um valor fixo', (tester) async {
       final List<EstadoAcervo> escolhidos = <EstadoAcervo>[];
       await montar(tester, atual: EstadoAcervo.watching, onEscolher: escolhidos.add);
 
@@ -50,7 +65,12 @@ void main() {
       await tester.tap(find.text('Abandonei'));
       await tester.pumpAndSettle();
 
-      expect(escolhidos, <EstadoAcervo>[EstadoAcervo.dropped]);
+      await tester.tap(find.text('Assistindo'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Quero ver'));
+      await tester.pumpAndSettle();
+
+      expect(escolhidos, <EstadoAcervo>[EstadoAcervo.dropped, EstadoAcervo.planToWatch]);
     });
   });
 }
