@@ -33,7 +33,15 @@ class AcervoViewModel extends ChangeNotifier {
   /// The type is required: the id alone is ambiguous (movie 550 and series 550
   /// are different titles), so a caller that does not know the type cannot ask
   /// this question — it has to wait for the title's data.
-  EstadoAcervo? estadoDe(TipoMidia tipo, int tmdbId) => _estados[chaveEstado(tipo, tmdbId)];
+  EstadoAcervo? estadoDe(TipoMidia tipo, int tmdbId) {
+    if (tipo != TipoMidia.desconhecido) {
+      return _estados[chaveEstado(tipo, tmdbId)];
+    }
+    // A type this app cannot translate: look in both spaces, the same rule the
+    // ambiguous line follows on write. Only `null` when it is in neither.
+    return _estados[chaveEstado(TipoMidia.movie, tmdbId)] ??
+        _estados[chaveEstado(TipoMidia.tv, tmdbId)];
+  }
 
   /// Clears the previous session's state **without notifying**.
   ///
@@ -43,6 +51,9 @@ class AcervoViewModel extends ChangeNotifier {
   /// allowed. Clearing it here is what keeps the old count off the first frame;
   /// `load()` right after does the notifying.
   void reset() {
+    // Also invalidates a request that is still in flight: whoever calls reset
+    // does not want an answer from the session that just ended.
+    _geracao++;
     _itens = const <AcervoItem>[];
     _estados = const <String, EstadoAcervo>{};
     _error = null;

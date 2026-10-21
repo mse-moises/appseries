@@ -179,7 +179,9 @@ void main() {
         findsOneWidget,
       );
 
-      await tester.tap(find.widgetWithText(TextButton, 'Tentar de novo'));
+      // 'Tentar de novo' também existe no bloco do health: a key é o que diz
+      // qual dos dois foi tocado.
+      await tester.tap(find.byKey(const Key('acervo-retry')));
       await tester.pump();
       await tester.pump();
 

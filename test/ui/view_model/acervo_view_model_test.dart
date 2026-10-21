@@ -159,6 +159,74 @@ void main() {
       expect(vm.isLoading, isFalse);
     });
 
+    test('carga antiga respondendo primeiro não apaga o carregando da nova', () async {
+      final _FakeControlado repo = _FakeControlado();
+      final vm = AcervoViewModel(repo);
+
+      unawaited(vm.load()); // antiga
+      unawaited(vm.load()); // nova
+
+      repo.responder(
+        0,
+        Result<List<AcervoItem>>.ok(<AcervoItem>[_item(tmdbId: 1), _item(tmdbId: 2)]),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(vm.total, 0);
+      expect(vm.isLoading, isTrue, reason: 'a carga nova ainda está no ar');
+
+      repo.responder(1, Result<List<AcervoItem>>.ok(<AcervoItem>[_item(tmdbId: 550)]));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(vm.total, 1);
+      expect(vm.isLoading, isFalse);
+    });
+
+    test('erro de uma carga antiga não apaga o acervo da nova', () async {
+      final _FakeControlado repo = _FakeControlado();
+      final vm = AcervoViewModel(repo);
+
+      unawaited(vm.load());
+      unawaited(vm.load());
+
+      repo.responder(1, Result<List<AcervoItem>>.ok(<AcervoItem>[_item(tmdbId: 550)]));
+      await Future<void>.delayed(Duration.zero);
+
+      repo.responder(0, const Result<List<AcervoItem>>.error(NetworkError()));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(vm.total, 1);
+      expect(vm.error, isNull);
+    });
+
+    test('a precedência da linha tipada não depende da ordem do JSON', () async {
+      final vm = AcervoViewModel(
+        _FakeAcervoRepository(Result<List<AcervoItem>>.ok(<AcervoItem>[
+          _item(tmdbId: 550, estado: EstadoAcervo.dropped, tipo: null),
+          _item(tmdbId: 550, estado: EstadoAcervo.watched, tipo: TipoMidia.tv),
+        ])),
+      );
+
+      await vm.load();
+
+      expect(vm.estadoDe(TipoMidia.tv, 550), EstadoAcervo.watched);
+      expect(vm.estadoDe(TipoMidia.movie, 550), EstadoAcervo.dropped);
+    });
+
+    test('tipo desconhecido responde nos dois espaços', () async {
+      final vm = AcervoViewModel(
+        _FakeAcervoRepository(Result<List<AcervoItem>>.ok(<AcervoItem>[
+          _item(tmdbId: 1399, estado: EstadoAcervo.watched, tipo: TipoMidia.desconhecido),
+        ])),
+      );
+
+      await vm.load();
+
+      expect(vm.estadoDe(TipoMidia.movie, 1399), EstadoAcervo.watched);
+      expect(vm.estadoDe(TipoMidia.tv, 1399), EstadoAcervo.watched);
+      expect(vm.estadoDe(TipoMidia.desconhecido, 1399), EstadoAcervo.watched);
+    });
+
     test('repository que lança não deixa a tela presa em carregando', () async {
       final vm = AcervoViewModel(_FakeQueLanca());
 

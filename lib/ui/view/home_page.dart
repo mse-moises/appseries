@@ -145,7 +145,11 @@ class _AcervoResumo extends StatelessWidget {
       conteudo = Row(
         children: <Widget>[
           Expanded(child: Text(acervo.error!)),
-          TextButton(onPressed: acervo.load, child: const Text('Tentar de novo')),
+          TextButton(
+            key: const Key('acervo-retry'),
+            onPressed: acervo.load,
+            child: const Text('Tentar de novo'),
+          ),
         ],
       );
     } else {
