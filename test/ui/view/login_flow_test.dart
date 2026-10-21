@@ -2,11 +2,14 @@ import 'dart:async';
 
 import 'package:appseries/data/api_models/health_status.dart';
 import 'package:appseries/data/api_models/user.dart';
+import 'package:appseries/data/api_models/acervo_item.dart';
+import 'package:appseries/data/repositories/acervo_repository.dart';
 import 'package:appseries/data/repositories/auth_repository.dart';
 import 'package:appseries/data/repositories/health_repository.dart';
 import 'package:appseries/ui/view/auth_gate.dart';
 import 'package:appseries/ui/view/home_page.dart';
 import 'package:appseries/ui/view/login_page.dart';
+import 'package:appseries/ui/view_model/acervo_view_model.dart';
 import 'package:appseries/ui/view_model/auth_view_model.dart';
 import 'package:appseries/ui/view_model/home_view_model.dart';
 import 'package:appseries/ui/view_model/login_view_model.dart';
@@ -63,6 +66,12 @@ class _FakeAuthRepository implements AuthRepository {
   }
 }
 
+class _FakeAcervoRepository implements AcervoRepository {
+  @override
+  Future<Result<List<AcervoItem>>> listar() async =>
+      const Result<List<AcervoItem>>.ok(<AcervoItem>[]);
+}
+
 class _FakeHealthRepository implements HealthRepository {
   @override
   Future<Result<HealthStatus>> check() async =>
@@ -78,6 +87,9 @@ Future<void> _abrir(WidgetTester tester, AuthRepository auth) async {
         ChangeNotifierProvider<HomeViewModel>(
           // Sem `..load()`: quem carrega é a `HomePage` (igual ao `main.dart`).
           create: (_) => HomeViewModel(_FakeHealthRepository()),
+        ),
+        ChangeNotifierProvider<AcervoViewModel>(
+          create: (_) => AcervoViewModel(_FakeAcervoRepository()),
         ),
       ],
       child: const MaterialApp(home: AuthGate()),

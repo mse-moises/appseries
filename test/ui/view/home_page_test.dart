@@ -1,10 +1,13 @@
 import 'dart:async';
 
+import 'package:appseries/data/api_models/acervo_item.dart';
 import 'package:appseries/data/api_models/health_status.dart';
 import 'package:appseries/data/api_models/user.dart';
+import 'package:appseries/data/repositories/acervo_repository.dart';
 import 'package:appseries/data/repositories/auth_repository.dart';
 import 'package:appseries/data/repositories/health_repository.dart';
 import 'package:appseries/ui/view/home_page.dart';
+import 'package:appseries/ui/view_model/acervo_view_model.dart';
 import 'package:appseries/ui/view_model/auth_view_model.dart';
 import 'package:appseries/ui/view_model/home_view_model.dart';
 import 'package:appseries/utils/app_error.dart';
@@ -29,6 +32,15 @@ class _ContadorHealthRepository implements HealthRepository {
     chamadas++;
     return const Result<HealthStatus>.ok(HealthStatus(status: 'ok'));
   }
+}
+
+class _FakeAcervoRepository implements AcervoRepository {
+  _FakeAcervoRepository([this.itens = const <AcervoItem>[]]);
+
+  final List<AcervoItem> itens;
+
+  @override
+  Future<Result<List<AcervoItem>>> listar() async => Result<List<AcervoItem>>.ok(itens);
 }
 
 class _FakeAuthRepository implements AuthRepository {
@@ -72,6 +84,7 @@ Future<_FakeAuthRepository> _montar(
   WidgetTester tester, {
   _FakeAuthRepository? auth,
   HealthRepository? health,
+  AcervoRepository? acervo,
 }) async {
   final _FakeAuthRepository repo = auth ?? _FakeAuthRepository();
   await tester.pumpWidget(
@@ -85,6 +98,9 @@ Future<_FakeAuthRepository> _montar(
         ChangeNotifierProvider<AuthViewModel>(
           create: (_) => AuthViewModel(repo),
         ),
+        ChangeNotifierProvider<AcervoViewModel>(
+          create: (_) => AcervoViewModel(acervo ?? _FakeAcervoRepository()),
+        ),
       ],
       child: const MaterialApp(home: HomePage()),
     ),
@@ -92,6 +108,9 @@ Future<_FakeAuthRepository> _montar(
   // Sem `pumpAndSettle`: o `LoadingView` anima um `CircularProgressIndicator`, que
   // nunca "assenta" — o spinner infinito trava quem usar pumpAndSettle aqui.
   await tester.pump();
+  await tester.pump();
+  // The shelf loads in parallel with the health call; one more frame lets its
+  // notifyListeners land before the test reads the screen.
   await tester.pump();
   return repo;
 }
@@ -102,6 +121,29 @@ void main() {
       await _montar(tester);
 
       expect(find.text('Backend respondeu: ok'), findsOneWidget);
+    });
+
+    testWidgets('mostra quantos títulos tem o acervo', (tester) async {
+      await _montar(
+        tester,
+        acervo: _FakeAcervoRepository(<AcervoItem>[
+          const AcervoItem(tmdbId: 1399, estado: EstadoAcervo.watching, tipo: TipoMidia.tv),
+          const AcervoItem(tmdbId: 550, estado: EstadoAcervo.planToWatch, tipo: TipoMidia.movie),
+        ]),
+      );
+
+      expect(find.text('Seu acervo: 2 títulos'), findsOneWidget);
+    });
+
+    testWidgets('conta com um título só usa o singular', (tester) async {
+      await _montar(
+        tester,
+        acervo: _FakeAcervoRepository(<AcervoItem>[
+          const AcervoItem(tmdbId: 1399, estado: EstadoAcervo.watched, tipo: TipoMidia.tv),
+        ]),
+      );
+
+      expect(find.text('Seu acervo: 1 título'), findsOneWidget);
     });
 
     testWidgets('mostra o e-mail de quem está logado', (tester) async {
@@ -179,6 +221,9 @@ void main() {
               ChangeNotifierProvider<HomeViewModel>.value(value: homeVm),
               ChangeNotifierProvider<AuthViewModel>(
                 create: (_) => AuthViewModel(_FakeAuthRepository()),
+              ),
+              ChangeNotifierProvider<AcervoViewModel>(
+                create: (_) => AcervoViewModel(_FakeAcervoRepository()),
               ),
             ],
             child: const MaterialApp(home: HomePage()),
