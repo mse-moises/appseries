@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:retrofit/retrofit.dart';
 
+import '../api_models/acervo_item.dart';
 import '../api_models/health_status.dart';
 
 part 'rest_client.g.dart';
@@ -18,4 +19,9 @@ abstract class RestClient {
   /// `GET /health` — the only endpoint that needs no auth.
   @GET('/health')
   Future<HealthStatus> health();
+
+  /// `GET /api/v1/acervo` — everything the signed-in user marked, newest
+  /// first. The server filters by the token's uid, so no user id goes here.
+  @GET('/api/v1/acervo')
+  Future<List<AcervoItem>> acervo();
 }

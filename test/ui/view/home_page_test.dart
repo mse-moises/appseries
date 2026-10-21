@@ -1,10 +1,13 @@
 import 'dart:async';
 
+import 'package:appseries/data/api_models/acervo_item.dart';
 import 'package:appseries/data/api_models/health_status.dart';
 import 'package:appseries/data/api_models/user.dart';
+import 'package:appseries/data/repositories/acervo_repository.dart';
 import 'package:appseries/data/repositories/auth_repository.dart';
 import 'package:appseries/data/repositories/health_repository.dart';
 import 'package:appseries/ui/view/home_page.dart';
+import 'package:appseries/ui/view_model/acervo_view_model.dart';
 import 'package:appseries/ui/view_model/auth_view_model.dart';
 import 'package:appseries/ui/view_model/home_view_model.dart';
 import 'package:appseries/utils/app_error.dart';
@@ -28,6 +31,27 @@ class _ContadorHealthRepository implements HealthRepository {
   Future<Result<HealthStatus>> check() async {
     chamadas++;
     return const Result<HealthStatus>.ok(HealthStatus(status: 'ok'));
+  }
+}
+
+class _FakeAcervoRepository implements AcervoRepository {
+  _FakeAcervoRepository([this.itens = const <AcervoItem>[]]);
+
+  final List<AcervoItem> itens;
+
+  @override
+  Future<Result<List<AcervoItem>>> listar() async => Result<List<AcervoItem>>.ok(itens);
+}
+
+/// Falha na primeira chamada e responde vazio na segunda: prova o retry.
+class _FakeAcervoFalhaDepoisOk implements AcervoRepository {
+  int chamadas = 0;
+
+  @override
+  Future<Result<List<AcervoItem>>> listar() async {
+    chamadas++;
+    if (chamadas == 1) return const Result<List<AcervoItem>>.error(NetworkError());
+    return const Result<List<AcervoItem>>.ok(<AcervoItem>[]);
   }
 }
 
@@ -72,6 +96,7 @@ Future<_FakeAuthRepository> _montar(
   WidgetTester tester, {
   _FakeAuthRepository? auth,
   HealthRepository? health,
+  AcervoRepository? acervo,
 }) async {
   final _FakeAuthRepository repo = auth ?? _FakeAuthRepository();
   await tester.pumpWidget(
@@ -85,6 +110,9 @@ Future<_FakeAuthRepository> _montar(
         ChangeNotifierProvider<AuthViewModel>(
           create: (_) => AuthViewModel(repo),
         ),
+        ChangeNotifierProvider<AcervoViewModel>(
+          create: (_) => AcervoViewModel(acervo ?? _FakeAcervoRepository()),
+        ),
       ],
       child: const MaterialApp(home: HomePage()),
     ),
@@ -92,6 +120,9 @@ Future<_FakeAuthRepository> _montar(
   // Sem `pumpAndSettle`: o `LoadingView` anima um `CircularProgressIndicator`, que
   // nunca "assenta" — o spinner infinito trava quem usar pumpAndSettle aqui.
   await tester.pump();
+  await tester.pump();
+  // The shelf loads in parallel with the health call; one more frame lets its
+  // notifyListeners land before the test reads the screen.
   await tester.pump();
   return repo;
 }
@@ -102,6 +133,93 @@ void main() {
       await _montar(tester);
 
       expect(find.text('Backend respondeu: ok'), findsOneWidget);
+    });
+
+    testWidgets('mostra quantos títulos tem o acervo', (tester) async {
+      await _montar(
+        tester,
+        acervo: _FakeAcervoRepository(<AcervoItem>[
+          const AcervoItem(tmdbId: 1399, estado: EstadoAcervo.watching, tipo: TipoMidia.tv),
+          const AcervoItem(tmdbId: 550, estado: EstadoAcervo.planToWatch, tipo: TipoMidia.movie),
+        ]),
+      );
+
+      expect(find.text('Seu acervo: 2 títulos'), findsOneWidget);
+    });
+
+    testWidgets('conta com um título só usa o singular', (tester) async {
+      await _montar(
+        tester,
+        acervo: _FakeAcervoRepository(<AcervoItem>[
+          const AcervoItem(tmdbId: 1399, estado: EstadoAcervo.watched, tipo: TipoMidia.tv),
+        ]),
+      );
+
+      expect(find.text('Seu acervo: 1 título'), findsOneWidget);
+    });
+
+    testWidgets('conta sem nada no acervo mostra 0', (tester) async {
+      await _montar(tester);
+
+      expect(find.text('Seu acervo: 0 títulos'), findsOneWidget);
+    });
+
+    testWidgets('acervo que falha não derruba a home e o retry recarrega', (tester) async {
+      final _FakeAcervoFalhaDepoisOk repo = _FakeAcervoFalhaDepoisOk();
+
+      await _montar(tester, acervo: repo);
+
+      expect(
+        find.text('Backend respondeu: ok'),
+        findsOneWidget,
+        reason: 'o health continua na tela: o acervo é um bloco, não a tela',
+      );
+      expect(
+        find.text('Sem conexão com a internet. Confira sua rede e tente de novo.'),
+        findsOneWidget,
+      );
+
+      // 'Tentar de novo' também existe no bloco do health: a key é o que diz
+      // qual dos dois foi tocado.
+      await tester.tap(find.byKey(const Key('acervo-retry')));
+      await tester.pump();
+      await tester.pump();
+
+      expect(repo.chamadas, 2);
+      expect(find.text('Seu acervo: 0 títulos'), findsOneWidget);
+    });
+
+    testWidgets('no primeiro frame após o login não mostra a contagem da conta anterior',
+        (tester) async {
+      final AcervoViewModel anterior = AcervoViewModel(
+        _FakeAcervoRepository(<AcervoItem>[
+          for (int i = 0; i < 7; i++)
+            AcervoItem(tmdbId: i, estado: EstadoAcervo.watched, tipo: TipoMidia.movie),
+        ]),
+      );
+      await anterior.load();
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<HomeViewModel>(
+              create: (_) => HomeViewModel(_FakeHealthRepository()),
+            ),
+            ChangeNotifierProvider<AuthViewModel>(
+              create: (_) => AuthViewModel(_FakeAuthRepository()),
+            ),
+            ChangeNotifierProvider<AcervoViewModel>.value(value: anterior),
+          ],
+          child: const MaterialApp(home: HomePage()),
+        ),
+      );
+
+      expect(
+        find.text('Seu acervo: 7 títulos'),
+        findsNothing,
+        reason: 'o ViewModel sobrevive ao logout: o frame 1 não pode desenhar o dado da conta anterior',
+      );
+      expect(find.text('Carregando seu acervo...'), findsOneWidget);
     });
 
     testWidgets('mostra o e-mail de quem está logado', (tester) async {
@@ -179,6 +297,9 @@ void main() {
               ChangeNotifierProvider<HomeViewModel>.value(value: homeVm),
               ChangeNotifierProvider<AuthViewModel>(
                 create: (_) => AuthViewModel(_FakeAuthRepository()),
+              ),
+              ChangeNotifierProvider<AcervoViewModel>(
+                create: (_) => AcervoViewModel(_FakeAcervoRepository()),
               ),
             ],
             child: const MaterialApp(home: HomePage()),

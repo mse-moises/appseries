@@ -6,6 +6,8 @@ import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 import 'package:provider/provider.dart';
 
 import 'app.dart';
+import 'data/repositories/acervo_repository.dart';
+import 'data/repositories/acervo_repository_impl.dart';
 import 'data/repositories/auth_repository.dart';
 import 'data/repositories/auth_repository_impl.dart';
 import 'data/repositories/health_repository.dart';
@@ -15,6 +17,7 @@ import 'data/services/auth_service.dart';
 import 'data/services/rest_client.dart';
 import 'firebase_options.dart';
 import 'ui/view/startup_error_page.dart';
+import 'ui/view_model/acervo_view_model.dart';
 import 'ui/view_model/auth_view_model.dart';
 import 'ui/view_model/home_view_model.dart';
 import 'ui/view_model/login_view_model.dart';
@@ -70,6 +73,13 @@ class AppSeries extends StatelessWidget {
           // anew on every login (the provider's `create` runs once).
           ChangeNotifierProvider<HomeViewModel>(
             create: (ctx) => HomeViewModel(ctx.read<HealthRepository>()),
+          ),
+          // AP-28: the shelf lives on the server, so the app only reads it.
+          Provider<AcervoRepository>(
+            create: (ctx) => AcervoRepositoryImpl(ctx.read<RestClient>()),
+          ),
+          ChangeNotifierProvider<AcervoViewModel>(
+            create: (ctx) => AcervoViewModel(ctx.read<AcervoRepository>()),
           ),
         ],
         child: const App(),
