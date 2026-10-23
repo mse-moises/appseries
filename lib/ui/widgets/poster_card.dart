@@ -13,11 +13,16 @@ import '../../utils/tmdb_image.dart';
 /// With a mouse, the poster under the pointer grows a little so she sees which
 /// one she is about to pick. Hover is screen state, so it lives here and not in
 /// a ViewModel; on touch there is no hover and the card stays still.
+///
+/// [onTap] opens the title (the carousel sends it to the detail) and [acao] is
+/// drawn over the poster's corner — the shelf button, on the home.
 class PosterCard extends StatefulWidget {
-  const PosterCard({required this.item, this.largura = 110, super.key});
+  const PosterCard({required this.item, this.largura = 110, this.onTap, this.acao, super.key});
 
   final TmdbItem item;
   final double largura;
+  final VoidCallback? onTap;
+  final Widget? acao;
 
   /// How much the poster grows under the pointer. Small on purpose: the
   /// carousel gap (12 px) has to hold the growth without covering the neighbour.
@@ -49,66 +54,97 @@ class _PosterCardState extends State<PosterCard> {
       onExit: (_) => _hover(false),
       child: SizedBox(
         width: widget.largura,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Expanded(
-              child: AnimatedScale(
-                key: const Key('poster-zoom'),
-                scale: _emFoco ? PosterCard.escalaHover : 1,
-                duration: duracao,
-                curve: Curves.easeOut,
-                child: AnimatedContainer(
-                  duration: duracao,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: _emFoco
-                        ? const <BoxShadow>[
-                            BoxShadow(color: Colors.black54, blurRadius: 12, offset: Offset(0, 4)),
-                          ]
-                        : const <BoxShadow>[],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      width: double.infinity,
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      child: url == null
-                          ? const _SemPoster()
-                          : CachedNetworkImage(
-                              imageUrl: url,
-                              fit: BoxFit.cover,
-                              placeholder: (BuildContext context, String _) => const Center(
-                                child: SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                ),
-                              ),
-                              errorWidget: (BuildContext context, String _, Object __) =>
-                                  const _SemPoster(),
+        // InkWell, not a bare GestureDetector: it takes focus and opens with
+        // Enter, and the shelf button over the poster keeps its own tap.
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(
+                child: Stack(
+                  children: <Widget>[
+                    Positioned.fill(
+                      child: AnimatedScale(
+                        key: const Key('poster-zoom'),
+                        scale: _emFoco ? PosterCard.escalaHover : 1,
+                        duration: duracao,
+                        curve: Curves.easeOut,
+                        child: AnimatedContainer(
+                          duration: duracao,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: _emFoco
+                                ? const <BoxShadow>[
+                                    BoxShadow(
+                                      color: Colors.black54,
+                                      blurRadius: 12,
+                                      offset: Offset(0, 4),
+                                    ),
+                                  ]
+                                : const <BoxShadow>[],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              width: double.infinity,
+                              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              child: url == null
+                                  ? const _SemPoster()
+                                  : CachedNetworkImage(
+                                      imageUrl: url,
+                                      fit: BoxFit.cover,
+                                      placeholder: (BuildContext context, String _) =>
+                                          const Center(
+                                        child: SizedBox(
+                                          height: 20,
+                                          width: 20,
+                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                        ),
+                                      ),
+                                      errorWidget: (BuildContext context, String _, Object __) =>
+                                          const _SemPoster(),
+                                    ),
                             ),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                    if (widget.acao != null)
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        // Dark disc: the icon has to read over any poster.
+                        child: Material(
+                          color: Colors.black54,
+                          shape: const CircleBorder(),
+                          child: IconTheme.merge(
+                            data: const IconThemeData(color: Colors.white, size: 20),
+                            child: widget.acao!,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              item.titulo.isEmpty ? 'Sem título' : item.titulo,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            // O backend manda `""` (não null) quando o título não tem data.
-            if (item.ano != null && item.ano!.isNotEmpty)
+              const SizedBox(height: 6),
               Text(
-                item.ano!,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                item.titulo.isEmpty ? 'Sem título' : item.titulo,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall,
               ),
-          ],
+              // O backend manda `""` (não null) quando o título não tem data.
+              if (item.ano != null && item.ano!.isNotEmpty)
+                Text(
+                  item.ano!,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+            ],
+          ),
         ),
       ),
     );

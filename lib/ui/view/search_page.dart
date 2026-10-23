@@ -10,6 +10,7 @@ import '../navegacao/titulo_ref.dart';
 import '../theme/app_theme.dart';
 import '../view_model/search_view_model.dart';
 import '../widgets/tipo_filtro_chips.dart';
+import '../widgets/acervo_action_button.dart';
 import '../widgets/status_view.dart';
 
 /// Search by name (AP-44 / AP-45), over the whole catalogue through `/busca`.
@@ -129,7 +130,8 @@ class _SearchPageState extends State<SearchPage> {
   }
 }
 
-/// One result: poster, title, year and kind — what the card asks for.
+/// One result: poster, title, year and kind — what the card asks for — and the
+/// same shelf button as the home and the detail (AP-50).
 class _ResultadoTile extends StatelessWidget {
   const _ResultadoTile({required this.item});
 
@@ -196,6 +198,8 @@ class _ResultadoTile extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(width: 8),
+          AcervoAcao(tipo: item.tipo, tmdbId: item.id),
         ],
       ),
     );
