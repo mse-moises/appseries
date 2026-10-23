@@ -254,7 +254,7 @@ void main() {
       expect(find.text('tela de busca'), findsOneWidget);
     });
 
-    testWidgets('a caixa de busca abre a busca pelo teclado (Tab + Enter)', (tester) async {
+    testWidgets('com foco, a caixa de busca abre a busca pelo Enter', (tester) async {
       await _montar(tester);
 
       final FocusNode? foco = Focus.maybeOf(
@@ -469,6 +469,20 @@ void main() {
       expect(textoEmail.overflow, TextOverflow.ellipsis);
       expect(find.text('Seu acervo: 0 títulos'), findsOneWidget);
       expect(find.textContaining('TMDB API'), findsOneWidget);
+    });
+
+    testWidgets('em tela pequena com fonte grande (2x) nada estoura', (tester) async {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1.0;
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.view.reset);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      await _montar(tester);
+
+      expect(tester.takeException(), isNull,
+          reason: 'a caixa de busca e os chips presos acima da lista estouravam a coluna');
+      expect(find.byKey(const Key('busca-home')), findsOneWidget);
     });
 
     testWidgets('o botão Sair pede o logout', (tester) async {

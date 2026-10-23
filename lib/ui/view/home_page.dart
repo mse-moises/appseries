@@ -82,12 +82,12 @@ class _HomePageState extends State<HomePage> {
                 ),
               ],
             ),
-          // Outside the scroll: the search box stays on top while she scrolls.
-          FiltroHome(filtro: home.filtro, onFiltro: home.setFiltro),
           Expanded(
             child: ListView(
               children: <Widget>[
-                const SizedBox(height: 8),
+                // Inside the scroll, not pinned above it: pinned, its ~110 px
+                // plus the footer overflowed a phone with a large font.
+                FiltroHome(filtro: home.filtro, onFiltro: home.setFiltro),
                 CarouselSection(
                   titulo: 'Em alta',
                   secao: home.emAlta,
