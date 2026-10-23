@@ -193,6 +193,49 @@ void main() {
     });
   });
 
+  group('AcervoViewModel — ordem e remover', () {
+    test('título novo entra no topo; trocar o estado não muda a posição', () async {
+      final _FakeAcervo repo = _FakeAcervo(<AcervoItem>[
+        const AcervoItem(tmdbId: 1, estado: EstadoAcervo.watched, tipo: TipoMidia.movie),
+        const AcervoItem(tmdbId: 2, estado: EstadoAcervo.watched, tipo: TipoMidia.movie),
+      ]);
+      final AcervoViewModel vm = await _carregado(repo);
+
+      unawaited(vm.marcar(TipoMidia.tv, 9, EstadoAcervo.planToWatch));
+      unawaited(vm.marcar(TipoMidia.movie, 2, EstadoAcervo.dropped));
+
+      expect(vm.itens.map((AcervoItem i) => i.tmdbId), <int>[9, 1, 2]);
+    });
+
+    test('remoção que falha devolve o título ao mesmo lugar', () async {
+      final _FakeAcervo repo = _FakeAcervo(<AcervoItem>[
+        const AcervoItem(tmdbId: 1, estado: EstadoAcervo.watched, tipo: TipoMidia.movie),
+        const AcervoItem(tmdbId: 2, estado: EstadoAcervo.watched, tipo: TipoMidia.movie),
+        const AcervoItem(tmdbId: 3, estado: EstadoAcervo.watched, tipo: TipoMidia.movie),
+      ]);
+      final AcervoViewModel vm = await _carregado(repo);
+
+      final Future<AppError?> removendo = vm.remover(TipoMidia.movie, 2);
+      repo.remocoes.single.complete(const Result<void>.error(NetworkError()));
+      await removendo;
+
+      expect(vm.itens.map((AcervoItem i) => i.tmdbId), <int>[1, 2, 3]);
+    });
+
+    test('"Remover" só existe para a linha com tipo', () async {
+      final AcervoViewModel vm = await _carregado(_FakeAcervo(<AcervoItem>[
+        const AcervoItem(tmdbId: 1, estado: EstadoAcervo.watched, tipo: TipoMidia.movie),
+        const AcervoItem(tmdbId: 2, estado: EstadoAcervo.watched),
+      ]));
+
+      expect(vm.podeRemover(TipoMidia.movie, 1), isTrue);
+      expect(vm.estadoDe(TipoMidia.movie, 2), EstadoAcervo.watched);
+      expect(vm.podeRemover(TipoMidia.movie, 2), isFalse,
+          reason: 'linha antiga sem tipo: o DELETE ?tipo= não garante apagá-la');
+      expect(vm.podeRemover(TipoMidia.tv, 3), isFalse);
+    });
+  });
+
   group('AcervoViewModel.remover', () {
     test('tira o título na hora e confirma com o servidor', () async {
       final _FakeAcervo repo = _FakeAcervo(<AcervoItem>[_salvo]);

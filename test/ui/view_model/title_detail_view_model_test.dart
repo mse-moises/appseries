@@ -47,8 +47,12 @@ class _FakeFeedback implements FeedbackRepository {
   Result<FeedbackItem>? respostaMarcar;
   Result<void> respostaRemover = const Result<void>.ok(null);
 
+  /// Quando presentes, seguram a resposta até o teste completar.
+  Completer<Result<List<FeedbackItem>>>? listaPendente;
+  Completer<Result<FeedbackItem>>? marcarPendente;
+
   @override
-  Future<Result<List<FeedbackItem>>> listar() async => lista;
+  Future<Result<List<FeedbackItem>>> listar() => listaPendente?.future ?? Future.value(lista);
 
   @override
   Future<Result<FeedbackItem>> marcar(
@@ -59,6 +63,7 @@ class _FakeFeedback implements FeedbackRepository {
     OrigemFeedback origem = OrigemFeedback.fechamento,
   }) async {
     gravados.add('${tipo.name}:$tmdbId ${sinal.name} peso $peso ${origem.name}');
+    if (marcarPendente != null) return marcarPendente!.future;
     return respostaMarcar ??
         Result<FeedbackItem>.ok(
           FeedbackItem(tmdbId: tmdbId, sinal: sinal, peso: peso, origem: origem, tipo: tipo),
@@ -200,6 +205,45 @@ void main() {
       expect(vm.sinal, SinalGosto.like, reason: 'o filme 1399 não é a série 1399');
     });
 
+    test('a ficha aparece sem esperar o sinal de gosto', () async {
+      final _FakeTitulos titulos = _FakeTitulos();
+      final _FakeFeedback fb = _FakeFeedback()
+        ..listaPendente = Completer<Result<List<FeedbackItem>>>();
+      final TitleDetailViewModel vm = TitleDetailViewModel(titulos, fb);
+
+      unawaited(vm.load(_got));
+      titulos.responder(0, const Result<TituloDetalhe>.ok(_ficha));
+      await pumpEventQueue();
+
+      expect(vm.carregando, isFalse, reason: 'um /feedback lento não pode segurar a ficha');
+      expect(vm.detalhe?.titulo, 'Game of Thrones');
+
+      fb.listaPendente!.complete(const Result<List<FeedbackItem>>.ok(<FeedbackItem>[
+        FeedbackItem(tmdbId: 1399, sinal: SinalGosto.like, tipo: TipoMidia.tv),
+      ]));
+      await pumpEventQueue();
+      expect(vm.sinal, SinalGosto.like, reason: 'o sinal chega depois e entra');
+    });
+
+    test('o sinal lido na abertura não sobrescreve o toque que ela já deu', () async {
+      final _FakeTitulos titulos = _FakeTitulos();
+      final _FakeFeedback fb = _FakeFeedback()
+        ..listaPendente = Completer<Result<List<FeedbackItem>>>();
+      final TitleDetailViewModel vm = TitleDetailViewModel(titulos, fb);
+
+      unawaited(vm.load(_got));
+      titulos.responder(0, const Result<TituloDetalhe>.ok(_ficha));
+      await pumpEventQueue();
+      await vm.darSinal(SinalGosto.dislike, estado: EstadoAcervo.watched);
+
+      fb.listaPendente!.complete(const Result<List<FeedbackItem>>.ok(<FeedbackItem>[
+        FeedbackItem(tmdbId: 1399, sinal: SinalGosto.like, tipo: TipoMidia.tv),
+      ]));
+      await pumpEventQueue();
+
+      expect(vm.sinal, SinalGosto.dislike);
+    });
+
     test('falha ao ler o sinal não derruba a ficha', () async {
       final (TitleDetailViewModel vm, _, _) = await _aberto(
         feedback: _FakeFeedback(lista: const Result<List<FeedbackItem>>.error(NetworkError())),
@@ -229,6 +273,39 @@ void main() {
 
       expect(fb.gravados, <String>['tv:1399 dislike peso 2 abandono']);
       expect(vm.sinal, SinalGosto.dislike);
+    });
+
+    test('👍 depois de abandonar continua com origem fechamento (só o "não curti" é abandono)',
+        () async {
+      final (TitleDetailViewModel vm, _, _FakeFeedback fb) = await _aberto();
+
+      await vm.darSinal(SinalGosto.like, estado: EstadoAcervo.dropped);
+
+      expect(fb.gravados, <String>['tv:1399 like peso 2 fechamento']);
+    });
+
+    test('o 👍 de um título não aparece no título aberto depois', () async {
+      final _FakeTitulos titulos = _FakeTitulos();
+      final _FakeFeedback fb = _FakeFeedback()..marcarPendente = Completer<Result<FeedbackItem>>();
+      final TitleDetailViewModel vm = TitleDetailViewModel(titulos, fb);
+      final Future<void> a = vm.load(_got);
+      titulos.responder(0, const Result<TituloDetalhe>.ok(_ficha));
+      await a;
+
+      final Future<AppError?> sinalDeA = vm.darSinal(SinalGosto.like, estado: EstadoAcervo.watched);
+      final Future<void> b = vm.load(const TituloRef(tipo: TipoMidia.movie, id: 550));
+      titulos.responder(1, const Result<TituloDetalhe>.ok(
+        TituloDetalhe(id: 550, tipo: TipoMidia.movie, titulo: 'Clube da Luta'),
+      ));
+      await b;
+      fb.marcarPendente!.complete(const Result<FeedbackItem>.ok(
+        FeedbackItem(tmdbId: 1399, sinal: SinalGosto.like, tipo: TipoMidia.tv),
+      ));
+      await sinalDeA;
+
+      expect(vm.detalhe?.titulo, 'Clube da Luta');
+      expect(vm.sinal, isNull);
+      expect(vm.enviandoSinal, isFalse);
     });
 
     test('tocar no sinal que já está dado desfaz, com o tipo na chamada', () async {

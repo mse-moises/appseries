@@ -155,16 +155,23 @@ class _Informacoes extends StatelessWidget {
       children: <Widget>[
         Text(detalhe.titulo.isEmpty ? 'Sem título' : detalhe.titulo, style: texto.headlineSmall),
         const SizedBox(height: 6),
-        Row(
+        // Wrap, not Row: with a large font the rating goes to the next line
+        // instead of overflowing.
+        Wrap(
+          spacing: 12,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: <Widget>[
             if (linha.isNotEmpty) Text(linha, style: texto.bodyMedium?.copyWith(color: discreto)),
             // Nota 0 is "no rating" on the TMDB, never "0.0".
-            if (nota != null) ...<Widget>[
-              if (linha.isNotEmpty) const SizedBox(width: 12),
-              const Icon(Icons.star, size: 18, color: Colors.amber),
-              const SizedBox(width: 4),
-              Text(nota.toStringAsFixed(1), style: texto.bodyMedium),
-            ],
+            if (nota != null)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  const Icon(Icons.star, size: 18, color: Colors.amber),
+                  const SizedBox(width: 4),
+                  Text(nota.toStringAsFixed(1), style: texto.bodyMedium),
+                ],
+              ),
           ],
         ),
         if (detalhe.generos.isNotEmpty) ...<Widget>[
@@ -254,10 +261,10 @@ class _BotaoSinal extends StatelessWidget {
       labelStyle: TextStyle(color: escolhido ? Colors.white : null),
       tooltip: escolhido ? 'Tocar de novo desfaz' : null,
       onSelected: (_) async {
-        final ScaffoldMessengerState? avisos = ScaffoldMessenger.maybeOf(context);
         final AppError? erro = await vm.darSinal(sinal, estado: estado);
-        if (erro == null) return;
-        avisos
+        // Gone from the tree (left the page or signed out): nothing to warn.
+        if (erro == null || !context.mounted) return;
+        ScaffoldMessenger.maybeOf(context)
           ?..hideCurrentSnackBar()
           ..showSnackBar(SnackBar(content: Text('Não salvou seu gosto. ${erro.mensagem}')));
       },

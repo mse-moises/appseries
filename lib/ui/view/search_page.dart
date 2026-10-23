@@ -148,6 +148,10 @@ class _ResultadoTile extends StatelessWidget {
 
   static const double _larguraPoster = 64;
 
+  /// Logical width (font scale included) below which the result row uses the
+  /// compact shelf button.
+  static const double _larguraBotaoCompleto = 400;
+
   @override
   Widget build(BuildContext context) {
     final ColorScheme cores = Theme.of(context).colorScheme;
@@ -208,7 +212,14 @@ class _ResultadoTile extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          AcervoAcao(tipo: item.tipo, tmdbId: item.id),
+          // Narrow screen or large font: the icon-only button, so the title
+          // keeps its room instead of being squeezed out.
+          AcervoAcao(
+            tipo: item.tipo,
+            tmdbId: item.id,
+            compacto: MediaQuery.sizeOf(context).width / MediaQuery.textScalerOf(context).scale(1) <
+                _larguraBotaoCompleto,
+          ),
         ],
       ),
     );

@@ -49,6 +49,14 @@ class AcervoViewModel extends ChangeNotifier {
 
   bool enviando(TipoMidia tipo, int tmdbId) => _enviando.contains(chaveEstado(tipo, tmdbId));
 
+  /// "Remover" is only offered for a line with `tipo`.
+  ///
+  /// A line from before migration 008 has no `tipo`, and `DELETE ?tipo=` is not
+  /// known to remove it: offering the action would leave the state on screen
+  /// after a "success". Changing its state is fine — the typed line it creates
+  /// wins in [estadoDe].
+  bool podeRemover(TipoMidia tipo, int tmdbId) => _linha(tipo, tmdbId) != null;
+
   /// Puts a title in a state, at once on screen, and saves it (AP-51).
   ///
   /// Optimistic: the new state shows before the server answers, and the
@@ -99,6 +107,8 @@ class AcervoViewModel extends ChangeNotifier {
 
     final int geracao = _geracao;
     final AcervoItem? anterior = _linha(tipo, tmdbId);
+    // Where the line was, so a rolled-back removal returns to the same place.
+    final int posicao = anterior == null ? 0 : _itens.indexOf(anterior);
     _enviando.add(chave);
     _aplicar(tipo, tmdbId, otimista);
     notifyListeners();
@@ -120,7 +130,7 @@ class AcervoViewModel extends ChangeNotifier {
 
     _enviando.remove(chave);
     if (erro != null) {
-      _aplicar(tipo, tmdbId, anterior);
+      _aplicar(tipo, tmdbId, anterior, posicao: posicao);
     } else if (otimista != null) {
       _aplicar(tipo, tmdbId, salvo ?? otimista);
     }
@@ -138,14 +148,23 @@ class AcervoViewModel extends ChangeNotifier {
 
   /// Replaces (or removes, with `null`) the typed line of `(tipo, tmdbId)`.
   ///
-  /// An old line without `tipo` is left alone: it is not the one being written,
-  /// and the typed line already wins over it in [estadoDe].
-  void _aplicar(TipoMidia tipo, int tmdbId, AcervoItem? item) {
-    _itens = List<AcervoItem>.unmodifiable(<AcervoItem>[
-      for (final AcervoItem atual in _itens)
-        if (!(atual.tipo == tipo && atual.tmdbId == tmdbId)) atual,
-      if (item != null) item,
-    ]);
+  /// Keeps the list's order (most recent first): a changed line stays where it
+  /// was, a new one goes to the top, and a rolled-back removal returns to
+  /// [posicao]. An old line without `tipo` is left alone: it is not the one
+  /// being written, and the typed line already wins over it in [estadoDe].
+  void _aplicar(TipoMidia tipo, int tmdbId, AcervoItem? item, {int posicao = 0}) {
+    final List<AcervoItem> lista = List<AcervoItem>.of(_itens);
+    final int i = lista.indexWhere((AcervoItem l) => l.tipo == tipo && l.tmdbId == tmdbId);
+    if (i >= 0) {
+      if (item == null) {
+        lista.removeAt(i);
+      } else {
+        lista[i] = item;
+      }
+    } else if (item != null) {
+      lista.insert(posicao.clamp(0, lista.length), item);
+    }
+    _itens = List<AcervoItem>.unmodifiable(lista);
     _estados = _mapaDeEstados(_itens);
   }
 

@@ -59,14 +59,20 @@ class AcervoActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (enviando) {
-      return Semantics(
-        label: 'Salvando no acervo',
-        child: Padding(
-          padding: EdgeInsets.all(compacto ? 6 : 10),
-          child: const SizedBox(
-            width: _tamanhoProgresso,
-            height: _tamanhoProgresso,
-            child: CircularProgressIndicator(strokeWidth: 2),
+      // Takes the tap itself: on the poster, a tap on the spinner would
+      // otherwise fall through to the card and open the detail.
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {},
+        child: Semantics(
+          label: 'Salvando no acervo',
+          child: Padding(
+            padding: EdgeInsets.all(compacto ? 6 : 10),
+            child: const SizedBox(
+              width: _tamanhoProgresso,
+              height: _tamanhoProgresso,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
           ),
         ),
       );
@@ -87,10 +93,13 @@ class AcervoActionButton extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        TextButton.icon(
-          onPressed: () => onEscolher(EstadoAcervo.planToWatch),
-          icon: const Icon(Icons.bookmark_add_outlined, size: 18),
-          label: const Text('Quero ver'),
+        // Flexible: with a large font the label shrinks instead of overflowing.
+        Flexible(
+          child: TextButton.icon(
+            onPressed: () => onEscolher(EstadoAcervo.planToWatch),
+            icon: const Icon(Icons.bookmark_add_outlined, size: 18),
+            label: const Text('Quero ver', overflow: TextOverflow.ellipsis),
+          ),
         ),
         _menu(context, icone: const Icon(Icons.arrow_drop_down), tooltip: 'Outros estados'),
       ],
@@ -104,7 +113,13 @@ class AcervoActionButton extends StatelessWidget {
           children: <Widget>[
             const Icon(Icons.bookmark, size: 18, color: AppTheme.destaque),
             const SizedBox(width: 6),
-            Text(rotuloEstado(estado), style: Theme.of(context).textTheme.labelLarge),
+            Flexible(
+              child: Text(
+                rotuloEstado(estado),
+                style: Theme.of(context).textTheme.labelLarge,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
             const Icon(Icons.arrow_drop_down, size: 18),
           ],
         ),
@@ -194,27 +209,48 @@ class AcervoAcao extends StatelessWidget {
     if (tipo == TipoMidia.desconhecido) return const SizedBox.shrink();
 
     final AcervoViewModel acervo = context.watch<AcervoViewModel>();
+
+    // The shelf did not load, so the current state is unknown: a tap now
+    // would overwrite a state she may already have (a "Quero ver" over an
+    // "Assistido"). The button offers to read the shelf again instead.
+    if (!acervo.isLoading && acervo.error != null) {
+      const String dica = 'Não deu para ler seu acervo. Tocar para tentar de novo';
+      return compacto
+          ? IconButton(
+              onPressed: acervo.load,
+              icon: const Icon(Icons.sync_problem),
+              tooltip: dica,
+            )
+          : TextButton.icon(
+              onPressed: acervo.load,
+              icon: const Icon(Icons.sync_problem, size: 18),
+              label: const Text('Recarregar acervo'),
+            );
+    }
+
     final EstadoAcervo? atual = acervo.estadoDe(tipo, tmdbId);
 
     return AcervoActionButton(
       atual: atual,
       compacto: compacto,
-      // While the shelf loads, the current state is unknown: a tap now could
-      // overwrite a state she already has.
+      // While the shelf loads, the current state is unknown too.
       enviando: acervo.isLoading || acervo.enviando(tipo, tmdbId),
       onEscolher: (EstadoAcervo estado) {
         if (estado == atual) return;
         _avisarSeFalhar(context, acervo.marcar(tipo, tmdbId, estado));
       },
-      onRemover: () => _avisarSeFalhar(context, acervo.remover(tipo, tmdbId)),
+      onRemover: acervo.podeRemover(tipo, tmdbId)
+          ? () => _avisarSeFalhar(context, acervo.remover(tipo, tmdbId))
+          : null,
     );
   }
 
   static Future<void> _avisarSeFalhar(BuildContext context, Future<AppError?> gravacao) async {
-    final ScaffoldMessengerState? avisos = ScaffoldMessenger.maybeOf(context);
     final AppError? erro = await gravacao;
-    if (erro == null) return;
-    avisos
+    // Gone from the tree (a sign-out in between): the warning would land on
+    // the login screen, about a shelf that is no longer hers to see.
+    if (erro == null || !context.mounted) return;
+    ScaffoldMessenger.maybeOf(context)
       ?..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text('Não salvou no acervo. ${erro.mensagem}')));
   }

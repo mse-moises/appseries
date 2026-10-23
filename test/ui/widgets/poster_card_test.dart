@@ -1,4 +1,5 @@
 import 'package:appseries/data/api_models/tmdb_item.dart';
+import 'package:appseries/ui/widgets/acervo_action_button.dart';
 import 'package:appseries/ui/widgets/poster_card.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -63,6 +64,32 @@ void main() {
       await mouse.moveTo(const Offset(700, 500));
       await tester.pump();
       expect(escala(), 1);
+    });
+
+    testWidgets('tocar no botão salvando não abre o título por baixo', (tester) async {
+      int aberturas = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 240,
+              child: PosterCard(
+                item: const TmdbItem(id: 5, tipo: TipoMidia.movie, titulo: 'Pôster'),
+                onTap: () => aberturas++,
+                acao: AcervoActionButton(onEscolher: (_) {}, enviando: true, compacto: true),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(CircularProgressIndicator));
+      await tester.pump();
+      expect(aberturas, 0, reason: 'o toque no canto é do botão, mesmo ocupado');
+
+      await tester.tap(find.text('Pôster'));
+      await tester.pump();
+      expect(aberturas, 1);
     });
   });
 }

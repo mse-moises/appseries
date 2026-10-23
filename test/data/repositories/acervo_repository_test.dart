@@ -59,7 +59,9 @@ void main() {
       final result = await repo.marcar(TipoMidia.tv, 1399, EstadoAcervo.planToWatch);
 
       expect(result.valueOrNull, isNull);
-      expect(result.errorOrNull, isA<ConflictError>());
+      expect(result.errorOrNull, isA<AcervoIndisponivelError>());
+      expect(result.errorOrNull?.mensagem, isNot(contains('Tente de novo')),
+          reason: 'repetir a mesma gravação recusada falha igual');
     });
 
     test('marcar manda tipo e estado no corpo e devolve o item salvo', () async {

@@ -291,6 +291,18 @@ void main() {
       expect(find.text('Tentar de novo'), findsNothing);
     });
 
+    testWidgets('cada pôster da home tem o botão de "Quero ver" (AP-50)', (tester) async {
+      await _montar(
+        tester,
+        titulos: _FakeTituloRepository(
+          respostaEmAlta: _lista(<int>[1, 2]),
+          respostaPopulares: _lista(<int>[3]),
+        ),
+      );
+
+      expect(find.byTooltip('Quero ver'), findsNWidgets(3));
+    });
+
     testWidgets('tocar no pôster abre o detalhe com o par (tipo, id)', (tester) async {
       await _montar(tester);
 

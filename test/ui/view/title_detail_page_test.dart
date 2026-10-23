@@ -90,11 +90,12 @@ Future<_FakeFeedback> _abrir(
   WidgetTester tester,
   List<Result<TituloDetalhe>> respostas, {
   List<AcervoItem> acervo = const <AcervoItem>[],
+  double largura = 1200,
 }) async {
   final _FakeFeedback feedback = _FakeFeedback();
   final AcervoViewModel acervoVm = AcervoViewModel(_FakeAcervo(acervo));
   await acervoVm.load();
-  tester.view.physicalSize = const Size(1200, 2000);
+  tester.view.physicalSize = Size(largura, 2000);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
 
@@ -163,6 +164,20 @@ void main() {
       expect(find.text('Ler menos'), findsOneWidget);
     });
 
+    testWidgets('a sinopse fechada mostra no máximo 6 linhas', (tester) async {
+      await _abrir(tester, <Result<TituloDetalhe>>[
+        Result<TituloDetalhe>.ok(TituloDetalhe(
+          id: 1399,
+          tipo: TipoMidia.tv,
+          titulo: 'Longa',
+          sinopse: List<String>.filled(80, 'palavra comprida').join(' '),
+        )),
+      ]);
+
+      final Text sinopse = tester.widget<Text>(find.textContaining('palavra comprida'));
+      expect(sinopse.maxLines, 6);
+    });
+
     testWidgets('sinopse curta não mostra "Ler mais"', (tester) async {
       await _abrir(tester, const <Result<TituloDetalhe>>[Result<TituloDetalhe>.ok(_ficha)]);
 
@@ -180,6 +195,34 @@ void main() {
 
       expect(find.text('👍 Curti'), findsOneWidget);
       expect(find.text('👎 Não curti'), findsOneWidget);
+    });
+
+    for (final EstadoAcervo estado in const <EstadoAcervo>[
+      EstadoAcervo.planToWatch,
+      EstadoAcervo.watching,
+    ]) {
+      testWidgets('em "${estado.name}" ainda não há 👍/👎', (tester) async {
+        await _abrir(
+          tester,
+          const <Result<TituloDetalhe>>[Result<TituloDetalhe>.ok(_ficha)],
+          acervo: <AcervoItem>[AcervoItem(tmdbId: 1399, estado: estado, tipo: TipoMidia.tv)],
+        );
+
+        expect(find.text('👍 Curti'), findsNothing);
+      });
+    }
+
+    testWidgets('em tela estreita com fonte grande a ficha não estoura', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await _abrir(
+        tester,
+        const <Result<TituloDetalhe>>[Result<TituloDetalhe>.ok(_ficha)],
+        largura: 320,
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('2011 · Série'), findsOneWidget);
     });
 
     testWidgets('"não curti" num abandonado grava com origem abandono', (tester) async {

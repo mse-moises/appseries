@@ -296,5 +296,24 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text('Digite pelo menos 3 letras para buscar.'), findsOneWidget);
     });
+
+    testWidgets('resultado em tela estreita com fonte grande não estoura', (tester) async {
+      tester.view.physicalSize = const Size(320, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.view.reset);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      await _buscar(
+        tester,
+        const Result<List<TmdbItem>>.ok(<TmdbItem>[
+          TmdbItem(id: 1, tipo: TipoMidia.movie, titulo: 'Pokémon: O Filme', ano: '1999'),
+        ]),
+        'pokemon',
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(find.byTooltip('Quero ver'), findsOneWidget, reason: 'o botão compacto cabe');
+    });
   });
 }

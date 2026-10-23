@@ -9,13 +9,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
-/// Acervo vazio; cada gravação fica pendente até o teste responder.
+/// Cada gravação fica pendente até o teste responder; a lista é configurável
+/// (inclusive falhar ou ficar pendente).
 class _FakeAcervo implements AcervoRepository {
+  _FakeAcervo({this.lista = const Result<List<AcervoItem>>.ok(<AcervoItem>[]), this.listaPendente});
+
+  Result<List<AcervoItem>> lista;
+  final Completer<Result<List<AcervoItem>>>? listaPendente;
   final List<Completer<Result<AcervoItem>>> marcacoes = <Completer<Result<AcervoItem>>>[];
+  final List<String> remocoes = <String>[];
+  int leituras = 0;
 
   @override
-  Future<Result<List<AcervoItem>>> listar() async =>
-      const Result<List<AcervoItem>>.ok(<AcervoItem>[]);
+  Future<Result<List<AcervoItem>>> listar() {
+    leituras++;
+    return listaPendente?.future ?? Future<Result<List<AcervoItem>>>.value(lista);
+  }
 
   @override
   Future<Result<AcervoItem>> marcar(TipoMidia tipo, int tmdbId, EstadoAcervo estado) {
@@ -25,7 +34,10 @@ class _FakeAcervo implements AcervoRepository {
   }
 
   @override
-  Future<Result<void>> remover(TipoMidia tipo, int tmdbId) => throw UnimplementedError();
+  Future<Result<void>> remover(TipoMidia tipo, int tmdbId) async {
+    remocoes.add('${tipo.name}:$tmdbId');
+    return const Result<void>.ok(null);
+  }
 }
 
 /// O item do menu que tem esse texto (o tipo do valor do menu é privado).
@@ -238,6 +250,84 @@ void main() {
       );
 
       expect(find.text('Quero ver'), findsNothing);
+    });
+
+    Future<void> montarCom(WidgetTester tester, AcervoViewModel vm, {int tmdbId = 1399}) =>
+        tester.pumpWidget(
+          ChangeNotifierProvider<AcervoViewModel>.value(
+            value: vm,
+            child: MaterialApp(
+              home: Scaffold(body: Center(child: AcervoAcao(tipo: TipoMidia.tv, tmdbId: tmdbId))),
+            ),
+          ),
+        );
+
+    testWidgets('acervo que não carregou não deixa gravar por cima: oferece recarregar',
+        (tester) async {
+      final _FakeAcervo repo =
+          _FakeAcervo(lista: const Result<List<AcervoItem>>.error(NetworkError()));
+      final AcervoViewModel vm = AcervoViewModel(repo);
+      await vm.load();
+      await montarCom(tester, vm);
+
+      expect(find.text('Quero ver'), findsNothing,
+          reason: 'o estado atual é desconhecido: "Quero ver" poderia apagar um "Assistido"');
+      repo.lista = const Result<List<AcervoItem>>.ok(<AcervoItem>[]);
+      await tester.tap(find.text('Recarregar acervo'));
+      await tester.pumpAndSettle();
+
+      expect(repo.leituras, 2);
+      expect(repo.marcacoes, isEmpty);
+      expect(find.text('Quero ver'), findsOneWidget);
+    });
+
+    testWidgets('enquanto o acervo carrega, o botão espera e não grava', (tester) async {
+      final _FakeAcervo repo =
+          _FakeAcervo(listaPendente: Completer<Result<List<AcervoItem>>>());
+      final AcervoViewModel vm = AcervoViewModel(repo);
+      unawaited(vm.load());
+      await montarCom(tester, vm);
+
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.text('Quero ver'), findsNothing);
+      await tester.tap(find.byType(CircularProgressIndicator));
+      await tester.pump();
+      expect(repo.marcacoes, isEmpty);
+    });
+
+    testWidgets('"Remover" do menu remove pelo ViewModel, com o tipo', (tester) async {
+      final _FakeAcervo repo = _FakeAcervo(
+        lista: const Result<List<AcervoItem>>.ok(<AcervoItem>[
+          AcervoItem(tmdbId: 1399, estado: EstadoAcervo.watched, tipo: TipoMidia.tv),
+        ]),
+      );
+      final AcervoViewModel vm = AcervoViewModel(repo);
+      await vm.load();
+      await montarCom(tester, vm);
+
+      await tester.tap(find.text('Assistido'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Remover do acervo'));
+      await tester.pumpAndSettle();
+
+      expect(repo.remocoes, <String>['tv:1399']);
+      expect(vm.estadoDe(TipoMidia.tv, 1399), isNull);
+      expect(find.text('Quero ver'), findsOneWidget);
+    });
+
+    testWidgets('linha antiga sem tipo não oferece "Remover"', (tester) async {
+      final AcervoViewModel vm = AcervoViewModel(_FakeAcervo(
+        lista: const Result<List<AcervoItem>>.ok(<AcervoItem>[
+          AcervoItem(tmdbId: 1399, estado: EstadoAcervo.watched),
+        ]),
+      ));
+      await vm.load();
+      await montarCom(tester, vm);
+
+      await tester.tap(find.text('Assistido'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Remover do acervo'), findsNothing);
     });
   });
 }

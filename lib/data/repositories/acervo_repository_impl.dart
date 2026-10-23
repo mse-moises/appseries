@@ -46,7 +46,7 @@ class AcervoRepositoryImpl implements AcervoRepository {
       final MarcarAcervoRequest corpo = MarcarAcervoRequest(estado: estado, tipo: tipo);
       return Result.ok(await _api.marcar(tmdbId, corpo));
     } on DioException catch (e) {
-      return Result.error(appErrorFromDio(e));
+      return Result.error(_doAcervo(appErrorFromDio(e)));
     } catch (_) {
       return const Result<AcervoItem>.error(ServerError());
     }
@@ -60,9 +60,15 @@ class AcervoRepositoryImpl implements AcervoRepository {
       await _api.remover(tmdbId, wire);
       return const Result<void>.ok(null);
     } on DioException catch (e) {
-      return Result.error(appErrorFromDio(e));
+      return Result.error(_doAcervo(appErrorFromDio(e)));
     } catch (_) {
       return const Result<void>.error(ServerError());
     }
   }
+
+  /// A refused write (`400 invalid_estado`/`invalid_tipo`, a `409`) fails the
+  /// same way when repeated: [ConflictError] would say "tente de novo", so the
+  /// shelf answers with its own sentence instead.
+  static AppError _doAcervo(AppError erro) =>
+      erro is ConflictError ? const AcervoIndisponivelError() : erro;
 }

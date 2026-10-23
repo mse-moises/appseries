@@ -28,6 +28,10 @@ class TitleDetailViewModel extends ChangeNotifier {
   SinalGosto? _sinal;
   bool _enviandoSinal = false;
 
+  /// She already tapped 👍/👎 on this visit: the signal read at the opening,
+  /// if it arrives later, is older than her tap and must not overwrite it.
+  bool _sinalTocado = false;
+
   bool get carregando => _carregando;
   String? get erro => _erro?.mensagem;
   TituloDetalhe? get detalhe => _detalhe;
@@ -52,6 +56,7 @@ class TitleDetailViewModel extends ChangeNotifier {
     _detalhe = null;
     _sinal = null;
     _enviandoSinal = false;
+    _sinalTocado = false;
   }
 
   /// Loads the sheet of `ref`. `null` (a route opened without arguments) is an
@@ -63,6 +68,10 @@ class TitleDetailViewModel extends ChangeNotifier {
     _erro = null;
     _detalhe = null;
     _sinal = null;
+    _sinalTocado = false;
+    // A signal still being saved belongs to the previous title: its answer is
+    // dropped by the generation, so its spinner must not carry over.
+    _enviandoSinal = false;
     notifyListeners();
 
     if (ref == null) {
@@ -72,21 +81,26 @@ class TitleDetailViewModel extends ChangeNotifier {
       return;
     }
 
-    // Both at once: the signal is a detail of the page, not a step before it.
-    final Future<Result<TituloDetalhe>> ficha = _seguro(() => _titulos.titulo(ref.tipo, ref.id));
+    // Both asked at once, but the sheet does not wait for the signal: it is
+    // what she came for, and a slow `/feedback` must not keep it spinning.
     final Future<SinalGosto?> sinal = _sinalDe(ref);
-    final Result<TituloDetalhe> resultado = await ficha;
-    final SinalGosto? sinalAtual = await sinal;
+    final Result<TituloDetalhe> resultado =
+        await _seguro(() => _titulos.titulo(ref.tipo, ref.id));
     if (geracao != _geracao) return;
 
     switch (resultado) {
       case Ok<TituloDetalhe>(:final value):
         _detalhe = value;
-        _sinal = sinalAtual;
       case Error<TituloDetalhe>(:final error):
         _erro = error;
     }
     _carregando = false;
+    notifyListeners();
+    if (_detalhe == null) return;
+
+    final SinalGosto? sinalAtual = await sinal;
+    if (geracao != _geracao || _sinalTocado || sinalAtual == null) return;
+    _sinal = sinalAtual;
     notifyListeners();
   }
 
@@ -94,10 +108,10 @@ class TitleDetailViewModel extends ChangeNotifier {
 
   /// 👍 or 👎 (AP-48). Tapping the signal she already gave takes it back.
   ///
-  /// The origin follows the card: given after "Abandonei" it is `abandono` —
-  /// so "não curti" on an abandoned title is a strong 👎 that vetoes it from the
-  /// recommendations — and otherwise `fechamento`. Weight is always 2 here: the
-  /// weak 👎 ("sem tempo") is not offered on this page.
+  /// The origin follows the card: "não curti" on an abandoned title is
+  /// `abandono` — a strong 👎 that vetoes it from the recommendations — and
+  /// every other signal is `fechamento`. Weight is always 2 here (👍 is always
+  /// 2, and the weak 👎 "sem tempo" is not offered on this page).
   ///
   /// Answers the failure (or `null`) for the page to say it did not save; the
   /// signal on screen only changes when the server confirms.
@@ -107,6 +121,7 @@ class TitleDetailViewModel extends ChangeNotifier {
 
     final int geracao = _geracao;
     _enviandoSinal = true;
+    _sinalTocado = true;
     notifyListeners();
 
     final bool desfazer = escolhido == _sinal;
@@ -122,9 +137,11 @@ class TitleDetailViewModel extends ChangeNotifier {
             erro = error;
         }
       } else {
+        final bool naoCurtiuAbandonado =
+            escolhido == SinalGosto.dislike && estado == EstadoAcervo.dropped;
         final OrigemFeedback origem =
-            estado == EstadoAcervo.dropped ? OrigemFeedback.abandono : OrigemFeedback.fechamento;
-        switch (await _feedback.marcar(ref.tipo, ref.id, escolhido, origem: origem)) {
+            naoCurtiuAbandonado ? OrigemFeedback.abandono : OrigemFeedback.fechamento;
+        switch (await _feedback.marcar(ref.tipo, ref.id, escolhido, peso: 2, origem: origem)) {
           case Ok<FeedbackItem>(:final value):
             novo = value.sinal;
           case Error<FeedbackItem>(:final error):
