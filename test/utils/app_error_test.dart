@@ -171,8 +171,30 @@ void main() {
       expect(error.mensagem, isNot(contains('amanhã')));
     });
 
+    test('catálogo fora do ar tem frase própria e guarda o código cru', () {
+      for (final String codigo in <String>['tmdb_error', 'tmdb_unconfigured']) {
+        final AppError error = appErrorFromCodigo(codigo);
+        expect(error, isA<CatalogoIndisponivelError>(), reason: codigo);
+        expect(error.codigo, codigo, reason: 'o log precisa separar as duas causas');
+        expect(error.mensagem, contains('catálogo'), reason: codigo);
+        expect(error.mensagem, isNot(contains('servidor')), reason: codigo);
+      }
+    });
+
+    test('os três códigos do TMDB têm frases diferentes entre si e do erro genérico', () {
+      final Set<String> frases = <String>{
+        appErrorFromCodigo('tmdb_error').mensagem,
+        appErrorFromCodigo('tmdb_rate_limited').mensagem,
+        const ServerError().mensagem,
+      };
+      expect(frases, hasLength(3));
+      expect(appErrorFromCodigo('tmdb_unconfigured').mensagem,
+          appErrorFromCodigo('tmdb_error').mensagem,
+          reason: 'para ela, as duas são o catálogo fora do ar');
+    });
+
     test('servidor sem configuração própria não é culpa da sessão da usuária', () {
-      for (final String codigo in <String>['auth_unconfigured', 'tmdb_unconfigured']) {
+      for (final String codigo in <String>['auth_unconfigured', 'rec_unconfigured']) {
         final AppError error = appErrorFromCodigo(codigo);
         expect(error, isA<ServerError>(), reason: codigo);
         expect(error.mensagem, isNot(contains('sessão')));
@@ -194,6 +216,7 @@ void main() {
       ConflictError(),
       RateLimitError(),
       CatalogoOcupadoError(),
+      CatalogoIndisponivelError(),
       ServerError(),
       CredenciaisInvalidasError(),
       EmailJaEmUsoError(),

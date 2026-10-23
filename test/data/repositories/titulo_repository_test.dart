@@ -107,15 +107,23 @@ void main() {
       expect(result.errorOrNull, isNull);
     });
 
-    test('traduz 502 do backend em ServerError', () async {
+    test('502 tmdb_error vira catálogo fora do ar, não erro de servidor', () async {
       final repo = TituloRepositoryImpl(
         FakeRestClient(error: _erroHttp(502, <String, String>{'error': 'tmdb_error'})),
       );
 
       final result = await repo.emAlta();
 
+      expect(result.errorOrNull, isA<CatalogoIndisponivelError>());
+      expect(result.errorOrNull?.mensagem, const CatalogoIndisponivelError().mensagem);
+    });
+
+    test('502 sem corpo continua sendo erro de servidor', () async {
+      final repo = TituloRepositoryImpl(FakeRestClient(error: _erroHttp(502, '')));
+
+      final result = await repo.emAlta();
+
       expect(result.errorOrNull, isA<ServerError>());
-      expect(result.errorOrNull?.mensagem, const ServerError().mensagem);
     });
 
     test('429 do TMDB na busca vira CatalogoOcupadoError, não erro de servidor', () async {
