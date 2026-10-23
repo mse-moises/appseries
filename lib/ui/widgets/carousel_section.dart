@@ -20,7 +20,9 @@ class CarouselSection extends StatelessWidget {
   final SecaoTitulos secao;
   final VoidCallback onRetry;
 
-  static const double altura = 236;
+  /// Includes the room above the posters that the hover zoom grows into: without
+  /// it the list clips the top of the poster under the pointer.
+  static const double altura = 244;
 
   @override
   Widget build(BuildContext context) {
@@ -62,7 +64,7 @@ class CarouselSection extends StatelessWidget {
 
     return ListView.separated(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       itemCount: secao.itens.length,
       separatorBuilder: (BuildContext context, int _) => const SizedBox(width: 12),
       itemBuilder: (BuildContext context, int i) => PosterCard(item: secao.itens[i]),

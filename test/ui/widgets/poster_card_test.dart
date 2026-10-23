@@ -1,5 +1,6 @@
 import 'package:appseries/data/api_models/tmdb_item.dart';
 import 'package:appseries/ui/widgets/poster_card.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -44,6 +45,24 @@ void main() {
 
       expect(find.text(''), findsNothing);
       expect(find.text('Sem data'), findsOneWidget);
+    });
+
+    testWidgets('o pôster cresce com o mouse em cima e volta ao sair', (tester) async {
+      await montar(tester, const TmdbItem(id: 4, tipo: TipoMidia.movie, titulo: 'Hover'));
+      double escala() => tester.widget<AnimatedScale>(find.byKey(const Key('poster-zoom'))).scale;
+      expect(escala(), 1);
+
+      final TestGesture mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+
+      await mouse.moveTo(tester.getCenter(find.byType(PosterCard)));
+      await tester.pump();
+      expect(escala(), PosterCard.escalaHover);
+
+      await mouse.moveTo(const Offset(700, 500));
+      await tester.pump();
+      expect(escala(), 1);
     });
   });
 }
