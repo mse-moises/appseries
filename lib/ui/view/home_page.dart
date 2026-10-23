@@ -5,6 +5,7 @@ import '../view_model/acervo_view_model.dart';
 import '../view_model/auth_view_model.dart';
 import '../view_model/home_view_model.dart';
 import '../widgets/carousel_section.dart';
+import '../widgets/filtro_home.dart';
 
 /// Home: the entry point of the product.
 ///
@@ -81,6 +82,8 @@ class _HomePageState extends State<HomePage> {
                 ),
               ],
             ),
+          // Outside the scroll: the search box stays on top while she scrolls.
+          FiltroHome(filtro: home.filtro, onFiltro: home.setFiltro),
           Expanded(
             child: ListView(
               children: <Widget>[

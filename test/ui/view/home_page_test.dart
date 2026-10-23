@@ -194,6 +194,32 @@ void main() {
       expect(find.text('Título 3'), findsOneWidget);
     });
 
+    testWidgets('o filtro Séries/Filmes troca o que os carrosséis mostram', (tester) async {
+      await _montar(
+        tester,
+        titulos: _FakeTituloRepository(
+          respostaEmAlta: const Result<List<TmdbItem>>.ok(<TmdbItem>[
+            TmdbItem(id: 1, tipo: TipoMidia.movie, titulo: 'Filme 1'),
+            TmdbItem(id: 2, tipo: TipoMidia.tv, titulo: 'Série 2'),
+          ]),
+          respostaPopulares: _lista(<int>[]),
+        ),
+      );
+
+      expect(find.text('Filme 1'), findsOneWidget);
+      expect(find.text('Série 2'), findsOneWidget);
+
+      await tester.tap(find.text('Séries'));
+      await tester.pump();
+      expect(find.text('Filme 1'), findsNothing);
+      expect(find.text('Série 2'), findsOneWidget);
+
+      await tester.tap(find.text('Filmes'));
+      await tester.pump();
+      expect(find.text('Filme 1'), findsOneWidget);
+      expect(find.text('Série 2'), findsNothing);
+    });
+
     testWidgets('mostra a atribuição do TMDB', (tester) async {
       await _montar(tester);
 

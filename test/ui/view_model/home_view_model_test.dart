@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:appseries/data/api_models/tmdb_item.dart';
 import 'package:appseries/data/repositories/titulo_repository.dart';
 import 'package:appseries/ui/view_model/home_view_model.dart';
+import 'package:appseries/ui/view_model/secao_titulos.dart';
 import 'package:appseries/utils/app_error.dart';
 import 'package:appseries/utils/result.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -95,7 +96,123 @@ TmdbItem _item(int id) => TmdbItem(
 Result<List<TmdbItem>> _ok(List<int> ids) =>
     Result<List<TmdbItem>>.ok(<TmdbItem>[for (final int id in ids) _item(id)]);
 
+TmdbItem _serie(int id) => TmdbItem(id: id, tipo: TipoMidia.tv, titulo: 'Série $id');
+
+TmdbItem _filme(int id) => TmdbItem(id: id, tipo: TipoMidia.movie, titulo: 'Filme $id');
+
+List<String> _titulos(SecaoTitulos secao) => <String>[for (final TmdbItem t in secao.itens) t.titulo];
+
 void main() {
+  group('HomeViewModel — filtro por tipo', () {
+    HomeViewModel novoVm() => HomeViewModel(
+          _FakeTituloRepository(
+            respostaEmAlta: Result<List<TmdbItem>>.ok(<TmdbItem>[
+              _filme(1),
+              _serie(2),
+              const TmdbItem(id: 3, tipo: TipoMidia.desconhecido, titulo: 'Outro 3'),
+            ]),
+            respostaPopulares: Result<List<TmdbItem>>.ok(<TmdbItem>[_serie(4), _filme(5)]),
+          ),
+        );
+
+    test('começa em Todos e mostra tudo', () async {
+      final vm = novoVm();
+      await vm.load();
+
+      expect(vm.filtro, FiltroTipo.todos);
+      expect(_titulos(vm.emAlta), <String>['Filme 1', 'Série 2', 'Outro 3']);
+      expect(_titulos(vm.populares), <String>['Série 4', 'Filme 5']);
+    });
+
+    test('Séries deixa só séries nos dois carrosséis', () async {
+      final vm = novoVm();
+      await vm.load();
+
+      vm.setFiltro(FiltroTipo.series);
+
+      expect(_titulos(vm.emAlta), <String>['Série 2']);
+      expect(_titulos(vm.populares), <String>['Série 4']);
+    });
+
+    test('Filmes deixa só filmes nos dois carrosséis', () async {
+      final vm = novoVm();
+      await vm.load();
+
+      vm.setFiltro(FiltroTipo.filmes);
+
+      expect(_titulos(vm.emAlta), <String>['Filme 1']);
+      expect(_titulos(vm.populares), <String>['Filme 5']);
+    });
+
+    test('voltar para Todos devolve a lista inteira, sem nova requisição', () async {
+      final repo = _FakeTituloRepository(
+        respostaEmAlta: Result<List<TmdbItem>>.ok(<TmdbItem>[_filme(1), _serie(2)]),
+        respostaPopulares: Result<List<TmdbItem>>.ok(<TmdbItem>[_serie(4)]),
+      );
+      final vm = HomeViewModel(repo);
+      await vm.load();
+
+      vm.setFiltro(FiltroTipo.filmes);
+      vm.setFiltro(FiltroTipo.todos);
+
+      expect(_titulos(vm.emAlta), <String>['Filme 1', 'Série 2']);
+      expect(repo.chamadasEmAlta, 1);
+      expect(repo.chamadasPopulares, 1);
+    });
+
+    test('trocar o filtro avisa a View; repetir o mesmo não avisa', () async {
+      final vm = novoVm();
+      await vm.load();
+      int avisos = 0;
+      vm.addListener(() => avisos++);
+
+      vm.setFiltro(FiltroTipo.series);
+      vm.setFiltro(FiltroTipo.series);
+
+      expect(avisos, 1);
+    });
+
+    test('o filtro não esconde o erro nem o carregando da seção', () async {
+      final vm = HomeViewModel(
+        _FakeTituloRepository(
+          respostaEmAlta: const Result<List<TmdbItem>>.error(NetworkError()),
+          respostaPopulares: Result<List<TmdbItem>>.ok(<TmdbItem>[_filme(5)]),
+        ),
+      );
+      vm.setFiltro(FiltroTipo.series);
+      expect(vm.emAlta.carregando, isTrue);
+
+      await vm.load();
+
+      expect(vm.emAlta.erro, isNotNull);
+      expect(vm.populares.vazio, isTrue, reason: 'nenhuma série em Populares');
+    });
+
+    test('o dedupe continua valendo com o filtro ligado', () async {
+      final vm = HomeViewModel(
+        _FakeTituloRepository(
+          respostaEmAlta: Result<List<TmdbItem>>.ok(<TmdbItem>[_serie(2)]),
+          respostaPopulares: Result<List<TmdbItem>>.ok(<TmdbItem>[_serie(2), _serie(4)]),
+        ),
+      );
+      await vm.load();
+
+      vm.setFiltro(FiltroTipo.series);
+
+      expect(_titulos(vm.populares), <String>['Série 4']);
+    });
+
+    test('o reset volta o filtro para Todos', () async {
+      final vm = novoVm();
+      await vm.load();
+      vm.setFiltro(FiltroTipo.filmes);
+
+      vm.reset();
+
+      expect(vm.filtro, FiltroTipo.todos, reason: 'a próxima conta não herda o filtro');
+    });
+  });
+
   group('HomeViewModel', () {
     test('carrega as duas seções', () async {
       final vm = HomeViewModel(
