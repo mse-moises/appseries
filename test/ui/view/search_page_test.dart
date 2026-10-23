@@ -114,7 +114,7 @@ void main() {
     testWidgets('sem resultado diz o que foi buscado', (tester) async {
       await _buscar(tester, const Result<List<TmdbItem>>.ok(<TmdbItem>[]), 'xyzxyz');
 
-      expect(find.text('Nada encontrado para "xyzxyz". Tente outro nome.'), findsOneWidget);
+      expect(find.text('Nada encontrado para "xyzxyz". Confira o nome ou tente em inglês.'), findsOneWidget);
     });
 
     testWidgets('erro mostra a frase e o botão de tentar de novo', (tester) async {

@@ -119,7 +119,7 @@ void main() {
       final vm = novoVm();
       await vm.load();
 
-      expect(vm.filtro, FiltroTipo.todos);
+      expect(vm.filtro, TipoFiltro.todos);
       expect(_titulos(vm.emAlta), <String>['Filme 1', 'Série 2', 'Outro 3']);
       expect(_titulos(vm.populares), <String>['Série 4', 'Filme 5']);
     });
@@ -128,7 +128,7 @@ void main() {
       final vm = novoVm();
       await vm.load();
 
-      vm.setFiltro(FiltroTipo.series);
+      vm.setFiltro(TipoFiltro.series);
 
       expect(_titulos(vm.emAlta), <String>['Série 2']);
       expect(_titulos(vm.populares), <String>['Série 4']);
@@ -138,7 +138,7 @@ void main() {
       final vm = novoVm();
       await vm.load();
 
-      vm.setFiltro(FiltroTipo.filmes);
+      vm.setFiltro(TipoFiltro.filmes);
 
       expect(_titulos(vm.emAlta), <String>['Filme 1']);
       expect(_titulos(vm.populares), <String>['Filme 5']);
@@ -152,8 +152,8 @@ void main() {
       final vm = HomeViewModel(repo);
       await vm.load();
 
-      vm.setFiltro(FiltroTipo.filmes);
-      vm.setFiltro(FiltroTipo.todos);
+      vm.setFiltro(TipoFiltro.filmes);
+      vm.setFiltro(TipoFiltro.todos);
 
       expect(_titulos(vm.emAlta), <String>['Filme 1', 'Série 2']);
       expect(repo.chamadasEmAlta, 1);
@@ -166,8 +166,8 @@ void main() {
       int avisos = 0;
       vm.addListener(() => avisos++);
 
-      vm.setFiltro(FiltroTipo.series);
-      vm.setFiltro(FiltroTipo.series);
+      vm.setFiltro(TipoFiltro.series);
+      vm.setFiltro(TipoFiltro.series);
 
       expect(avisos, 1);
     });
@@ -179,7 +179,7 @@ void main() {
           respostaPopulares: Result<List<TmdbItem>>.ok(<TmdbItem>[_filme(5)]),
         ),
       );
-      vm.setFiltro(FiltroTipo.series);
+      vm.setFiltro(TipoFiltro.series);
       expect(vm.emAlta.carregando, isTrue);
 
       await vm.load();
@@ -197,7 +197,7 @@ void main() {
       );
       await vm.load();
 
-      vm.setFiltro(FiltroTipo.series);
+      vm.setFiltro(TipoFiltro.series);
 
       expect(_titulos(vm.populares), <String>['Série 4']);
     });
@@ -205,11 +205,11 @@ void main() {
     test('o reset volta o filtro para Todos', () async {
       final vm = novoVm();
       await vm.load();
-      vm.setFiltro(FiltroTipo.filmes);
+      vm.setFiltro(TipoFiltro.filmes);
 
       vm.reset();
 
-      expect(vm.filtro, FiltroTipo.todos, reason: 'a próxima conta não herda o filtro');
+      expect(vm.filtro, TipoFiltro.todos, reason: 'a próxima conta não herda o filtro');
     });
   });
 

@@ -4,10 +4,10 @@ import '../../data/api_models/tmdb_item.dart';
 import '../../data/repositories/titulo_repository.dart';
 import '../../utils/app_error.dart';
 import '../../utils/result.dart';
-import 'filtro_tipo.dart';
+import 'tipo_filtro.dart';
 import 'secao_titulos.dart';
 
-export 'filtro_tipo.dart';
+export 'tipo_filtro.dart';
 
 /// State of the home screen: two independent carousels.
 ///
@@ -23,9 +23,9 @@ class HomeViewModel extends ChangeNotifier {
   SecaoTitulos _emAlta = const SecaoTitulos(carregando: true);
   SecaoTitulos _popularesCrus = const SecaoTitulos(carregando: true);
   int _geracao = 0;
-  FiltroTipo _filtro = FiltroTipo.todos;
+  TipoFiltro _filtro = TipoFiltro.todos;
 
-  FiltroTipo get filtro => _filtro;
+  TipoFiltro get filtro => _filtro;
 
   SecaoTitulos get emAlta => _filtrada(_emAlta);
 
@@ -53,7 +53,7 @@ class HomeViewModel extends ChangeNotifier {
 
   /// Filters the lists already loaded: no new request, and the two carousels
   /// follow the same choice.
-  void setFiltro(FiltroTipo filtro) {
+  void setFiltro(TipoFiltro filtro) {
     if (filtro == _filtro) return;
     _filtro = filtro;
     notifyListeners();
@@ -84,7 +84,7 @@ class HomeViewModel extends ChangeNotifier {
   /// account, not of the next one.
   void reset() {
     _geracao++;
-    _filtro = FiltroTipo.todos;
+    _filtro = TipoFiltro.todos;
     _emAlta = const SecaoTitulos(carregando: true);
     _popularesCrus = const SecaoTitulos(carregando: true);
   }

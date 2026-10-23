@@ -267,7 +267,7 @@ void main() {
       await _esperar();
       repo.responder(0, _ok(<TmdbItem>[_filme]));
       await pumpEventQueue();
-      vm.setFiltro(FiltroTipo.filmes);
+      vm.setFiltro(TipoFiltro.filmes);
 
       int avisos = 0;
       vm.addListener(() => avisos++);
@@ -275,7 +275,7 @@ void main() {
 
       expect(vm.estado, EstadoBusca.ocioso);
       expect(vm.consulta, isEmpty);
-      expect(vm.filtro, FiltroTipo.todos);
+      expect(vm.filtro, TipoFiltro.todos);
       expect(avisos, 0, reason: 'reset roda no initState: não pode notificar');
     });
   });
@@ -291,13 +291,13 @@ void main() {
     test('Séries e Filmes filtram o resultado sem nova requisição', () async {
       await carregar();
 
-      vm.setFiltro(FiltroTipo.series);
+      vm.setFiltro(TipoFiltro.series);
       expect(vm.resultados, <TmdbItem>[_serie]);
 
-      vm.setFiltro(FiltroTipo.filmes);
+      vm.setFiltro(TipoFiltro.filmes);
       expect(vm.resultados, <TmdbItem>[_filme]);
 
-      vm.setFiltro(FiltroTipo.todos);
+      vm.setFiltro(TipoFiltro.todos);
       expect(vm.resultados, hasLength(2));
       expect(repo.consultas, hasLength(1));
     });
@@ -308,7 +308,7 @@ void main() {
       repo.responder(0, _ok(<TmdbItem>[_filme]));
       await pumpEventQueue();
 
-      vm.setFiltro(FiltroTipo.series);
+      vm.setFiltro(TipoFiltro.series);
 
       expect(vm.estado, EstadoBusca.vazio);
     });

@@ -6,9 +6,9 @@ import '../../data/api_models/tmdb_item.dart';
 import '../../data/repositories/titulo_repository.dart';
 import '../../utils/app_error.dart';
 import '../../utils/result.dart';
-import 'filtro_tipo.dart';
+import 'tipo_filtro.dart';
 
-export 'filtro_tipo.dart';
+export 'tipo_filtro.dart';
 
 /// Where the search screen is. Each one has its own screen: none of them is a
 /// blank page.
@@ -49,10 +49,10 @@ class SearchViewModel extends ChangeNotifier {
   AppError? _erro;
   List<TmdbItem> _resultados = const <TmdbItem>[];
   List<TmdbItem> _visiveis = const <TmdbItem>[];
-  FiltroTipo _filtro = FiltroTipo.todos;
+  TipoFiltro _filtro = TipoFiltro.todos;
 
   String get consulta => _consulta;
-  FiltroTipo get filtro => _filtro;
+  TipoFiltro get filtro => _filtro;
   String? get erro => _erro?.mensagem;
 
   /// Only a failure that asking again can fix gets a retry: an invalid query
@@ -105,7 +105,7 @@ class SearchViewModel extends ChangeNotifier {
     _timer = Timer(espera, () => _buscar(termo, geracao));
   }
 
-  void setFiltro(FiltroTipo filtro) {
+  void setFiltro(TipoFiltro filtro) {
     if (filtro == _filtro) return;
     _filtro = filtro;
     _filtrar();
@@ -141,7 +141,7 @@ class SearchViewModel extends ChangeNotifier {
     _timer?.cancel();
     _geracao++;
     _consulta = '';
-    _filtro = FiltroTipo.todos;
+    _filtro = TipoFiltro.todos;
     _limparResposta();
   }
 

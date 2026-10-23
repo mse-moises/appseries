@@ -92,14 +92,14 @@ class _HomePageState extends State<HomePage> {
                   titulo: 'Em alta',
                   secao: home.emAlta,
                   onRetry: home.recarregarEmAlta,
-                  mensagemVazia: _vazioDoFiltro(home.filtro),
+                  mensagemVazia: _vazioDoFiltro(home.filtro, 'em alta'),
                 ),
                 const SizedBox(height: 20),
                 CarouselSection(
                   titulo: 'Populares',
                   secao: home.populares,
                   onRetry: home.recarregarPopulares,
-                  mensagemVazia: _vazioDoFiltro(home.filtro),
+                  mensagemVazia: _vazioDoFiltro(home.filtro, 'entre os populares'),
                 ),
                 const SizedBox(height: 12),
               ],
@@ -114,11 +114,12 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-/// What an empty carousel says: with a filter on, it names the filter.
-String _vazioDoFiltro(FiltroTipo filtro) => switch (filtro) {
-      FiltroTipo.todos => 'Nada por aqui agora.',
-      FiltroTipo.series => 'Nenhuma série nesta lista agora.',
-      FiltroTipo.filmes => 'Nenhum filme nesta lista agora.',
+/// What an empty carousel says: with a filter on, it names the kind and the
+/// section ("Nenhum filme em alta agora.").
+String _vazioDoFiltro(TipoFiltro filtro, String secao) => switch (filtro) {
+      TipoFiltro.todos => 'Nada por aqui agora.',
+      TipoFiltro.series => 'Nenhuma série $secao agora.',
+      TipoFiltro.filmes => 'Nenhum filme $secao agora.',
     };
 
 /// Fixed footer: the signed-in account, the shelf count and the TMDB credit.

@@ -234,7 +234,8 @@ void main() {
       await tester.tap(find.text('Séries'));
       await tester.pump();
 
-      expect(find.text('Nenhuma série nesta lista agora.'), findsNWidgets(2));
+      expect(find.text('Nenhuma série em alta agora.'), findsOneWidget);
+      expect(find.text('Nenhuma série entre os populares agora.'), findsOneWidget);
       expect(find.text('Nada por aqui agora.'), findsNothing);
     });
 

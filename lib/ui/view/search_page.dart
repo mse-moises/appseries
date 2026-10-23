@@ -9,7 +9,7 @@ import '../../utils/tmdb_image.dart';
 import '../navegacao/titulo_ref.dart';
 import '../theme/app_theme.dart';
 import '../view_model/search_view_model.dart';
-import '../widgets/filtro_tipo_chips.dart';
+import '../widgets/tipo_filtro_chips.dart';
 import '../widgets/status_view.dart';
 
 /// Search by name (AP-44 / AP-45), over the whole catalogue through `/busca`.
@@ -82,7 +82,7 @@ class _SearchPageState extends State<SearchPage> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: FiltroTipoChips(filtro: busca.filtro, onFiltro: busca.setFiltro),
+              child: TipoFiltroChips(filtro: busca.filtro, onFiltro: busca.setFiltro),
             ),
           ),
           Expanded(child: _corpo(busca)),
@@ -122,9 +122,9 @@ class _SearchPageState extends State<SearchPage> {
   static String _semResultado(SearchViewModel busca) {
     final String termo = '"${busca.consulta.trim()}"';
     return switch (busca.filtro) {
-      FiltroTipo.todos => 'Nada encontrado para $termo. Tente outro nome.',
-      FiltroTipo.series => 'Nenhuma série entre os resultados para $termo.',
-      FiltroTipo.filmes => 'Nenhum filme entre os resultados para $termo.',
+      TipoFiltro.todos => 'Nada encontrado para $termo. Confira o nome ou tente em inglês.',
+      TipoFiltro.series => 'Nenhuma série entre os resultados para $termo.',
+      TipoFiltro.filmes => 'Nenhum filme entre os resultados para $termo.',
     };
   }
 }

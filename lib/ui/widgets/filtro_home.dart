@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../utils/routes_config.dart';
-import '../view_model/filtro_tipo.dart';
-import 'filtro_tipo_chips.dart';
+import '../view_model/tipo_filtro.dart';
+import 'tipo_filtro_chips.dart';
 
 /// Top of the home: the search box and the Todos / Séries / Filmes chips.
 ///
@@ -12,8 +12,8 @@ import 'filtro_tipo_chips.dart';
 class FiltroHome extends StatelessWidget {
   const FiltroHome({required this.filtro, required this.onFiltro, super.key});
 
-  final FiltroTipo filtro;
-  final ValueChanged<FiltroTipo> onFiltro;
+  final TipoFiltro filtro;
+  final ValueChanged<TipoFiltro> onFiltro;
 
   /// Wider than this the box stops growing: a search field across a 1900 px
   /// window reads as a second app bar.
@@ -64,7 +64,7 @@ class FiltroHome extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          FiltroTipoChips(filtro: filtro, onFiltro: onFiltro),
+          TipoFiltroChips(filtro: filtro, onFiltro: onFiltro),
         ],
       ),
     );

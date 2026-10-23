@@ -1,26 +1,26 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
-import '../view_model/filtro_tipo.dart';
+import '../view_model/tipo_filtro.dart';
 
 /// The Todos / Séries / Filmes pills.
 ///
 /// Compact on purpose: a full-width segmented bar across a wide window read as
 /// a second app bar, not as a filter.
-class FiltroTipoChips extends StatelessWidget {
-  const FiltroTipoChips({required this.filtro, required this.onFiltro, super.key});
+class TipoFiltroChips extends StatelessWidget {
+  const TipoFiltroChips({required this.filtro, required this.onFiltro, super.key});
 
-  final FiltroTipo filtro;
-  final ValueChanged<FiltroTipo> onFiltro;
+  final TipoFiltro filtro;
+  final ValueChanged<TipoFiltro> onFiltro;
 
   @override
   Widget build(BuildContext context) => Wrap(
         spacing: 8,
         children: <Widget>[
-          for (final (FiltroTipo valor, String rotulo) in const <(FiltroTipo, String)>[
-            (FiltroTipo.todos, 'Todos'),
-            (FiltroTipo.series, 'Séries'),
-            (FiltroTipo.filmes, 'Filmes'),
+          for (final (TipoFiltro valor, String rotulo) in const <(TipoFiltro, String)>[
+            (TipoFiltro.todos, 'Todos'),
+            (TipoFiltro.series, 'Séries'),
+            (TipoFiltro.filmes, 'Filmes'),
           ])
             _Chip(
               rotulo: rotulo,
