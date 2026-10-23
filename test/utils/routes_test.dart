@@ -39,10 +39,15 @@ class _FakeAuthRepository implements AuthRepository {
   Future<Result<void>> signOut() async => const Result<void>.ok(null);
 }
 
-/// A busca abre ociosa: nenhuma chamada chega aqui ao só abrir a rota.
+/// A busca abre ociosa: só abrir a rota não pode chamar o servidor.
 class _FakeTituloRepository implements TituloRepository {
+  int buscas = 0;
+
   @override
-  Future<Result<List<TmdbItem>>> buscar(String q) => throw UnimplementedError();
+  Future<Result<List<TmdbItem>>> buscar(String q) async {
+    buscas++;
+    return const Result<List<TmdbItem>>.ok(<TmdbItem>[]);
+  }
 
   @override
   Future<Result<List<TmdbItem>>> emAlta() => throw UnimplementedError();
@@ -56,10 +61,12 @@ class _FakeTituloRepository implements TituloRepository {
 
 /// Abre a rota pelo caminho real do app: `Navigator.pushNamed`, não uma rota
 /// montada à mão no teste.
+final _FakeTituloRepository _titulos = _FakeTituloRepository();
+
 Future<void> _empurrar(WidgetTester tester, String nome, {Object? argumentos}) async {
   // A busca lê o ViewModel dela da raiz, como no `main.dart`.
   await tester.pumpWidget(ChangeNotifierProvider<SearchViewModel>(
-    create: (_) => SearchViewModel(_FakeTituloRepository()),
+    create: (_) => SearchViewModel(_titulos),
     child: MaterialApp(
       key: ValueKey<String>('rota-$nome'),
       routes: Routes.mapa,
@@ -118,6 +125,7 @@ void main() {
         await _empurrar(tester, e.key);
         expect(find.byType(e.value), findsOneWidget, reason: 'rota ${e.key}');
       }
+      expect(_titulos.buscas, 0, reason: 'abrir a busca não pode chamar o servidor');
     });
 
     testWidgets('pushNamed leva o TituloRef até o detalhe', (tester) async {

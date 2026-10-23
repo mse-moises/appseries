@@ -53,6 +53,44 @@ void main() {
       expect(find.text('Digite pelo menos 3 letras para buscar.'), findsOneWidget);
     });
 
+    testWidgets('reabrir a tela não mostra a busca anterior', (tester) async {
+      await tester.pumpWidget(
+        ChangeNotifierProvider<SearchViewModel>(
+          create: (_) => SearchViewModel(
+            _FakeBusca(const Result<List<TmdbItem>>.ok(<TmdbItem>[
+              TmdbItem(id: 1, tipo: TipoMidia.movie, titulo: 'Pokémon: O Filme'),
+            ])),
+            espera: Duration.zero,
+          ),
+          child: MaterialApp(
+            home: Builder(
+              builder: (BuildContext context) => TextButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(builder: (_) => const SearchPage()),
+                ),
+                child: const Text('abrir'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('abrir'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('campo-busca')), 'pokemon');
+      await tester.pumpAndSettle();
+      expect(find.text('Pokémon: O Filme'), findsOneWidget);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('abrir'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Pokémon: O Filme'), findsNothing);
+      expect(find.text('Digite pelo menos 3 letras para buscar.'), findsOneWidget);
+    });
+
     testWidgets('resultado mostra título, ano e tipo; o chip filtra', (tester) async {
       await _buscar(
         tester,

@@ -26,15 +26,20 @@ class SearchPage extends StatefulWidget {
 class _SearchPageState extends State<SearchPage> {
   final TextEditingController _texto = TextEditingController();
 
+  // Kept from `initState`: `dispose` cannot look it up in the tree.
+  late final SearchViewModel _busca;
+
   @override
   void initState() {
     super.initState();
+    _busca = context.read<SearchViewModel>();
     // Lives at the root: without this the screen opens on the last search.
-    context.read<SearchViewModel>().reset();
+    _busca.reset();
   }
 
   @override
   void dispose() {
+    _busca.cancelar();
     _texto.dispose();
     super.dispose();
   }
@@ -110,12 +115,16 @@ class _SearchPageState extends State<SearchPage> {
       };
 
   /// Says what was searched, and the filter when it is the one hiding results.
+  ///
+  /// With a filter on, the sentence talks about the results shown, not the
+  /// catalogue: the server answers only the top titles, mixed, so a series may
+  /// exist and just not be among them.
   static String _semResultado(SearchViewModel busca) {
     final String termo = '"${busca.consulta.trim()}"';
     return switch (busca.filtro) {
       FiltroTipo.todos => 'Nada encontrado para $termo. Tente outro nome.',
-      FiltroTipo.series => 'Nenhuma série encontrada para $termo.',
-      FiltroTipo.filmes => 'Nenhum filme encontrado para $termo.',
+      FiltroTipo.series => 'Nenhuma série entre os resultados para $termo.',
+      FiltroTipo.filmes => 'Nenhum filme entre os resultados para $termo.',
     };
   }
 }

@@ -13,12 +13,17 @@ class CarouselSection extends StatelessWidget {
     required this.titulo,
     required this.secao,
     required this.onRetry,
+    this.mensagemVazia = 'Nada por aqui agora.',
     super.key,
   });
 
   final String titulo;
   final SecaoTitulos secao;
   final VoidCallback onRetry;
+
+  /// What an empty section says. The home passes the filter's sentence: with a
+  /// filter on, "nothing here" would hide that the filter is the cause.
+  final String mensagemVazia;
 
   /// Includes the room above the posters that the hover zoom grows into: without
   /// it the list clips the top of the poster under the pointer.
@@ -59,7 +64,7 @@ class CarouselSection extends StatelessWidget {
     }
 
     if (secao.vazio) {
-      return const Center(child: Text('Nada por aqui agora.'));
+      return Center(child: Text(mensagemVazia, textAlign: TextAlign.center));
     }
 
     return ListView.separated(

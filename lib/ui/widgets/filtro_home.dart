@@ -30,19 +30,35 @@ class FiltroHome extends StatelessWidget {
         children: <Widget>[
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: larguraMaxima),
-            child: TextField(
-              key: const Key('busca-home'),
-              readOnly: true,
-              onTap: () => Navigator.pushNamed(context, Routes.busca),
-              decoration: InputDecoration(
-                hintText: 'Buscar série ou filme',
-                prefixIcon: const Icon(Icons.search),
-                isDense: true,
-                filled: true,
-                fillColor: cores.surfaceContainerHighest,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(28),
-                  borderSide: BorderSide.none,
+            // A button dressed as a field, not a read-only `TextField`: it takes
+            // focus by Tab and opens with Enter or Space, which a read-only
+            // field only does on tap.
+            child: Material(
+              color: cores.surfaceContainerHighest,
+              shape: const StadiumBorder(),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                key: const Key('busca-home'),
+                onTap: () => Navigator.pushNamed(context, Routes.busca),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  child: Row(
+                    children: <Widget>[
+                      Icon(Icons.search, color: cores.onSurfaceVariant),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Buscar série ou filme',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyLarge
+                              ?.copyWith(color: cores.onSurfaceVariant),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

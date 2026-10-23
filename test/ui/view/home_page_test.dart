@@ -13,6 +13,8 @@ import 'package:appseries/ui/view_model/home_view_model.dart';
 import 'package:appseries/ui/widgets/carousel_section.dart';
 import 'package:appseries/utils/app_error.dart';
 import 'package:appseries/utils/result.dart';
+import 'package:appseries/utils/routes_config.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:appseries/data/api_models/titulo_detalhe.dart';
@@ -154,6 +156,7 @@ Future<_FakeAuthRepository> _montar(
   AcervoRepository? acervo,
 }) async {
   final _FakeAuthRepository repo = auth ?? _FakeAuthRepository();
+  // A rota da busca vira um marcador: aqui só importa que a caixa leva até ela.
   await tester.pumpWidget(
     MultiProvider(
       providers: [
@@ -170,7 +173,12 @@ Future<_FakeAuthRepository> _montar(
           create: (_) => AcervoViewModel(acervo ?? _FakeAcervoRepository()),
         ),
       ],
-      child: const MaterialApp(home: HomePage()),
+      child: MaterialApp(
+        home: const HomePage(),
+        routes: <String, WidgetBuilder>{
+          Routes.busca: (BuildContext _) => const Text('tela de busca'),
+        },
+      ),
     ),
   );
   await _assentar(tester);
@@ -218,6 +226,39 @@ void main() {
       await tester.pump();
       expect(find.text('Filme 1'), findsOneWidget);
       expect(find.text('Série 2'), findsNothing);
+    });
+
+    testWidgets('filtro que esvazia o carrossel diz que é o filtro', (tester) async {
+      await _montar(tester);
+
+      await tester.tap(find.text('Séries'));
+      await tester.pump();
+
+      expect(find.text('Nenhuma série nesta lista agora.'), findsNWidgets(2));
+      expect(find.text('Nada por aqui agora.'), findsNothing);
+    });
+
+    testWidgets('a caixa de busca abre a busca pelo toque', (tester) async {
+      await _montar(tester);
+
+      await tester.tap(find.byKey(const Key('busca-home')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('tela de busca'), findsOneWidget);
+    });
+
+    testWidgets('a caixa de busca abre a busca pelo teclado (Tab + Enter)', (tester) async {
+      await _montar(tester);
+
+      final FocusNode? foco = Focus.maybeOf(
+        tester.element(find.descendant(of: find.byKey(const Key('busca-home')), matching: find.byType(Row))),
+      );
+      foco!.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      expect(find.text('tela de busca'), findsOneWidget);
     });
 
     testWidgets('mostra a atribuição do TMDB', (tester) async {

@@ -190,6 +190,67 @@ void main() {
       expect(vm.estado, EstadoBusca.resultados);
     });
 
+    test('reset descarta a resposta que ainda estava em voo', () async {
+      vm.setConsulta('pokemon');
+      await _esperar();
+      vm.reset();
+
+      repo.responder(0, _ok(<TmdbItem>[_filme]));
+      await pumpEventQueue();
+
+      expect(vm.estado, EstadoBusca.ocioso, reason: 'a tela reaberta começa na dica');
+      expect(vm.resultados, isEmpty);
+    });
+
+    test('reset cancela a espera: a consulta digitada não sai', () async {
+      vm.setConsulta('pokemon');
+      vm.reset();
+      await _esperar();
+
+      expect(repo.consultas, isEmpty);
+    });
+
+    test('cancelar ao sair da tela: nem a espera nem a resposta em voo valem', () async {
+      vm.setConsulta('office');
+      vm.cancelar();
+      await _esperar();
+      expect(repo.consultas, isEmpty, reason: 'a espera não pode disparar depois de sair');
+
+      vm.setConsulta('pokemon');
+      await _esperar();
+      int avisos = 0;
+      vm.addListener(() => avisos++);
+      vm.cancelar();
+      repo.responder(0, _ok(<TmdbItem>[_filme]));
+      await pumpEventQueue();
+
+      expect(avisos, 0, reason: 'a resposta de uma tela fechada não notifica ninguém');
+    });
+
+    test('depois de um erro, a mesma consulta pede de novo', () async {
+      vm.setConsulta('pokemon');
+      await _esperar();
+      repo.responder(0, const Result<List<TmdbItem>>.error(NetworkError()));
+      await pumpEventQueue();
+
+      vm.setConsulta('pokemon ');
+      await _esperar();
+
+      expect(repo.consultas, <String>['pokemon', 'pokemon']);
+    });
+
+    test('espaço no fim durante a espera não pede o mesmo termo duas vezes', () async {
+      vm.setConsulta('pokemon');
+      await _esperar();
+      vm.setConsulta('pokemon ');
+      await _esperar();
+
+      expect(repo.consultas, <String>['pokemon']);
+      repo.responder(0, _ok(<TmdbItem>[_filme]));
+      await pumpEventQueue();
+      expect(vm.estado, EstadoBusca.resultados);
+    });
+
     test('repository que lança não deixa a tela girando', () async {
       final SearchViewModel quebrado =
           SearchViewModel(_FakeQueLanca(), espera: const Duration(milliseconds: 10));

@@ -41,9 +41,14 @@ class SearchViewModel extends ChangeNotifier {
   int _geracao = 0;
   String _consulta = '';
   String? _consultaFeita;
+
+  /// The term waiting for its answer (timer or request), so a key that does
+  /// not change the term (a trailing space) does not ask the same thing twice.
+  String? _termoPendente;
   bool _carregando = false;
   AppError? _erro;
   List<TmdbItem> _resultados = const <TmdbItem>[];
+  List<TmdbItem> _visiveis = const <TmdbItem>[];
   FiltroTipo _filtro = FiltroTipo.todos;
 
   String get consulta => _consulta;
@@ -56,14 +61,10 @@ class SearchViewModel extends ChangeNotifier {
 
   /// What the server answered, narrowed by the kind filter. Local: switching
   /// the filter does not ask the server again.
-  List<TmdbItem> get resultados {
-    final tipo = tipoDoFiltro(_filtro);
-    if (tipo == null) return _resultados;
-    return List<TmdbItem>.unmodifiable(<TmdbItem>[
-      for (final TmdbItem item in _resultados)
-        if (item.tipo == tipo) item,
-    ]);
-  }
+  ///
+  /// Computed when the answer or the filter changes, not on read: the list
+  /// builder reads it once per row.
+  List<TmdbItem> get resultados => _visiveis;
 
   EstadoBusca get estado {
     if (_erro != null) return EstadoBusca.erro;
@@ -78,6 +79,7 @@ class SearchViewModel extends ChangeNotifier {
     _consulta = texto;
     final String termo = texto.trim();
     if (termo == _consultaFeita && _erro == null) return;
+    if (termo == _termoPendente) return;
 
     // Any change invalidates the request in flight: its answer is about a query
     // that is no longer in the box.
@@ -98,6 +100,7 @@ class SearchViewModel extends ChangeNotifier {
     // Spinner already while waiting: the old results are about another query.
     _limparResposta();
     _carregando = true;
+    _termoPendente = termo;
     notifyListeners();
     _timer = Timer(espera, () => _buscar(termo, geracao));
   }
@@ -105,6 +108,7 @@ class SearchViewModel extends ChangeNotifier {
   void setFiltro(FiltroTipo filtro) {
     if (filtro == _filtro) return;
     _filtro = filtro;
+    _filtrar();
     notifyListeners();
   }
 
@@ -115,8 +119,18 @@ class SearchViewModel extends ChangeNotifier {
     final int geracao = ++_geracao;
     _limparResposta();
     _carregando = true;
+    _termoPendente = termo;
     notifyListeners();
     await _buscar(termo, geracao);
+  }
+
+  /// Drops the pending search **without notifying**: the page calls it from
+  /// `dispose`, so a query typed just before leaving does not reach the server
+  /// for a screen nobody is looking at.
+  void cancelar() {
+    _timer?.cancel();
+    _geracao++;
+    _termoPendente = null;
   }
 
   /// Clears the previous visit **without notifying** (called from `initState`).
@@ -145,6 +159,7 @@ class SearchViewModel extends ChangeNotifier {
     if (geracao != _geracao) return;
 
     _carregando = false;
+    _termoPendente = null;
     _consultaFeita = termo;
     switch (resultado) {
       case Ok<List<TmdbItem>>(:final value):
@@ -152,6 +167,7 @@ class SearchViewModel extends ChangeNotifier {
       case Error<List<TmdbItem>>(:final error):
         _erro = error;
     }
+    _filtrar();
     notifyListeners();
   }
 
@@ -159,7 +175,19 @@ class SearchViewModel extends ChangeNotifier {
     _carregando = false;
     _erro = null;
     _consultaFeita = null;
+    _termoPendente = null;
     _resultados = const <TmdbItem>[];
+    _visiveis = const <TmdbItem>[];
+  }
+
+  void _filtrar() {
+    final tipo = tipoDoFiltro(_filtro);
+    _visiveis = tipo == null
+        ? _resultados
+        : List<TmdbItem>.unmodifiable(<TmdbItem>[
+            for (final TmdbItem item in _resultados)
+              if (item.tipo == tipo) item,
+          ]);
   }
 
   @override

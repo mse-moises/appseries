@@ -92,12 +92,14 @@ class _HomePageState extends State<HomePage> {
                   titulo: 'Em alta',
                   secao: home.emAlta,
                   onRetry: home.recarregarEmAlta,
+                  mensagemVazia: _vazioDoFiltro(home.filtro),
                 ),
                 const SizedBox(height: 20),
                 CarouselSection(
                   titulo: 'Populares',
                   secao: home.populares,
                   onRetry: home.recarregarPopulares,
+                  mensagemVazia: _vazioDoFiltro(home.filtro),
                 ),
                 const SizedBox(height: 12),
               ],
@@ -111,6 +113,13 @@ class _HomePageState extends State<HomePage> {
     );
   }
 }
+
+/// What an empty carousel says: with a filter on, it names the filter.
+String _vazioDoFiltro(FiltroTipo filtro) => switch (filtro) {
+      FiltroTipo.todos => 'Nada por aqui agora.',
+      FiltroTipo.series => 'Nenhuma série nesta lista agora.',
+      FiltroTipo.filmes => 'Nenhum filme nesta lista agora.',
+    };
 
 /// Fixed footer: the signed-in account, the shelf count and the TMDB credit.
 class _Rodape extends StatelessWidget {
