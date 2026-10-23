@@ -164,6 +164,13 @@ void main() {
       expect(appErrorFromCodigo('rec_limit'), isA<RateLimitError>());
     });
 
+    test('limite do TMDB pede um instante, não "volte amanhã"', () {
+      final AppError error = appErrorFromCodigo('tmdb_rate_limited');
+      expect(error, isA<CatalogoOcupadoError>());
+      expect(error.codigo, 'tmdb_rate_limited');
+      expect(error.mensagem, isNot(contains('amanhã')));
+    });
+
     test('servidor sem configuração própria não é culpa da sessão da usuária', () {
       for (final String codigo in <String>['auth_unconfigured', 'tmdb_unconfigured']) {
         final AppError error = appErrorFromCodigo(codigo);
@@ -186,6 +193,7 @@ void main() {
       NotFoundError(),
       ConflictError(),
       RateLimitError(),
+      CatalogoOcupadoError(),
       ServerError(),
       CredenciaisInvalidasError(),
       EmailJaEmUsoError(),

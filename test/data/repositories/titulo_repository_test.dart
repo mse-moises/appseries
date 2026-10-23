@@ -118,6 +118,16 @@ void main() {
       expect(result.errorOrNull?.mensagem, const ServerError().mensagem);
     });
 
+    test('429 do TMDB na busca vira CatalogoOcupadoError, não erro de servidor', () async {
+      final repo = TituloRepositoryImpl(
+        FakeRestClient(error: _erroHttp(429, <String, String>{'error': 'tmdb_rate_limited'})),
+      );
+
+      final result = await repo.buscar('pokemon');
+
+      expect(result.errorOrNull, isA<CatalogoOcupadoError>());
+    });
+
     test('código do corpo vence o status HTTP', () async {
       final repo = TituloRepositoryImpl(
         FakeRestClient(error: _erroHttp(400, <String, String>{'error': 'query_too_short'})),

@@ -85,6 +85,18 @@ final class RateLimitError extends AppError {
   const RateLimitError() : super('rec_limit', 'Você chegou no limite de hoje. Volte amanhã.');
 }
 
+/// The TMDB is throttling the server (`tmdb_rate_limited`, a 429 of seconds).
+///
+/// Not [RateLimitError]: that one is the daily cap on recommendations, and
+/// "volte amanhã" would send her away for a wait of a few seconds.
+final class CatalogoOcupadoError extends AppError {
+  const CatalogoOcupadoError()
+      : super(
+          'tmdb_rate_limited',
+          'Muita gente buscando agora. Espere um instante e tente de novo.',
+        );
+}
+
 final class ServerError extends AppError {
   const ServerError() : super('server', 'O servidor deu uma escorregada. Tente em instantes.');
 }
@@ -212,6 +224,7 @@ AppError appErrorFromCodigo(String? codigo) => switch (codigo) {
       'invalid_sinal' || 'invalid_peso' || 'invalid_origem' => const FeedbackIndisponivelError(),
       'query_too_short' || 'query_too_long' => const BuscaInvalidaError(),
       'rec_limit' => const RateLimitError(),
+      'tmdb_rate_limited' => const CatalogoOcupadoError(),
       _ => const ServerError(),
     };
 
