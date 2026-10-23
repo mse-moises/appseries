@@ -149,6 +149,18 @@ void main() {
       expect(find.text('Nada encontrado para "xyzxyz". Confira o nome ou tente em inglês.'), findsOneWidget);
     });
 
+    testWidgets('catálogo fora do ar na busca: frase clara e retry (AP-79)', (tester) async {
+      await _buscar(
+        tester,
+        const Result<List<TmdbItem>>.error(CatalogoIndisponivelError()),
+        'pokemon',
+      );
+
+      expect(find.text(const CatalogoIndisponivelError().mensagem), findsOneWidget);
+      expect(find.text('Tentar de novo'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    });
+
     testWidgets('erro mostra a frase e o botão de tentar de novo', (tester) async {
       await _buscar(tester, const Result<List<TmdbItem>>.error(NetworkError()), 'pokemon');
 

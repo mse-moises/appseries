@@ -14,6 +14,7 @@ import 'package:appseries/ui/widgets/carousel_section.dart';
 import 'package:appseries/utils/app_error.dart';
 import 'package:appseries/utils/result.dart';
 import 'package:appseries/utils/routes_config.dart';
+import 'package:appseries/ui/navegacao/titulo_ref.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -177,6 +178,11 @@ Future<_FakeAuthRepository> _montar(
         home: const HomePage(),
         routes: <String, WidgetBuilder>{
           Routes.busca: (BuildContext _) => const Text('tela de busca'),
+          // O detalhe vira um marcador que mostra o par que recebeu.
+          Routes.detalhe: (BuildContext c) {
+            final TituloRef ref = ModalRoute.of(c)!.settings.arguments! as TituloRef;
+            return Text('detalhe ${ref.tipo.name}:${ref.id}');
+          },
         },
       ),
     ),
@@ -260,6 +266,38 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('tela de busca'), findsOneWidget);
+    });
+
+    testWidgets('catálogo fora do ar: frase clara, e o retry volta depois de nova falha (AP-79)',
+        (tester) async {
+      final _FakeTituloRepository titulos = _FakeTituloRepository(
+        respostaEmAlta: const Result<List<TmdbItem>>.error(CatalogoIndisponivelError()),
+        respostaPopulares: _lista(<int>[2]),
+      );
+      await _montar(tester, titulos: titulos);
+
+      expect(find.text(const CatalogoIndisponivelError().mensagem), findsOneWidget);
+      expect(find.text('Tentar de novo'), findsOneWidget);
+
+      await tester.tap(find.text('Tentar de novo'));
+      await _assentar(tester);
+      expect(find.text('Tentar de novo'), findsOneWidget, reason: 'nova falha, o botão reaparece');
+      expect(titulos.chamadasEmAlta, 2);
+
+      titulos.respostaEmAlta = _lista(<int>[1]);
+      await tester.tap(find.text('Tentar de novo'));
+      await _assentar(tester);
+      expect(find.text('Título 1'), findsOneWidget);
+      expect(find.text('Tentar de novo'), findsNothing);
+    });
+
+    testWidgets('tocar no pôster abre o detalhe com o par (tipo, id)', (tester) async {
+      await _montar(tester);
+
+      await tester.tap(find.text('Título 1'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('detalhe movie:1'), findsOneWidget);
     });
 
     testWidgets('mostra a atribuição do TMDB', (tester) async {
