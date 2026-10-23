@@ -239,6 +239,21 @@ void main() {
       expect(repo.consultas, <String>['pokemon', 'pokemon']);
     });
 
+    test('maiúscula ou minúscula é a mesma busca: não pede de novo', () async {
+      vm.setConsulta('pokemon');
+      await _esperar();
+      repo.responder(0, _ok(<TmdbItem>[_filme]));
+      await pumpEventQueue();
+
+      vm.setConsulta('POKEMON');
+      await _esperar();
+      vm.setConsulta('Pokemon');
+      await _esperar();
+
+      expect(repo.consultas, <String>['pokemon']);
+      expect(vm.resultados, <TmdbItem>[_filme]);
+    });
+
     test('espaço no fim durante a espera não pede o mesmo termo duas vezes', () async {
       vm.setConsulta('pokemon');
       await _esperar();

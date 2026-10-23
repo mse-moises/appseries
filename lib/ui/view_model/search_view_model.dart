@@ -40,6 +40,7 @@ class SearchViewModel extends ChangeNotifier {
   Timer? _timer;
   int _geracao = 0;
   String _consulta = '';
+  /// The term already answered and the one waiting, both in [_chave] form.
   String? _consultaFeita;
 
   /// The term waiting for its answer (timer or request), so a key that does
@@ -78,8 +79,8 @@ class SearchViewModel extends ChangeNotifier {
   void setConsulta(String texto) {
     _consulta = texto;
     final String termo = texto.trim();
-    if (termo == _consultaFeita && _erro == null) return;
-    if (termo == _termoPendente) return;
+    if (_chave(termo) == _consultaFeita && _erro == null) return;
+    if (_chave(termo) == _termoPendente) return;
 
     // Any change invalidates the request in flight: its answer is about a query
     // that is no longer in the box.
@@ -100,7 +101,7 @@ class SearchViewModel extends ChangeNotifier {
     // Spinner already while waiting: the old results are about another query.
     _limparResposta();
     _carregando = true;
-    _termoPendente = termo;
+    _termoPendente = _chave(termo);
     notifyListeners();
     _timer = Timer(espera, () => _buscar(termo, geracao));
   }
@@ -119,7 +120,7 @@ class SearchViewModel extends ChangeNotifier {
     final int geracao = ++_geracao;
     _limparResposta();
     _carregando = true;
-    _termoPendente = termo;
+    _termoPendente = _chave(termo);
     notifyListeners();
     await _buscar(termo, geracao);
   }
@@ -160,7 +161,7 @@ class SearchViewModel extends ChangeNotifier {
 
     _carregando = false;
     _termoPendente = null;
-    _consultaFeita = termo;
+    _consultaFeita = _chave(termo);
     switch (resultado) {
       case Ok<List<TmdbItem>>(:final value):
         _resultados = List<TmdbItem>.unmodifiable(value);
@@ -179,6 +180,10 @@ class SearchViewModel extends ChangeNotifier {
     _resultados = const <TmdbItem>[];
     _visiveis = const <TmdbItem>[];
   }
+
+  /// The search on the server ignores case, so "Pokemon" after "pokemon" is the
+  /// same question and must not be asked again.
+  static String _chave(String termo) => termo.toLowerCase();
 
   void _filtrar() {
     final tipo = tipoDoFiltro(_filtro);
