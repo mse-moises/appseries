@@ -142,14 +142,38 @@ void main() {
       expect(repo.consultas, <String>['pokemon', 'pokemon']);
     });
 
-    test('limite de requisições aparece como erro, não como tela vazia', () async {
+    test('limite do TMDB aparece como erro com retry, não como tela vazia', () async {
       vm.setConsulta('pokemon');
       await _esperar();
-      repo.responder(0, const Result<List<TmdbItem>>.error(RateLimitError()));
+      repo.responder(0, const Result<List<TmdbItem>>.error(CatalogoOcupadoError()));
       await pumpEventQueue();
 
       expect(vm.estado, EstadoBusca.erro);
-      expect(vm.erro, const RateLimitError().mensagem);
+      expect(vm.erro, const CatalogoOcupadoError().mensagem);
+      expect(vm.podeTentarDeNovo, isTrue, reason: 'o limite do TMDB passa em segundos');
+    });
+
+    test('Enter busca na hora, sem esperar a pausa', () async {
+      final SearchViewModel lento = SearchViewModel(repo, espera: const Duration(hours: 1));
+      lento.setConsulta('pokemon');
+      expect(repo.consultas, isEmpty);
+
+      lento.buscarAgora();
+      await pumpEventQueue();
+
+      expect(repo.consultas, <String>['pokemon']);
+      lento.buscarAgora();
+      await pumpEventQueue();
+      expect(repo.consultas, hasLength(1), reason: 'a consulta já está no ar');
+      lento.dispose();
+    });
+
+    test('Enter com menos de 3 letras não sai do app', () async {
+      vm.setConsulta('po');
+      vm.buscarAgora();
+      await _esperar();
+
+      expect(repo.consultas, isEmpty);
     });
 
     test('resposta antiga chegando depois não sobrescreve a consulta nova', () async {

@@ -40,11 +40,12 @@ class SearchViewModel extends ChangeNotifier {
   Timer? _timer;
   int _geracao = 0;
   String _consulta = '';
-  /// The term already answered and the one waiting, both in [_chave] form.
+  /// The term already answered, in [_chave] form.
   String? _consultaFeita;
 
-  /// The term waiting for its answer (timer or request), so a key that does
-  /// not change the term (a trailing space) does not ask the same thing twice.
+  /// The term waiting for its answer (timer or request), in [_chave] form, so a
+  /// key that does not change the term (a trailing space) does not ask the same
+  /// thing twice.
   String? _termoPendente;
   bool _carregando = false;
   AppError? _erro;
@@ -75,7 +76,8 @@ class SearchViewModel extends ChangeNotifier {
   }
 
   /// Called on every key. Short queries never leave the app (the backend would
-  /// answer `400 query_too_short`); long ones fail here, with the same sentence.
+  /// answer `400 query_too_short`): the screen shows the hint. Long ones fail
+  /// here with [BuscaInvalidaError], before the network.
   void setConsulta(String texto) {
     _consulta = texto;
     final String termo = texto.trim();
@@ -104,6 +106,16 @@ class SearchViewModel extends ChangeNotifier {
     _termoPendente = _chave(termo);
     notifyListeners();
     _timer = Timer(espera, () => _buscar(termo, geracao));
+  }
+
+  /// Enter / "Buscar" on the keyboard: asks now instead of waiting for the
+  /// pause. Only skips the wait — a query already answered or already on its
+  /// way is not asked again.
+  void buscarAgora() {
+    final Timer? timer = _timer;
+    if (timer == null || !timer.isActive) return;
+    timer.cancel();
+    _buscar(_consulta.trim(), _geracao);
   }
 
   void setFiltro(TipoFiltro filtro) {
