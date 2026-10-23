@@ -23,6 +23,10 @@ class AcervoViewModel extends ChangeNotifier {
   Map<String, EstadoAcervo> _estados = const <String, EstadoAcervo>{};
   int _geracao = 0;
 
+  /// Titles with a write on its way, by [chaveEstado]. The button reads it to
+  /// show progress and refuse a second tap.
+  final Set<String> _enviando = <String>{};
+
   bool get isLoading => _isLoading;
   String? get error => _error;
   List<AcervoItem> get itens => _itens;
@@ -43,6 +47,108 @@ class AcervoViewModel extends ChangeNotifier {
         _estados[chaveEstado(TipoMidia.tv, tmdbId)];
   }
 
+  bool enviando(TipoMidia tipo, int tmdbId) => _enviando.contains(chaveEstado(tipo, tmdbId));
+
+  /// Puts a title in a state, at once on screen, and saves it (AP-51).
+  ///
+  /// Optimistic: the new state shows before the server answers, and the
+  /// previous one comes back if it fails. Answers the failure (or `null`) so
+  /// the screen can say that it did not save — it never pretends it did.
+  Future<AppError?> marcar(TipoMidia tipo, int tmdbId, EstadoAcervo estado) => _gravar(
+        tipo,
+        tmdbId,
+        otimista: AcervoItem(tmdbId: tmdbId, estado: estado, tipo: tipo),
+        chamada: () async => switch (await _repository.marcar(tipo, tmdbId, estado)) {
+          // The server's line, with title, year and poster, replaces ours.
+          Ok<AcervoItem>(:final value) => (value, null),
+          Error<AcervoItem>(:final error) => (null, error),
+        },
+      );
+
+  /// Takes a title off the shelf: the fifth choice of the detail (AP-48).
+  ///
+  /// A `404` means it was not there anymore, which is what she asked for.
+  Future<AppError?> remover(TipoMidia tipo, int tmdbId) => _gravar(
+        tipo,
+        tmdbId,
+        otimista: null,
+        chamada: () async => switch (await _repository.remover(tipo, tmdbId)) {
+          Ok<void>() => (null, null),
+          Error<void>(error: NotFoundError()) => (null, null),
+          Error<void>(:final error) => (null, error),
+        },
+      );
+
+  /// One write for [marcar] and [remover]: apply, call, keep or roll back.
+  ///
+  /// The rollback restores only **this** title's line, not a snapshot of the
+  /// whole shelf: a snapshot would also undo a write to another title that
+  /// finished in between.
+  Future<AppError?> _gravar(
+    TipoMidia tipo,
+    int tmdbId, {
+    required AcervoItem? otimista,
+    required Future<(AcervoItem?, AppError?)> Function() chamada,
+  }) async {
+    // A type this app cannot translate has no line to touch, and the server
+    // would refuse it: fail before changing anything on screen.
+    if (tipo == TipoMidia.desconhecido) return const AcervoIndisponivelError();
+
+    final String chave = chaveEstado(tipo, tmdbId);
+    if (_enviando.contains(chave)) return null;
+
+    final int geracao = _geracao;
+    final AcervoItem? anterior = _linha(tipo, tmdbId);
+    _enviando.add(chave);
+    _aplicar(tipo, tmdbId, otimista);
+    notifyListeners();
+
+    AppError? erro;
+    AcervoItem? salvo;
+    try {
+      (salvo, erro) = await chamada();
+    } catch (error, stack) {
+      // `catch`, not `on Exception`: a broken cast is an `Error`, and escaping
+      // here would leave the button spinning with the optimistic state.
+      debugPrint('[AppSeries] acervo fora do contrato ao gravar: $error\n$stack');
+      erro = const ServerError();
+    }
+
+    // A sign-out or a reload in between owns the state now: the answer is
+    // about a shelf that is no longer on screen.
+    if (geracao != _geracao) return erro;
+
+    _enviando.remove(chave);
+    if (erro != null) {
+      _aplicar(tipo, tmdbId, anterior);
+    } else if (otimista != null) {
+      _aplicar(tipo, tmdbId, salvo ?? otimista);
+    }
+    notifyListeners();
+    return erro;
+  }
+
+  /// The typed line of `(tipo, tmdbId)`, if any.
+  AcervoItem? _linha(TipoMidia tipo, int tmdbId) {
+    for (final AcervoItem item in _itens) {
+      if (item.tipo == tipo && item.tmdbId == tmdbId) return item;
+    }
+    return null;
+  }
+
+  /// Replaces (or removes, with `null`) the typed line of `(tipo, tmdbId)`.
+  ///
+  /// An old line without `tipo` is left alone: it is not the one being written,
+  /// and the typed line already wins over it in [estadoDe].
+  void _aplicar(TipoMidia tipo, int tmdbId, AcervoItem? item) {
+    _itens = List<AcervoItem>.unmodifiable(<AcervoItem>[
+      for (final AcervoItem atual in _itens)
+        if (!(atual.tipo == tipo && atual.tmdbId == tmdbId)) atual,
+      if (item != null) item,
+    ]);
+    _estados = _mapaDeEstados(_itens);
+  }
+
   /// Clears the previous session's state **without notifying**.
   ///
   /// The screen calls this from `initState`, before its first build: the
@@ -56,6 +162,7 @@ class AcervoViewModel extends ChangeNotifier {
     _geracao++;
     _itens = const <AcervoItem>[];
     _estados = const <String, EstadoAcervo>{};
+    _enviando.clear();
     _error = null;
     _isLoading = true;
   }
@@ -71,6 +178,7 @@ class AcervoViewModel extends ChangeNotifier {
     // one's shelf while the request is on its way.
     _itens = const <AcervoItem>[];
     _estados = const <String, EstadoAcervo>{};
+    _enviando.clear();
     _isLoading = true;
     _error = null;
     notifyListeners();

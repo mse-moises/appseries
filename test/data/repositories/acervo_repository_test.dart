@@ -4,6 +4,7 @@ import 'package:appseries/utils/app_error.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../support/adapter_falso.dart';
 import '../../support/fake_rest_client.dart';
 
 const AcervoItem _got = AcervoItem(
@@ -26,6 +27,41 @@ DioException _erroHttp(int statusCode, Object corpo, {String path = '/api/v1/ace
 
 void main() {
   group('marcar e remover', () {
+    // Pelo RestClient de verdade, com o status no fio: o dublê de RestClient não
+    // tem status, e é o 201 que um app mal escrito trataria como falha.
+    for (final (int status, String quando) in const <(int, String)>[
+      (201, 'criou'),
+      (200, 'atualizou'),
+    ]) {
+      test('marcar com $status ($quando) devolve o item gravado pelo servidor', () async {
+        final AdapterFalso fio = AdapterFalso(
+          '{"tmdbId":1399,"estado":"plan_to_watch","tipo":"tv","titulo":"Game of Thrones","ano":"2011"}',
+          status: status,
+        );
+        final repo = AcervoRepositoryImpl(clienteFalso(fio));
+
+        final result = await repo.marcar(TipoMidia.tv, 1399, EstadoAcervo.planToWatch);
+
+        expect(result.errorOrNull, isNull);
+        expect(result.valueOrNull?.estado, EstadoAcervo.planToWatch);
+        expect(result.valueOrNull?.titulo, 'Game of Thrones');
+        expect(fio.ultima.method, 'PUT');
+        expect(fio.ultima.path, '/api/v1/acervo/1399');
+        expect(fio.ultima.data, <String, dynamic>{'estado': 'plan_to_watch', 'tipo': 'tv'});
+      });
+    }
+
+    test('400 invalid_estado é erro de tela, não sucesso', () async {
+      final repo = AcervoRepositoryImpl(
+        clienteFalso(AdapterFalso('{"error":"invalid_estado"}', status: 400)),
+      );
+
+      final result = await repo.marcar(TipoMidia.tv, 1399, EstadoAcervo.planToWatch);
+
+      expect(result.valueOrNull, isNull);
+      expect(result.errorOrNull, isA<ConflictError>());
+    });
+
     test('marcar manda tipo e estado no corpo e devolve o item salvo', () async {
       final FakeRestClient api = FakeRestClient()..respostaMarcar = _got;
       final repo = AcervoRepositoryImpl(api);
