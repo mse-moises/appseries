@@ -25,6 +25,7 @@ import 'ui/view_model/acervo_view_model.dart';
 import 'ui/view_model/auth_view_model.dart';
 import 'ui/view_model/home_view_model.dart';
 import 'ui/view_model/login_view_model.dart';
+import 'ui/view_model/search_view_model.dart';
 import 'utils/env.dart';
 
 Future<void> main() async {
@@ -77,6 +78,10 @@ class AppSeries extends StatelessWidget {
           // anew on every login (the provider's `create` runs once).
           ChangeNotifierProvider<HomeViewModel>(
             create: (ctx) => HomeViewModel(ctx.read<TituloRepository>()),
+          ),
+          // AP-44: the search page resets it on open (the `create` runs once).
+          ChangeNotifierProvider<SearchViewModel>(
+            create: (ctx) => SearchViewModel(ctx.read<TituloRepository>()),
           ),
           // AP-28: the shelf lives on the server, so the app only reads it.
           Provider<AcervoRepository>(
