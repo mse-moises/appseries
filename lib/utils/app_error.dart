@@ -97,6 +97,20 @@ final class CatalogoOcupadoError extends AppError {
         );
 }
 
+/// The catalogue (TMDB) is down or our server cannot reach it: `502
+/// tmdb_error`, or `503 tmdb_unconfigured` when the server has no key.
+///
+/// Not [ServerError]: "o servidor escorregou" reads as our app being broken,
+/// and the screens offer a retry because this one usually passes on its own.
+/// Carries the raw code, so a log tells the two causes apart.
+final class CatalogoIndisponivelError extends AppError {
+  const CatalogoIndisponivelError([String codigo = 'tmdb_error'])
+      : super(
+          codigo,
+          'O catálogo de filmes e séries está fora do ar agora. Tente de novo em instantes.',
+        );
+}
+
 final class ServerError extends AppError {
   const ServerError() : super('server', 'O servidor deu uma escorregada. Tente em instantes.');
 }
@@ -204,10 +218,11 @@ AppError appErrorFromGoogle(String? codigo) => switch (codigo) {
 
 /// Translates the `{"error": "<codigo>"}` that the backend returns.
 ///
-/// The `*_unconfigured` codes (`auth_unconfigured`, `rec_unconfigured`,
-/// `tmdb_unconfigured`) are 503 from a server missing its own configuration.
-/// They fall through to [ServerError] on purpose: telling the user to sign in
-/// again would loop her against a problem that is not hers.
+/// The `*_unconfigured` codes (`auth_unconfigured`, `rec_unconfigured`) are 503
+/// from a server missing its own configuration. They fall through to
+/// [ServerError] on purpose: telling the user to sign in again would loop her
+/// against a problem that is not hers. `tmdb_unconfigured` is the exception: to
+/// her it is the catalogue being out, the same as `tmdb_error`.
 AppError appErrorFromCodigo(String? codigo) => switch (codigo) {
       'unauthorized' => const UnauthorizedError(),
       'not_found' => const NotFoundError(),
@@ -225,6 +240,8 @@ AppError appErrorFromCodigo(String? codigo) => switch (codigo) {
       'query_too_short' || 'query_too_long' => const BuscaInvalidaError(),
       'rec_limit' => const RateLimitError(),
       'tmdb_rate_limited' => const CatalogoOcupadoError(),
+      'tmdb_error' => const CatalogoIndisponivelError(),
+      'tmdb_unconfigured' => const CatalogoIndisponivelError('tmdb_unconfigured'),
       _ => const ServerError(),
     };
 

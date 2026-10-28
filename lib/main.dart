@@ -26,6 +26,7 @@ import 'ui/view_model/auth_view_model.dart';
 import 'ui/view_model/home_view_model.dart';
 import 'ui/view_model/login_view_model.dart';
 import 'ui/view_model/search_view_model.dart';
+import 'ui/view_model/title_detail_view_model.dart';
 import 'utils/env.dart';
 
 Future<void> main() async {
@@ -98,6 +99,13 @@ class AppSeries extends StatelessWidget {
           // AP-109: 👍/👎 mora no servidor, preso à conta e ao par (tipo, tmdbId).
           Provider<FeedbackRepository>(
             create: (ctx) => FeedbackRepositoryImpl(ctx.read<RestClient>()),
+          ),
+          // AP-47: the detail page resets it on open (the `create` runs once).
+          ChangeNotifierProvider<TitleDetailViewModel>(
+            create: (ctx) => TitleDetailViewModel(
+              ctx.read<TituloRepository>(),
+              ctx.read<FeedbackRepository>(),
+            ),
           ),
         ],
         child: const App(),

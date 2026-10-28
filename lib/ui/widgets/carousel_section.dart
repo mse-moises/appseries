@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../data/api_models/tmdb_item.dart';
+import '../../utils/routes_config.dart';
+import '../navegacao/titulo_ref.dart';
 import '../view_model/secao_titulos.dart';
+import 'acervo_action_button.dart';
 import 'poster_card.dart';
 
 /// One home section: the title, the horizontal row of posters and its own
@@ -72,7 +76,19 @@ class CarouselSection extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       itemCount: secao.itens.length,
       separatorBuilder: (BuildContext context, int _) => const SizedBox(width: 12),
-      itemBuilder: (BuildContext context, int i) => PosterCard(item: secao.itens[i]),
+      itemBuilder: (BuildContext context, int i) {
+        final TmdbItem item = secao.itens[i];
+        return PosterCard(
+          item: item,
+          // The pair, not the id alone: movie 550 and series 550 are different titles.
+          onTap: () => Navigator.pushNamed(
+            context,
+            Routes.detalhe,
+            arguments: TituloRef(tipo: item.tipo, id: item.id),
+          ),
+          acao: AcervoAcao(tipo: item.tipo, tmdbId: item.id, compacto: true),
+        );
+      },
     );
   }
 }

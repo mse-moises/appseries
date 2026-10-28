@@ -1,17 +1,23 @@
 import 'package:appseries/app.dart';
+import 'package:appseries/data/api_models/acervo_item.dart';
+import 'package:appseries/data/api_models/feedback_item.dart';
 import 'package:appseries/data/api_models/user.dart';
 import 'package:appseries/data/api_models/titulo_detalhe.dart';
 import 'package:appseries/data/api_models/tmdb_item.dart';
+import 'package:appseries/data/repositories/acervo_repository.dart';
 import 'package:appseries/data/repositories/auth_repository.dart';
+import 'package:appseries/data/repositories/feedback_repository.dart';
 import 'package:appseries/data/repositories/titulo_repository.dart';
 import 'package:appseries/ui/navegacao/titulo_ref.dart';
 import 'package:appseries/ui/view/acervo_tabs_page.dart';
 import 'package:appseries/ui/view/search_page.dart';
 import 'package:appseries/ui/view/title_detail_page.dart';
 import 'package:appseries/ui/view/preferences_page.dart';
+import 'package:appseries/ui/view_model/acervo_view_model.dart';
 import 'package:appseries/ui/view_model/auth_view_model.dart';
 import 'package:appseries/ui/view_model/login_view_model.dart';
 import 'package:appseries/ui/view_model/search_view_model.dart';
+import 'package:appseries/ui/view_model/title_detail_view_model.dart';
 import 'package:appseries/utils/app_error.dart';
 import 'package:appseries/utils/result.dart';
 import 'package:appseries/utils/routes_config.dart';
@@ -39,9 +45,11 @@ class _FakeAuthRepository implements AuthRepository {
   Future<Result<void>> signOut() async => const Result<void>.ok(null);
 }
 
-/// A busca abre ociosa: só abrir a rota não pode chamar o servidor.
+/// A busca abre ociosa: só abrir a rota não pode chamar o servidor. O detalhe
+/// guarda o par que pediu.
 class _FakeTituloRepository implements TituloRepository {
   int buscas = 0;
+  final List<String> pedidos = <String>[];
 
   @override
   Future<Result<List<TmdbItem>>> buscar(String q) async {
@@ -56,17 +64,61 @@ class _FakeTituloRepository implements TituloRepository {
   Future<Result<List<TmdbItem>>> populares() => throw UnimplementedError();
 
   @override
-  Future<Result<TituloDetalhe>> titulo(TipoMidia tipo, int tmdbId) => throw UnimplementedError();
+  Future<Result<TituloDetalhe>> titulo(TipoMidia tipo, int tmdbId) async {
+    pedidos.add('${tipo.name}:$tmdbId');
+    return Result<TituloDetalhe>.ok(
+      TituloDetalhe(id: tmdbId, tipo: tipo, titulo: 'Game of Thrones'),
+    );
+  }
 }
+
+class _FakeAcervo implements AcervoRepository {
+  @override
+  Future<Result<List<AcervoItem>>> listar() async =>
+      const Result<List<AcervoItem>>.ok(<AcervoItem>[]);
+
+  @override
+  Future<Result<AcervoItem>> marcar(TipoMidia tipo, int tmdbId, EstadoAcervo estado) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<void>> remover(TipoMidia tipo, int tmdbId) => throw UnimplementedError();
+}
+
+class _FakeFeedback implements FeedbackRepository {
+  @override
+  Future<Result<List<FeedbackItem>>> listar() async =>
+      const Result<List<FeedbackItem>>.ok(<FeedbackItem>[]);
+
+  @override
+  Future<Result<FeedbackItem>> marcar(
+    TipoMidia tipo,
+    int tmdbId,
+    SinalGosto sinal, {
+    int peso = 2,
+    OrigemFeedback origem = OrigemFeedback.fechamento,
+  }) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<void>> remover(TipoMidia tipo, int tmdbId) => throw UnimplementedError();
+}
+
+final _FakeTituloRepository _titulos = _FakeTituloRepository();
 
 /// Abre a rota pelo caminho real do app: `Navigator.pushNamed`, não uma rota
 /// montada à mão no teste.
-final _FakeTituloRepository _titulos = _FakeTituloRepository();
-
 Future<void> _empurrar(WidgetTester tester, String nome, {Object? argumentos}) async {
-  // A busca lê o ViewModel dela da raiz, como no `main.dart`.
-  await tester.pumpWidget(ChangeNotifierProvider<SearchViewModel>(
-    create: (_) => SearchViewModel(_titulos),
+  // As telas leem os ViewModels da raiz, como no `main.dart`.
+  await tester.pumpWidget(MultiProvider(
+    providers: [
+      ChangeNotifierProvider<SearchViewModel>(create: (_) => SearchViewModel(_titulos)),
+      // Carregado, como a home deixa: sem isso o botão do acervo espera para sempre.
+      ChangeNotifierProvider<AcervoViewModel>(create: (_) => AcervoViewModel(_FakeAcervo())..load()),
+      ChangeNotifierProvider<TitleDetailViewModel>(
+        create: (_) => TitleDetailViewModel(_titulos, _FakeFeedback()),
+      ),
+    ],
     child: MaterialApp(
       key: ValueKey<String>('rota-$nome'),
       routes: Routes.mapa,
@@ -136,14 +188,16 @@ void main() {
       );
 
       expect(find.byType(TitleDetailPage), findsOneWidget);
-      expect(find.textContaining('tv 1399'), findsOneWidget);
+      expect(_titulos.pedidos.last, 'tv:1399', reason: 'o detalhe pede o par que recebeu');
+      expect(find.text('Game of Thrones'), findsWidgets);
     });
 
     testWidgets('detalhe sem argumento degrada em vez de estourar', (tester) async {
       await _empurrar(tester, Routes.detalhe);
 
       expect(find.byType(TitleDetailPage), findsOneWidget);
-      expect(find.textContaining('sem título na rota'), findsOneWidget);
+      expect(find.text(const TituloIndisponivelError().mensagem), findsOneWidget);
+      expect(find.text('Tentar de novo'), findsNothing, reason: 'sem par não há o que repetir');
       expect(tester.takeException(), isNull);
     });
   });
