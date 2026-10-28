@@ -7,6 +7,10 @@ class AppTheme {
   /// Provisional seed colour — the real palette is a prototype decision.
   static const Color seed = Color(0xFF6C5CE7);
 
+  /// Accent for what must stand out next to the posters: the chosen filter and
+  /// the search cursor.
+  static const Color destaque = Color(0xFFE50914);
+
   static ThemeData light() => _base(Brightness.light);
 
   static ThemeData dark() => _base(Brightness.dark);

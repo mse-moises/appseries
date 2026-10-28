@@ -5,6 +5,7 @@ import '../view_model/acervo_view_model.dart';
 import '../view_model/auth_view_model.dart';
 import '../view_model/home_view_model.dart';
 import '../widgets/carousel_section.dart';
+import '../widgets/filtro_home.dart';
 
 /// Home: the entry point of the product.
 ///
@@ -84,17 +85,21 @@ class _HomePageState extends State<HomePage> {
           Expanded(
             child: ListView(
               children: <Widget>[
-                const SizedBox(height: 8),
+                // Inside the scroll, not pinned above it: pinned, its ~110 px
+                // plus the footer overflowed a phone with a large font.
+                FiltroHome(filtro: home.filtro, onFiltro: home.setFiltro),
                 CarouselSection(
                   titulo: 'Em alta',
                   secao: home.emAlta,
                   onRetry: home.recarregarEmAlta,
+                  mensagemVazia: _vazioDoFiltro(home.filtro, 'em alta'),
                 ),
                 const SizedBox(height: 20),
                 CarouselSection(
                   titulo: 'Populares',
                   secao: home.populares,
                   onRetry: home.recarregarPopulares,
+                  mensagemVazia: _vazioDoFiltro(home.filtro, 'entre os populares'),
                 ),
                 const SizedBox(height: 12),
               ],
@@ -108,6 +113,14 @@ class _HomePageState extends State<HomePage> {
     );
   }
 }
+
+/// What an empty carousel says: with a filter on, it names the kind and the
+/// section ("Nenhum filme em alta agora.").
+String _vazioDoFiltro(TipoFiltro filtro, String secao) => switch (filtro) {
+      TipoFiltro.todos => 'Nada por aqui agora.',
+      TipoFiltro.series => 'Nenhuma série $secao agora.',
+      TipoFiltro.filmes => 'Nenhum filme $secao agora.',
+    };
 
 /// Fixed footer: the signed-in account, the shelf count and the TMDB credit.
 class _Rodape extends StatelessWidget {

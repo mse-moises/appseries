@@ -4,7 +4,10 @@ import '../../data/api_models/tmdb_item.dart';
 import '../../data/repositories/titulo_repository.dart';
 import '../../utils/app_error.dart';
 import '../../utils/result.dart';
+import 'tipo_filtro.dart';
 import 'secao_titulos.dart';
+
+export 'tipo_filtro.dart';
 
 /// State of the home screen: two independent carousels.
 ///
@@ -20,15 +23,20 @@ class HomeViewModel extends ChangeNotifier {
   SecaoTitulos _emAlta = const SecaoTitulos(carregando: true);
   SecaoTitulos _popularesCrus = const SecaoTitulos(carregando: true);
   int _geracao = 0;
+  TipoFiltro _filtro = TipoFiltro.todos;
 
-  SecaoTitulos get emAlta => _emAlta;
+  TipoFiltro get filtro => _filtro;
+
+  SecaoTitulos get emAlta => _filtrada(_emAlta);
 
   /// "Populares" without what "Em alta" already shows.
   ///
   /// Derived on read, not stored: a snapshot taken during the load goes stale as
   /// soon as the other carousel reloads (the server cache is 60 s, the TMDB
   /// changes), and the same title would show in both rows.
-  SecaoTitulos get populares {
+  SecaoTitulos get populares => _filtrada(_popularesSemRepetidos);
+
+  SecaoTitulos get _popularesSemRepetidos {
     final SecaoTitulos crus = _popularesCrus;
     if (crus.carregando || crus.erro != null || _emAlta.itens.isEmpty) return crus;
 
@@ -43,13 +51,40 @@ class HomeViewModel extends ChangeNotifier {
     );
   }
 
+  /// Filters the lists already loaded: no new request, and the two carousels
+  /// follow the same choice.
+  void setFiltro(TipoFiltro filtro) {
+    if (filtro == _filtro) return;
+    _filtro = filtro;
+    notifyListeners();
+  }
+
+  /// Keeps only the titles of the chosen kind, preserving loading and error.
+  SecaoTitulos _filtrada(SecaoTitulos secao) {
+    final TipoMidia? tipo = tipoDoFiltro(_filtro);
+    if (tipo == null) return secao;
+
+    return SecaoTitulos(
+      carregando: secao.carregando,
+      erro: secao.erro,
+      itens: List<TmdbItem>.unmodifiable(<TmdbItem>[
+        for (final TmdbItem item in secao.itens)
+          if (item.tipo == tipo) item,
+      ]),
+    );
+  }
+
   /// Clears the previous session's state **without notifying**.
   ///
   /// Called from `initState`, before the first build: notifying there is not
   /// allowed, and without the reset the new account would see the previous one's
   /// titles for a frame. `load()` right after does the notifying.
+  ///
+  /// The filter goes back to "Todos" too: it is a choice of the previous
+  /// account, not of the next one.
   void reset() {
     _geracao++;
+    _filtro = TipoFiltro.todos;
     _emAlta = const SecaoTitulos(carregando: true);
     _popularesCrus = const SecaoTitulos(carregando: true);
   }

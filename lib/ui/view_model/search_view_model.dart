@@ -1,0 +1,215 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+
+import '../../data/api_models/tmdb_item.dart';
+import '../../data/repositories/titulo_repository.dart';
+import '../../utils/app_error.dart';
+import '../../utils/result.dart';
+import 'tipo_filtro.dart';
+
+export 'tipo_filtro.dart';
+
+/// Where the search screen is. Each one has its own screen: none of them is a
+/// blank page.
+enum EstadoBusca {
+  /// Nothing to ask yet: fewer than [kBuscaMin] letters.
+  ocioso,
+  carregando,
+  resultados,
+
+  /// The server answered and nothing matched (or nothing of the chosen kind).
+  vazio,
+  erro,
+}
+
+/// State of the search screen (AP-44): the query, the server's answer and the
+/// kind filter (AP-36).
+///
+/// The search runs **on the server** (`/busca`), so it reaches the whole
+/// catalogue, not only what the home loaded. It waits for her to stop typing
+/// before asking: one request per pause, not one per key.
+class SearchViewModel extends ChangeNotifier {
+  SearchViewModel(this._repository, {this.espera = const Duration(milliseconds: 400)});
+
+  final TituloRepository _repository;
+
+  /// How long to wait after the last key before asking the server.
+  final Duration espera;
+
+  Timer? _timer;
+  int _geracao = 0;
+  String _consulta = '';
+  /// The term already answered, in [_chave] form.
+  String? _consultaFeita;
+
+  /// The term waiting for its answer (timer or request), in [_chave] form, so a
+  /// key that does not change the term (a trailing space) does not ask the same
+  /// thing twice.
+  String? _termoPendente;
+  bool _carregando = false;
+  AppError? _erro;
+  List<TmdbItem> _resultados = const <TmdbItem>[];
+  List<TmdbItem> _visiveis = const <TmdbItem>[];
+  TipoFiltro _filtro = TipoFiltro.todos;
+
+  String get consulta => _consulta;
+  TipoFiltro get filtro => _filtro;
+  String? get erro => _erro?.mensagem;
+
+  /// Only a failure that asking again can fix gets a retry: an invalid query
+  /// would fail the same way.
+  bool get podeTentarDeNovo => _erro != null && _erro is! BuscaInvalidaError;
+
+  /// What the server answered, narrowed by the kind filter. Local: switching
+  /// the filter does not ask the server again.
+  ///
+  /// Computed when the answer or the filter changes, not on read: the list
+  /// builder reads it once per row.
+  List<TmdbItem> get resultados => _visiveis;
+
+  EstadoBusca get estado {
+    if (_erro != null) return EstadoBusca.erro;
+    if (_carregando) return EstadoBusca.carregando;
+    if (_consultaFeita == null) return EstadoBusca.ocioso;
+    return resultados.isEmpty ? EstadoBusca.vazio : EstadoBusca.resultados;
+  }
+
+  /// Called on every key. Short queries never leave the app (the backend would
+  /// answer `400 query_too_short`): the screen shows the hint. Long ones fail
+  /// here with [BuscaInvalidaError], before the network.
+  void setConsulta(String texto) {
+    _consulta = texto;
+    final String termo = texto.trim();
+    if (_chave(termo) == _consultaFeita && _erro == null) return;
+    if (_chave(termo) == _termoPendente) return;
+
+    // Any change invalidates the request in flight: its answer is about a query
+    // that is no longer in the box.
+    _timer?.cancel();
+    final int geracao = ++_geracao;
+
+    if (termo.length < kBuscaMin) {
+      _limparResposta();
+      notifyListeners();
+      return;
+    }
+    if (termo.length > kBuscaMax) {
+      _limparResposta();
+      _erro = const BuscaInvalidaError();
+      notifyListeners();
+      return;
+    }
+    // Spinner already while waiting: the old results are about another query.
+    _limparResposta();
+    _carregando = true;
+    _termoPendente = _chave(termo);
+    notifyListeners();
+    _timer = Timer(espera, () => _buscar(termo, geracao));
+  }
+
+  /// Enter / "Buscar" on the keyboard: asks now instead of waiting for the
+  /// pause. Only skips the wait — a query already answered or already on its
+  /// way is not asked again.
+  void buscarAgora() {
+    final Timer? timer = _timer;
+    if (timer == null || !timer.isActive) return;
+    timer.cancel();
+    _buscar(_consulta.trim(), _geracao);
+  }
+
+  void setFiltro(TipoFiltro filtro) {
+    if (filtro == _filtro) return;
+    _filtro = filtro;
+    _filtrar();
+    notifyListeners();
+  }
+
+  Future<void> tentarDeNovo() async {
+    final String termo = _consulta.trim();
+    if (termo.length < kBuscaMin || termo.length > kBuscaMax) return;
+    _timer?.cancel();
+    final int geracao = ++_geracao;
+    _limparResposta();
+    _carregando = true;
+    _termoPendente = _chave(termo);
+    notifyListeners();
+    await _buscar(termo, geracao);
+  }
+
+  /// Drops the pending search **without notifying**: the page calls it from
+  /// `dispose`, so a query typed just before leaving does not reach the server
+  /// for a screen nobody is looking at.
+  void cancelar() {
+    _timer?.cancel();
+    _geracao++;
+    _termoPendente = null;
+  }
+
+  /// Clears the previous visit **without notifying** (called from `initState`).
+  ///
+  /// This ViewModel lives at the root, so without it the screen would open on
+  /// the last search, possibly from another account.
+  void reset() {
+    _timer?.cancel();
+    _geracao++;
+    _consulta = '';
+    _filtro = TipoFiltro.todos;
+    _limparResposta();
+  }
+
+  Future<void> _buscar(String termo, int geracao) async {
+    Result<List<TmdbItem>> resultado;
+    try {
+      resultado = await _repository.buscar(termo);
+    } catch (error, stack) {
+      // `catch`, not `on Exception`: a broken cast is an `Error`, and escaping
+      // here would leave the screen spinning.
+      debugPrint('[AppSeries] busca fora do contrato: $error\n$stack');
+      resultado = const Result<List<TmdbItem>>.error(ServerError());
+    }
+    // A slower answer to an older query must not overwrite the newer one.
+    if (geracao != _geracao) return;
+
+    _carregando = false;
+    _termoPendente = null;
+    _consultaFeita = _chave(termo);
+    switch (resultado) {
+      case Ok<List<TmdbItem>>(:final value):
+        _resultados = List<TmdbItem>.unmodifiable(value);
+      case Error<List<TmdbItem>>(:final error):
+        _erro = error;
+    }
+    _filtrar();
+    notifyListeners();
+  }
+
+  void _limparResposta() {
+    _carregando = false;
+    _erro = null;
+    _consultaFeita = null;
+    _termoPendente = null;
+    _resultados = const <TmdbItem>[];
+    _visiveis = const <TmdbItem>[];
+  }
+
+  /// The search on the server ignores case, so "Pokemon" after "pokemon" is the
+  /// same question and must not be asked again.
+  static String _chave(String termo) => termo.toLowerCase();
+
+  void _filtrar() {
+    final tipo = tipoDoFiltro(_filtro);
+    _visiveis = tipo == null
+        ? _resultados
+        : List<TmdbItem>.unmodifiable(<TmdbItem>[
+            for (final TmdbItem item in _resultados)
+              if (item.tipo == tipo) item,
+          ]);
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+}

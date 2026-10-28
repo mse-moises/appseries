@@ -1,6 +1,9 @@
 import 'package:appseries/app.dart';
 import 'package:appseries/data/api_models/user.dart';
+import 'package:appseries/data/api_models/titulo_detalhe.dart';
+import 'package:appseries/data/api_models/tmdb_item.dart';
 import 'package:appseries/data/repositories/auth_repository.dart';
+import 'package:appseries/data/repositories/titulo_repository.dart';
 import 'package:appseries/ui/navegacao/titulo_ref.dart';
 import 'package:appseries/ui/view/acervo_tabs_page.dart';
 import 'package:appseries/ui/view/search_page.dart';
@@ -8,6 +11,7 @@ import 'package:appseries/ui/view/title_detail_page.dart';
 import 'package:appseries/ui/view/preferences_page.dart';
 import 'package:appseries/ui/view_model/auth_view_model.dart';
 import 'package:appseries/ui/view_model/login_view_model.dart';
+import 'package:appseries/ui/view_model/search_view_model.dart';
 import 'package:appseries/utils/app_error.dart';
 import 'package:appseries/utils/result.dart';
 import 'package:appseries/utils/routes_config.dart';
@@ -35,16 +39,42 @@ class _FakeAuthRepository implements AuthRepository {
   Future<Result<void>> signOut() async => const Result<void>.ok(null);
 }
 
+/// A busca abre ociosa: só abrir a rota não pode chamar o servidor.
+class _FakeTituloRepository implements TituloRepository {
+  int buscas = 0;
+
+  @override
+  Future<Result<List<TmdbItem>>> buscar(String q) async {
+    buscas++;
+    return const Result<List<TmdbItem>>.ok(<TmdbItem>[]);
+  }
+
+  @override
+  Future<Result<List<TmdbItem>>> emAlta() => throw UnimplementedError();
+
+  @override
+  Future<Result<List<TmdbItem>>> populares() => throw UnimplementedError();
+
+  @override
+  Future<Result<TituloDetalhe>> titulo(TipoMidia tipo, int tmdbId) => throw UnimplementedError();
+}
+
 /// Abre a rota pelo caminho real do app: `Navigator.pushNamed`, não uma rota
 /// montada à mão no teste.
+final _FakeTituloRepository _titulos = _FakeTituloRepository();
+
 Future<void> _empurrar(WidgetTester tester, String nome, {Object? argumentos}) async {
-  await tester.pumpWidget(MaterialApp(
-    key: ValueKey<String>('rota-$nome'),
-    routes: Routes.mapa,
-    home: Builder(
-      builder: (BuildContext context) => TextButton(
-        onPressed: () => Navigator.pushNamed(context, nome, arguments: argumentos),
-        child: const Text('abrir'),
+  // A busca lê o ViewModel dela da raiz, como no `main.dart`.
+  await tester.pumpWidget(ChangeNotifierProvider<SearchViewModel>(
+    create: (_) => SearchViewModel(_titulos),
+    child: MaterialApp(
+      key: ValueKey<String>('rota-$nome'),
+      routes: Routes.mapa,
+      home: Builder(
+        builder: (BuildContext context) => TextButton(
+          onPressed: () => Navigator.pushNamed(context, nome, arguments: argumentos),
+          child: const Text('abrir'),
+        ),
       ),
     ),
   ));
@@ -95,6 +125,7 @@ void main() {
         await _empurrar(tester, e.key);
         expect(find.byType(e.value), findsOneWidget, reason: 'rota ${e.key}');
       }
+      expect(_titulos.buscas, 0, reason: 'abrir a busca não pode chamar o servidor');
     });
 
     testWidgets('pushNamed leva o TituloRef até o detalhe', (tester) async {
