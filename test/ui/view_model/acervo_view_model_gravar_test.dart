@@ -258,6 +258,51 @@ void main() {
       expect(linha.posterPath, '/poster-2.jpg');
     });
 
+    test('texto vazio da tela não apaga o que a linha tinha', () async {
+      final _FakeAcervo repo = _FakeAcervo(<AcervoItem>[_comFicha(2, 'A Origem')]);
+      final AcervoViewModel vm = await _carregado(repo);
+
+      unawaited(vm.marcar(
+        TipoMidia.movie,
+        2,
+        EstadoAcervo.watching,
+        titulo: '',
+        ano: '',
+        posterPath: '',
+      ));
+
+      final AcervoItem linha = vm.itens.single;
+      expect(linha.titulo, 'A Origem');
+      expect(linha.ano, '2010', reason: 'o backend manda "" para título sem ano');
+      expect(linha.posterPath, '/poster-2.jpg');
+    });
+
+    test('resposta do servidor sem ficha vence a ficha da tela', () async {
+      final _FakeAcervo repo = _FakeAcervo();
+      final AcervoViewModel vm = await _carregado(repo);
+
+      final Future<AppError?> gravando = vm.marcar(
+        TipoMidia.tv,
+        1399,
+        EstadoAcervo.watching,
+        titulo: 'Game of Thrones',
+        ano: '2011',
+        posterPath: '/got.jpg',
+      );
+      expect(vm.itens.single.titulo, 'Game of Thrones');
+      // O TMDB falhou na hora da marcação: o servidor gravou só o estado.
+      repo.marcacoes.single.complete(const Result<AcervoItem>.ok(
+        AcervoItem(tmdbId: 1399, estado: EstadoAcervo.watching, tipo: TipoMidia.tv),
+      ));
+      await gravando;
+
+      final AcervoItem linha = vm.itens.single;
+      expect(linha.titulo, isNull, reason: 'o servidor é a verdade: um recarregar mostraria isso');
+      expect(linha.posterPath, isNull);
+    });
+
+    // Regressão, não mede este PR: o desfazer já devolvia a linha anterior
+    // inteira antes dele. Fica para que ninguém troque isso por uma linha nova.
     test('falha na troca devolve a linha com a ficha inteira', () async {
       final _FakeAcervo repo = _FakeAcervo(<AcervoItem>[_comFicha(2, 'A Origem')]);
       final AcervoViewModel vm = await _carregado(repo);
@@ -393,6 +438,29 @@ void main() {
       ]));
       expect(comTipada.assistidoEm(TipoMidia.movie, 550), isNull,
           reason: 'a linha tipada diz "Assistindo"; a antiga não pode responder por ela');
+    });
+
+    test('tipo desconhecido lê a mesma linha que o estadoDe', () async {
+      final AcervoViewModel soFilme = await _carregado(
+        _FakeAcervo(<AcervoItem>[linha(EstadoAcervo.watched, em: marcadoEm)]),
+      );
+      expect(soFilme.estadoDe(TipoMidia.desconhecido, 550), EstadoAcervo.watched);
+      expect(soFilme.assistidoEm(TipoMidia.desconhecido, 550), marcadoEm,
+          reason: 'o botão diz "Assistido": a data não pode sumir');
+
+      final DateTime daSerie = DateTime.utc(2026, 9, 1, 12);
+      final AcervoViewModel soSerie = await _carregado(_FakeAcervo(<AcervoItem>[
+        linha(EstadoAcervo.watched, tipo: TipoMidia.tv, em: daSerie),
+      ]));
+      expect(soSerie.assistidoEm(TipoMidia.desconhecido, 550), daSerie);
+
+      final AcervoViewModel filmeVence = await _carregado(_FakeAcervo(<AcervoItem>[
+        linha(EstadoAcervo.watching),
+        linha(EstadoAcervo.watched, tipo: TipoMidia.tv, em: daSerie),
+      ]));
+      expect(filmeVence.estadoDe(TipoMidia.desconhecido, 550), EstadoAcervo.watching);
+      expect(filmeVence.assistidoEm(TipoMidia.desconhecido, 550), isNull,
+          reason: 'o filme vem primeiro, como no estadoDe');
     });
 
     test('marcar "Assistido" já mostra a data de agora, e a do servidor vence', () async {

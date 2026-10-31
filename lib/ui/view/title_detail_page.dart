@@ -235,8 +235,11 @@ class _AssistidoEm extends StatelessWidget {
 
 /// `dd/mm/aaaa` in the device's time zone: the server sends UTC, and a title
 /// watched at 22h in Brazil is already the next day in UTC.
-String dataCurta(DateTime quando) {
-  final DateTime local = quando.toLocal();
+///
+/// [paraLocal] is the conversion to the device's zone; a test passes a fixed
+/// one, because the zone of the machine running the tests is not Brazil's.
+String dataCurta(DateTime quando, {DateTime Function(DateTime)? paraLocal}) {
+  final DateTime local = (paraLocal ?? (DateTime d) => d.toLocal())(quando);
   String doisDigitos(int n) => n.toString().padLeft(2, '0');
   return '${doisDigitos(local.day)}/${doisDigitos(local.month)}/${local.year}';
 }

@@ -176,7 +176,9 @@ void main() {
         ],
       );
 
-      expect(find.text('Assistido em 20/10/2026'), findsOneWidget);
+      // O esperado sai do mesmo `dataCurta`: o fuso de quem roda o teste não
+      // muda o resultado. A conversão de fuso tem teste próprio, abaixo.
+      expect(find.text('Assistido em ${dataCurta(DateTime.utc(2026, 10, 20, 12))}'), findsOneWidget);
     });
 
     testWidgets('fora de "Assistido" não há data', (tester) async {
@@ -219,7 +221,7 @@ void main() {
       await tester.tap(find.text('Assistido').last);
       await tester.pump();
 
-      expect(find.text('Assistido em 31/10/2026'), findsOneWidget,
+      expect(find.text('Assistido em ${dataCurta(DateTime(2026, 10, 31, 9))}'), findsOneWidget,
           reason: 'antes da resposta, e não a data de quando marcou "Assistindo"');
 
       gravacao.complete(Result<AcervoItem>.ok(AcervoItem(
@@ -230,11 +232,20 @@ void main() {
       )));
       await tester.pumpAndSettle();
 
-      expect(find.text('Assistido em 01/11/2026'), findsOneWidget, reason: 'a data do servidor vence');
+      expect(find.text('Assistido em ${dataCurta(DateTime.utc(2026, 11, 1, 12))}'), findsOneWidget,
+          reason: 'a data do servidor vence');
     });
 
     test('dataCurta usa dia/mês/ano com zero à esquerda', () {
       expect(dataCurta(DateTime(2026, 3, 5, 23, 59)), '05/03/2026');
+    });
+
+    test('dataCurta converte para o fuso antes de formatar', () {
+      // 01h UTC do dia 21 é 22h do dia 20 em Brasília (UTC-3).
+      DateTime brasilia(DateTime d) => d.toUtc().subtract(const Duration(hours: 3));
+
+      expect(dataCurta(DateTime.utc(2026, 10, 21, 1), paraLocal: brasilia), '20/10/2026');
+      expect(dataCurta(DateTime.utc(2026, 10, 21, 4), paraLocal: brasilia), '21/10/2026');
     });
 
     testWidgets('nota 0 e ano vazio não viram "0.0" nem rótulo vazio', (tester) async {

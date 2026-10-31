@@ -56,10 +56,17 @@ class AcervoViewModel extends ChangeNotifier {
   /// The app gets no field of its own for this: it is the line's
   /// `atualizadoEm`, the last time the line changed. While the state stays
   /// "Assistido" that is the day she marked it — unless something else rewrites
-  /// the line in between. Follows the same lookup as [estadoDe]: a typed line
-  /// first, then an old line without `tipo`.
+  /// the line in between. Follows the same lookup as [estadoDe], so the date
+  /// and the button never disagree about which line they read.
   DateTime? assistidoEm(TipoMidia tipo, int tmdbId) {
-    final AcervoItem? linha = _linha(tipo, tmdbId) ?? _linhaSemTipo(tmdbId);
+    // The same order as [estadoDe]: the typed line, then the old line without
+    // `tipo`; for a type this app cannot translate, the movie first, then the
+    // old line, then the series.
+    final AcervoItem? linha = tipo != TipoMidia.desconhecido
+        ? _linha(tipo, tmdbId) ?? _linhaSemTipo(tmdbId)
+        : _linha(TipoMidia.movie, tmdbId) ??
+            _linhaSemTipo(tmdbId) ??
+            _linha(TipoMidia.tv, tmdbId);
     if (linha == null || linha.estado != EstadoAcervo.watched) return null;
     return linha.atualizadoEm;
   }
@@ -83,9 +90,14 @@ class AcervoViewModel extends ChangeNotifier {
   /// [titulo], [ano] and [posterPath] are what the screen already shows (the
   /// poster, the search result, the detail). The optimistic line takes them,
   /// so a screen that lists the shelf does not flash "Sem título" while the
-  /// write is on its way. Each one missing falls back to the line the title
-  /// already had; on a first mark with no data, the line has none until the
-  /// server answers.
+  /// write is on its way. Each one missing **or empty** falls back to the line
+  /// the title already had; on a first mark with no data, the line has none
+  /// until the server answers.
+  ///
+  /// Once the server answers, its line replaces ours as it came — even without
+  /// title, year or poster (the backend writes only the state when the TMDB
+  /// lookup fails). The server is the source of truth: keeping the screen's
+  /// data here would show something a reload would take away.
   Future<AppError?> marcar(
     TipoMidia tipo,
     int tmdbId,
@@ -102,21 +114,26 @@ class AcervoViewModel extends ChangeNotifier {
           tmdbId: tmdbId,
           estado: estado,
           tipo: tipo,
-          titulo: titulo ?? anterior?.titulo,
-          ano: ano ?? anterior?.ano,
-          posterPath: posterPath ?? anterior?.posterPath,
-          // A new state is dated now; the server's answer then replaces the line
-          // with its own date. Without this, "Assistido" would show the date of
-          // the previous state while the write is on its way.
-          atualizadoEm: estado == anterior?.estado ? anterior?.atualizadoEm : _agora().toUtc(),
+          titulo: _preenchido(titulo) ?? anterior?.titulo,
+          ano: _preenchido(ano) ?? anterior?.ano,
+          posterPath: _preenchido(posterPath) ?? anterior?.posterPath,
+          // Dated now, so "Assistido" does not show the date of the previous
+          // state while the write is on its way. The server's answer then
+          // replaces the line with its own date. (The screen never writes the
+          // state a title already has, so every write here is a new state.)
+          atualizadoEm: _agora().toUtc(),
         ),
         chamada: () async => switch (await _repository.marcar(tipo, tmdbId, estado)) {
-          // The server's line, with title, year and poster, replaces ours.
+          // The server's line replaces ours as it came (see the doc above).
           Ok<AcervoItem>(:final value) => (value, null),
           Error<AcervoItem>(:final error) => (null, error),
         },
       );
   }
+
+  /// An empty string is no data: the backend sends `""` for a title without a
+  /// year, and it must not overwrite the year the line already had.
+  static String? _preenchido(String? valor) => (valor == null || valor.isEmpty) ? null : valor;
 
   /// Takes a title off the shelf: the fifth choice of the detail (AP-48).
   ///

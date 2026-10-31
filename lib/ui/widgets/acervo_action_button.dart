@@ -258,8 +258,7 @@ class AcervoAcao extends StatelessWidget {
             tipo,
             tmdbId,
             estado,
-            // An empty title is no title: the line keeps the one it already had.
-            titulo: (titulo?.isEmpty ?? true) ? null : titulo,
+            titulo: titulo,
             ano: ano,
             posterPath: posterPath,
           ),
