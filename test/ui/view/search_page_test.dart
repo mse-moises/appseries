@@ -182,7 +182,7 @@ void main() {
         _comProviders(
           SearchViewModel(
             _FakeBusca(const Result<List<TmdbItem>>.ok(<TmdbItem>[
-              TmdbItem(id: 2, tipo: TipoMidia.tv, titulo: 'Pokémon', ano: '1997'),
+              TmdbItem(id: 2, tipo: TipoMidia.tv, titulo: 'Pokémon', ano: '1997', posterPath: '/pokemon.jpg'),
             ])),
             espera: Duration.zero,
           ),
@@ -205,6 +205,7 @@ void main() {
 
       expect(emVoo?.titulo, 'Pokémon', reason: 'a linha em voo leva o título do resultado');
       expect(emVoo?.ano, '1997');
+      expect(emVoo?.posterPath, '/pokemon.jpg');
       expect(repo.marcados, <String>['tv:2 planToWatch']);
       expect(acervo.estadoDe(TipoMidia.tv, 2), EstadoAcervo.planToWatch);
     });

@@ -144,7 +144,16 @@ void main() {
     });
 
     testWidgets('marcar no detalhe leva a ficha para a linha do acervo', (tester) async {
-      await _abrir(tester, const <Result<TituloDetalhe>>[Result<TituloDetalhe>.ok(_ficha)]);
+      await _abrir(tester, const <Result<TituloDetalhe>>[
+        Result<TituloDetalhe>.ok(TituloDetalhe(
+          id: 1399,
+          tipo: TipoMidia.tv,
+          titulo: 'Game of Thrones',
+          ano: '2011',
+          posterPath: '/got.jpg',
+          generos: <String>[],
+        )),
+      ]);
       final AcervoViewModel acervo = Provider.of<AcervoViewModel>(
         tester.element(find.byType(TitleDetailPage)),
         listen: false,
@@ -159,6 +168,7 @@ void main() {
 
       expect(emVoo?.titulo, 'Game of Thrones');
       expect(emVoo?.ano, '2011');
+      expect(emVoo?.posterPath, '/got.jpg');
     });
 
     testWidgets('"Assistido" mostra a data em que foi marcado (AP-54)', (tester) async {

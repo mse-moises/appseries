@@ -310,11 +310,19 @@ void main() {
       expect(find.byTooltip('Quero ver'), findsNWidgets(3));
     });
 
-    testWidgets('marcar no pôster leva título e ano para a linha do acervo', (tester) async {
+    testWidgets('marcar no pôster leva título, ano e pôster para a linha do acervo', (tester) async {
       await _montar(
         tester,
         titulos: _FakeTituloRepository(
-          respostaEmAlta: _lista(<int>[1]),
+          respostaEmAlta: const Result<List<TmdbItem>>.ok(<TmdbItem>[
+            TmdbItem(
+              id: 1,
+              tipo: TipoMidia.movie,
+              titulo: 'Título 1',
+              ano: '2025',
+              posterPath: '/poster-1.jpg',
+            ),
+          ]),
           respostaPopulares: _lista(<int>[]),
         ),
         acervo: _FakeAcervoPendente(),
@@ -328,6 +336,7 @@ void main() {
       expect(acervo.enviando(TipoMidia.movie, 1), isTrue, reason: 'ainda gravando');
       expect(acervo.itens.single.titulo, 'Título 1');
       expect(acervo.itens.single.ano, '2025');
+      expect(acervo.itens.single.posterPath, '/poster-1.jpg');
     });
 
     testWidgets('tocar no pôster abre o detalhe com o par (tipo, id)', (tester) async {
