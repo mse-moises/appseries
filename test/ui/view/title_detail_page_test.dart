@@ -250,6 +250,17 @@ void main() {
       expect(dataCurta(DateTime(2026, 3, 5, 23, 59)), '05/03/2026');
     });
 
+    test('a conversão padrão leva para o fuso do aparelho, no mesmo instante', () {
+      final DateTime doServidor = DateTime.utc(2026, 10, 21, 1);
+
+      final DateTime local = paraLocalDoAparelho(doServidor);
+
+      // Vale em qualquer fuso: a data sai como hora local (não UTC) e aponta
+      // para o mesmo instante. Sem a conversão, `isUtc` continuaria true.
+      expect(local.isUtc, isFalse);
+      expect(local.isAtSameMomentAs(doServidor), isTrue);
+    });
+
     test('dataCurta converte para o fuso antes de formatar', () {
       // 01h UTC do dia 21 é 22h do dia 20 em Brasília (UTC-3).
       DateTime brasilia(DateTime d) => d.toUtc().subtract(const Duration(hours: 3));

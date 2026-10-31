@@ -210,8 +210,12 @@ class AcervoViewModel extends ChangeNotifier {
 
   /// A line from before migration 008 (no `tipo`, or one this app cannot
   /// translate) with this id, if any.
+  ///
+  /// The **last** one wins, as in [_mapaDeEstados] (which writes the lines in
+  /// order, each over the previous): with two such lines for one id, the date
+  /// must come from the line whose state the button shows.
   AcervoItem? _linhaSemTipo(int tmdbId) {
-    for (final AcervoItem item in _itens) {
+    for (final AcervoItem item in _itens.reversed) {
       if ((item.tipo == null || item.tipo == TipoMidia.desconhecido) && item.tmdbId == tmdbId) {
         return item;
       }

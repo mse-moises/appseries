@@ -440,6 +440,17 @@ void main() {
           reason: 'a linha tipada diz "Assistindo"; a antiga não pode responder por ela');
     });
 
+    test('duas linhas antigas do mesmo id: a data vem da que o botão mostra', () async {
+      final AcervoViewModel vm = await _carregado(_FakeAcervo(<AcervoItem>[
+        linha(EstadoAcervo.watched, tipo: null, em: DateTime.utc(2025)),
+        linha(EstadoAcervo.watching, tipo: TipoMidia.desconhecido, em: marcadoEm),
+      ]));
+
+      expect(vm.estadoDe(TipoMidia.movie, 550), EstadoAcervo.watching);
+      expect(vm.assistidoEm(TipoMidia.movie, 550), isNull,
+          reason: 'o botão diz "Assistindo": a data de 2025 não pode aparecer');
+    });
+
     test('tipo desconhecido lê a mesma linha que o estadoDe', () async {
       final AcervoViewModel soFilme = await _carregado(
         _FakeAcervo(<AcervoItem>[linha(EstadoAcervo.watched, em: marcadoEm)]),
