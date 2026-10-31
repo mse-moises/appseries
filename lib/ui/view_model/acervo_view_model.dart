@@ -119,22 +119,30 @@ class AcervoViewModel extends ChangeNotifier {
   ///   possibly in two tabs. (If the typed line is in fact the other title of
   ///   that id — movie 550 and series 550 — the old one is hidden too: there is
   ///   no way to tell them apart, and a duplicate is the likelier case.)
+  /// - an old line without `tipo` when a **later** old line of the same id
+  ///   exists: only the last one shows, the same one [estadoDe] and
+  ///   [assistidoEm] read.
   ///
   /// So the tabs may add up to less than [total], which counts every line.
   List<AcervoItem> _daAba(Set<EstadoAcervo> estados) => List<AcervoItem>.unmodifiable(
         _itens.where((AcervoItem item) => estados.contains(item.estado) && !_sombreada(item)),
       );
 
-  /// An old line without `tipo` that a typed line of the same id overrides.
+  /// An old line without `tipo` that another line of the same id overrides:
+  /// a typed one anywhere, or an old one after it.
   bool _sombreada(AcervoItem item) {
-    if (item.tipo != null && item.tipo != TipoMidia.desconhecido) return false;
-    return _itens.any(
-      (AcervoItem outra) =>
-          outra.tmdbId == item.tmdbId &&
-          outra.tipo != null &&
-          outra.tipo != TipoMidia.desconhecido,
-    );
+    if (_temTipo(item)) return false;
+    final int posicao = _itens.indexOf(item);
+    for (int i = 0; i < _itens.length; i++) {
+      final AcervoItem outra = _itens[i];
+      if (outra.tmdbId != item.tmdbId || i == posicao) continue;
+      if (_temTipo(outra) || i > posicao) return true;
+    }
+    return false;
   }
+
+  static bool _temTipo(AcervoItem item) =>
+      item.tipo != null && item.tipo != TipoMidia.desconhecido;
 
   bool enviando(TipoMidia tipo, int tmdbId) => _enviando.contains(chaveEstado(tipo, tmdbId));
 
