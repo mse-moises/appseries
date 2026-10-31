@@ -62,16 +62,40 @@ class AcervoViewModel extends ChangeNotifier {
   /// Optimistic: the new state shows before the server answers, and the
   /// previous one comes back if it fails. Answers the failure (or `null`) so
   /// the screen can say that it did not save — it never pretends it did.
-  Future<AppError?> marcar(TipoMidia tipo, int tmdbId, EstadoAcervo estado) => _gravar(
+  ///
+  /// [titulo], [ano] and [posterPath] are what the screen already shows (the
+  /// poster, the search result, the detail). The optimistic line takes them,
+  /// so a screen that lists the shelf does not flash "Sem título" while the
+  /// write is on its way. Each one missing falls back to the line the title
+  /// already had; on a first mark with no data, the line has none until the
+  /// server answers.
+  Future<AppError?> marcar(
+    TipoMidia tipo,
+    int tmdbId,
+    EstadoAcervo estado, {
+    String? titulo,
+    String? ano,
+    String? posterPath,
+  }) {
+    final AcervoItem? anterior = _linha(tipo, tmdbId);
+    return _gravar(
         tipo,
         tmdbId,
-        otimista: AcervoItem(tmdbId: tmdbId, estado: estado, tipo: tipo),
+        otimista: AcervoItem(
+          tmdbId: tmdbId,
+          estado: estado,
+          tipo: tipo,
+          titulo: titulo ?? anterior?.titulo,
+          ano: ano ?? anterior?.ano,
+          posterPath: posterPath ?? anterior?.posterPath,
+        ),
         chamada: () async => switch (await _repository.marcar(tipo, tmdbId, estado)) {
           // The server's line, with title, year and poster, replaces ours.
           Ok<AcervoItem>(:final value) => (value, null),
           Error<AcervoItem>(:final error) => (null, error),
         },
       );
+  }
 
   /// Takes a title off the shelf: the fifth choice of the detail (AP-48).
   ///

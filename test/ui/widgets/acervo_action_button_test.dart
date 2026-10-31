@@ -224,6 +224,72 @@ void main() {
       expect(find.byIcon(Icons.bookmark), findsOneWidget);
     });
 
+    testWidgets('o toque leva a ficha da tela para a linha do acervo', (tester) async {
+      final _FakeAcervo repo = _FakeAcervo();
+      final AcervoViewModel vm = AcervoViewModel(repo);
+      await vm.load();
+      await tester.pumpWidget(
+        ChangeNotifierProvider<AcervoViewModel>.value(
+          value: vm,
+          child: const MaterialApp(
+            home: Scaffold(
+              body: Center(
+                child: AcervoAcao(
+                  tipo: TipoMidia.tv,
+                  tmdbId: 1399,
+                  titulo: 'Game of Thrones',
+                  ano: '2011',
+                  posterPath: '/got.jpg',
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Quero ver'));
+      await tester.pump();
+
+      expect(repo.marcacoes, hasLength(1), reason: 'ainda gravando');
+      final AcervoItem linha = vm.itens.single;
+      expect(linha.titulo, 'Game of Thrones');
+      expect(linha.ano, '2011');
+      expect(linha.posterPath, '/got.jpg');
+    });
+
+    testWidgets('título vazio da tela não apaga o título que a linha tinha', (tester) async {
+      final _FakeAcervo repo = _FakeAcervo(
+        lista: const Result<List<AcervoItem>>.ok(<AcervoItem>[
+          AcervoItem(
+            tmdbId: 1399,
+            estado: EstadoAcervo.watching,
+            tipo: TipoMidia.tv,
+            titulo: 'Game of Thrones',
+          ),
+        ]),
+      );
+      final AcervoViewModel vm = AcervoViewModel(repo);
+      await vm.load();
+      await tester.pumpWidget(
+        ChangeNotifierProvider<AcervoViewModel>.value(
+          value: vm,
+          child: const MaterialApp(
+            home: Scaffold(
+              body: Center(child: AcervoAcao(tipo: TipoMidia.tv, tmdbId: 1399, titulo: '')),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Assistindo'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Assistido').last);
+      await tester.pump();
+
+      expect(vm.itens.single.estado, EstadoAcervo.watched);
+      expect(vm.itens.single.titulo, 'Game of Thrones');
+    });
+
     testWidgets('falha avisa na tela e o botão volta ao que era', (tester) async {
       final (_FakeAcervo repo, _) = await montarLigado(tester);
 

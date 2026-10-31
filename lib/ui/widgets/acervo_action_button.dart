@@ -196,10 +196,25 @@ class _Opcao {
 /// failure comes back as a message on screen: the ViewModel has already put the
 /// previous state back, and the button never pretends it saved.
 class AcervoAcao extends StatelessWidget {
-  const AcervoAcao({required this.tipo, required this.tmdbId, this.compacto = false, super.key});
+  const AcervoAcao({
+    required this.tipo,
+    required this.tmdbId,
+    this.titulo,
+    this.ano,
+    this.posterPath,
+    this.compacto = false,
+    super.key,
+  });
 
   final TipoMidia tipo;
   final int tmdbId;
+
+  /// What the screen already shows about the title. It goes into the shelf line
+  /// at once, so the line is not blank while the server answers.
+  final String? titulo;
+  final String? ano;
+  final String? posterPath;
+
   final bool compacto;
 
   @override
@@ -237,7 +252,18 @@ class AcervoAcao extends StatelessWidget {
       enviando: acervo.isLoading || acervo.enviando(tipo, tmdbId),
       onEscolher: (EstadoAcervo estado) {
         if (estado == atual) return;
-        _avisarSeFalhar(context, acervo.marcar(tipo, tmdbId, estado));
+        _avisarSeFalhar(
+          context,
+          acervo.marcar(
+            tipo,
+            tmdbId,
+            estado,
+            // An empty title is no title: the line keeps the one it already had.
+            titulo: (titulo?.isEmpty ?? true) ? null : titulo,
+            ano: ano,
+            posterPath: posterPath,
+          ),
+        );
       },
       onRemover: acervo.podeRemover(tipo, tmdbId)
           ? () => _avisarSeFalhar(context, acervo.remover(tipo, tmdbId))

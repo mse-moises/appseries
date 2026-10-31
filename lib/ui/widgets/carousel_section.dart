@@ -86,7 +86,14 @@ class CarouselSection extends StatelessWidget {
             Routes.detalhe,
             arguments: TituloRef(tipo: item.tipo, id: item.id),
           ),
-          acao: AcervoAcao(tipo: item.tipo, tmdbId: item.id, compacto: true),
+          acao: AcervoAcao(
+            tipo: item.tipo,
+            tmdbId: item.id,
+            titulo: item.titulo,
+            ano: item.ano,
+            posterPath: item.posterPath,
+            compacto: true,
+          ),
         );
       },
     );

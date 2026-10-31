@@ -217,6 +217,9 @@ class _ResultadoTile extends StatelessWidget {
           AcervoAcao(
             tipo: item.tipo,
             tmdbId: item.id,
+            titulo: item.titulo,
+            ano: item.ano,
+            posterPath: item.posterPath,
             compacto: MediaQuery.sizeOf(context).width / MediaQuery.textScalerOf(context).scale(1) <
                 _larguraBotaoCompleto,
           ),

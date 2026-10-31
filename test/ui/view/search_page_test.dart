@@ -194,9 +194,17 @@ void main() {
       await tester.pump();
       await tester.pump();
 
+      // A linha que aparece enquanto grava, antes da resposta do servidor.
+      AcervoItem? emVoo;
+      acervo.addListener(() {
+        if (acervo.enviando(TipoMidia.tv, 2)) emVoo = acervo.itens.single;
+      });
+
       await tester.tap(find.text('Quero ver'));
       await tester.pumpAndSettle();
 
+      expect(emVoo?.titulo, 'Pokémon', reason: 'a linha em voo leva o título do resultado');
+      expect(emVoo?.ano, '1997');
       expect(repo.marcados, <String>['tv:2 planToWatch']);
       expect(acervo.estadoDe(TipoMidia.tv, 2), EstadoAcervo.planToWatch);
     });

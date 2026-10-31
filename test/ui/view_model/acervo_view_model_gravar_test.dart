@@ -52,6 +52,18 @@ const AcervoItem _salvo = AcervoItem(
   ano: '2011',
 );
 
+/// Linha como o servidor devolve, com a ficha inteira: sem ela o teste não vê
+/// uma gravação que apague título ou pôster.
+AcervoItem _comFicha(int tmdbId, String titulo) => AcervoItem(
+      tmdbId: tmdbId,
+      estado: EstadoAcervo.watched,
+      tipo: TipoMidia.movie,
+      titulo: titulo,
+      ano: '2010',
+      posterPath: '/poster-$tmdbId.jpg',
+      atualizadoEm: DateTime.utc(2026, 10, 20),
+    );
+
 Future<AcervoViewModel> _carregado(_FakeAcervo repo) async {
   final AcervoViewModel vm = AcervoViewModel(repo);
   await vm.load();
@@ -196,8 +208,8 @@ void main() {
   group('AcervoViewModel — ordem e remover', () {
     test('título novo entra no topo; trocar o estado não muda a posição', () async {
       final _FakeAcervo repo = _FakeAcervo(<AcervoItem>[
-        const AcervoItem(tmdbId: 1, estado: EstadoAcervo.watched, tipo: TipoMidia.movie),
-        const AcervoItem(tmdbId: 2, estado: EstadoAcervo.watched, tipo: TipoMidia.movie),
+        _comFicha(1, 'Clube da Luta'),
+        _comFicha(2, 'A Origem'),
       ]);
       final AcervoViewModel vm = await _carregado(repo);
 
@@ -205,6 +217,60 @@ void main() {
       unawaited(vm.marcar(TipoMidia.movie, 2, EstadoAcervo.dropped));
 
       expect(vm.itens.map((AcervoItem i) => i.tmdbId), <int>[9, 1, 2]);
+      // A troca de estado não pode apagar a ficha da linha enquanto grava.
+      final AcervoItem trocado = vm.itens[2];
+      expect(trocado.estado, EstadoAcervo.dropped);
+      expect(trocado.titulo, 'A Origem');
+      expect(trocado.ano, '2010');
+      expect(trocado.posterPath, '/poster-2.jpg');
+    });
+
+    test('primeira marcação já leva a ficha que a tela mostra', () async {
+      final _FakeAcervo repo = _FakeAcervo();
+      final AcervoViewModel vm = await _carregado(repo);
+
+      unawaited(vm.marcar(
+        TipoMidia.tv,
+        1399,
+        EstadoAcervo.watching,
+        titulo: 'Game of Thrones',
+        ano: '2011',
+        posterPath: '/got.jpg',
+      ));
+
+      final AcervoItem linha = vm.itens.single;
+      expect(repo.marcacoes, hasLength(1), reason: 'a resposta ainda não chegou');
+      expect(linha.estado, EstadoAcervo.watching);
+      expect(linha.titulo, 'Game of Thrones');
+      expect(linha.ano, '2011');
+      expect(linha.posterPath, '/got.jpg');
+    });
+
+    test('ficha que a tela manda vale mais que a da linha antiga', () async {
+      final _FakeAcervo repo = _FakeAcervo(<AcervoItem>[_comFicha(2, 'A Origem')]);
+      final AcervoViewModel vm = await _carregado(repo);
+
+      unawaited(vm.marcar(TipoMidia.movie, 2, EstadoAcervo.watched, titulo: 'Inception'));
+
+      final AcervoItem linha = vm.itens.single;
+      expect(linha.titulo, 'Inception');
+      expect(linha.ano, '2010', reason: 'o que a tela não mandou vem da linha anterior');
+      expect(linha.posterPath, '/poster-2.jpg');
+    });
+
+    test('falha na troca devolve a linha com a ficha inteira', () async {
+      final _FakeAcervo repo = _FakeAcervo(<AcervoItem>[_comFicha(2, 'A Origem')]);
+      final AcervoViewModel vm = await _carregado(repo);
+
+      final Future<AppError?> gravando = vm.marcar(TipoMidia.movie, 2, EstadoAcervo.dropped);
+      repo.marcacoes.single.complete(const Result<AcervoItem>.error(NetworkError()));
+      await gravando;
+
+      final AcervoItem linha = vm.itens.single;
+      expect(linha.estado, EstadoAcervo.watched);
+      expect(linha.titulo, 'A Origem');
+      expect(linha.posterPath, '/poster-2.jpg');
+      expect(linha.atualizadoEm, DateTime.utc(2026, 10, 20));
     });
 
     test('remoção que falha devolve o título ao mesmo lugar', () async {
