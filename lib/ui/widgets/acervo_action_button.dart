@@ -274,7 +274,8 @@ class AcervoAcao extends StatelessWidget {
     // Taken before the wait, not after: on the shelf list (AP-63) a new state
     // moves the line to another tab, so this button leaves the tree before the
     // answer arrives — and the failure still has to be said. A sign-out in
-    // between is handled by the ViewModel, which answers `null` then.
+    // between is handled elsewhere: the home resets the shelf when the session
+    // ends (`HomePage.dispose`), and the ViewModel then answers `null`.
     final ScaffoldMessengerState? aviso = ScaffoldMessenger.maybeOf(context);
     final AppError? erro = await gravacao;
     if (erro == null || aviso == null || !aviso.mounted) return;

@@ -128,8 +128,9 @@ class AcervoViewModel extends ChangeNotifier {
   /// Optimistic: the new state shows before the server answers, and the
   /// previous one comes back if it fails. Answers the failure (or `null`) so
   /// the screen can say that it did not save — it never pretends it did. A
-  /// failure that arrives after a sign-out or a reload answers `null`: that
-  /// shelf is gone, and so is the person to tell.
+  /// failure that arrives after a [reset] or a reload answers `null`: that
+  /// shelf is gone, and so is the person to tell. (A sign-out reaches here as
+  /// a [reset]: the home calls it when the session ends.)
   ///
   /// [titulo], [ano] and [posterPath] are what the screen already shows (the
   /// poster, the search result, the detail). The optimistic line takes them,
