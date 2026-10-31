@@ -71,11 +71,17 @@ final class TituloIndisponivelError extends AppError {
       : super('titulo_indisponivel', 'Não foi possível abrir este título. Atualize o app.');
 }
 
-/// Mesma causa (tipo desconhecido), mas numa AÇÃO do acervo.
+/// Ação do acervo que o servidor recusa ou que o app nem tenta, e que falharia
+/// igual se repetida. Três origens:
 ///
-/// A mensagem não diz "abrir" nem manda atualizar o app: a origem pode ser uma
-/// linha anterior à migração 008, que vem com `tipo` nulo — nada a ver com a
-/// versão instalada. Sem ação possível, o texto só precisa não mentir.
+/// - tipo desconhecido (inclusive uma linha anterior à migração 008, que vem
+///   com `tipo` nulo — nada a ver com a versão instalada);
+/// - estado desconhecido, numa chamada programática;
+/// - um `400` (qualquer código) ou um `409` do servidor, em marcar ou remover
+///   (`AcervoRepositoryImpl._doAcervo`).
+///
+/// Por isso a mensagem não diz "abrir", não manda atualizar o app e não
+/// convida a tentar de novo: sem ação possível, o texto só precisa não mentir.
 final class AcervoIndisponivelError extends AppError {
   const AcervoIndisponivelError()
       : super('acervo_indisponivel', 'Não dá para mexer neste título no acervo.');
