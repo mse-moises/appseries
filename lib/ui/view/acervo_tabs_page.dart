@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/api_models/acervo_item.dart';
+import '../../utils/routes_config.dart';
 import '../view_model/acervo_view_model.dart';
 import '../widgets/acervo_item_tile.dart';
 import '../widgets/status_view.dart';
@@ -23,6 +24,14 @@ class AcervoTabsPage extends StatelessWidget {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Meu acervo'),
+          actions: <Widget>[
+            // AP-73: the history is the watched titles in the order she marked them.
+            IconButton(
+              onPressed: () => Navigator.pushNamed(context, Routes.historico),
+              icon: const Icon(Icons.history),
+              tooltip: 'Histórico',
+            ),
+          ],
           bottom: TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,

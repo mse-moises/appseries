@@ -85,6 +85,29 @@ class AcervoViewModel extends ChangeNotifier {
   List<AcervoItem> get assistidos =>
       _daAba(const <EstadoAcervo>{EstadoAcervo.watched, EstadoAcervo.dropped});
 
+  /// The history (AP-73): the watched titles, the most recently marked first.
+  ///
+  /// The date is the same one the detail shows ([assistidoEm]: the line's
+  /// `atualizadoEm`). A watched line the server sent without a date goes to
+  /// the end, in the server's order: it is watched, only the day is unknown.
+  /// Only "Assistido": a dropped title was not watched to the end. The same
+  /// lines as the tabs are left out (see [_daAba]).
+  List<AcervoItem> get historico {
+    final List<AcervoItem> assistidos = _daAba(const <EstadoAcervo>{EstadoAcervo.watched});
+    final List<AcervoItem> comData =
+        assistidos.where((AcervoItem i) => i.atualizadoEm != null).toList()
+          // `sort` is not stable in Dart: the tie on the same instant keeps the
+          // server's order through the index, not by luck.
+          ..sort((AcervoItem a, AcervoItem b) {
+            final int porData = b.atualizadoEm!.compareTo(a.atualizadoEm!);
+            return porData != 0 ? porData : assistidos.indexOf(a).compareTo(assistidos.indexOf(b));
+          });
+    return List<AcervoItem>.unmodifiable(<AcervoItem>[
+      ...comData,
+      ...assistidos.where((AcervoItem i) => i.atualizadoEm == null),
+    ]);
+  }
+
   /// The lines of one tab.
   ///
   /// Two kinds of line are left out of every tab:
