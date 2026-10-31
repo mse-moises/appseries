@@ -78,7 +78,7 @@ final class TituloIndisponivelError extends AppError {
 /// versão instalada. Sem ação possível, o texto só precisa não mentir.
 final class AcervoIndisponivelError extends AppError {
   const AcervoIndisponivelError()
-      : super('acervo_indisponivel', 'Não deu para mexer neste título no acervo agora.');
+      : super('acervo_indisponivel', 'Não dá para mexer neste título no acervo.');
 }
 
 final class RateLimitError extends AppError {

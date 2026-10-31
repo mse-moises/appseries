@@ -81,7 +81,9 @@ void main() {
               : (await repo.remover(TipoMidia.tv, 1399)).errorOrNull;
 
           expect(erro, isA<AcervoIndisponivelError>());
+          // Nem "tente", nem "agora": as duas palavras dizem que é passageiro.
           expect(erro?.mensagem.toLowerCase(), isNot(contains('tent')));
+          expect(erro?.mensagem.toLowerCase(), isNot(contains('agora')));
         });
       }
     }
