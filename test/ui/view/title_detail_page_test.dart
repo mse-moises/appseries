@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:appseries/data/api_models/acervo_item.dart';
 import 'package:appseries/data/api_models/feedback_item.dart';
 import 'package:appseries/data/api_models/titulo_detalhe.dart';
@@ -37,15 +39,19 @@ class _FakeTitulos implements TituloRepository {
 }
 
 class _FakeAcervo implements AcervoRepository {
-  _FakeAcervo([this.itens = const <AcervoItem>[]]);
+  _FakeAcervo([this.itens = const <AcervoItem>[], this.gravacao]);
 
   final List<AcervoItem> itens;
+
+  /// Quando existe, a gravação fica pendente até o teste responder.
+  final Completer<Result<AcervoItem>>? gravacao;
 
   @override
   Future<Result<List<AcervoItem>>> listar() async => Result<List<AcervoItem>>.ok(itens);
 
   @override
   Future<Result<AcervoItem>> marcar(TipoMidia tipo, int tmdbId, EstadoAcervo estado) async =>
+      gravacao?.future ??
       Result<AcervoItem>.ok(AcervoItem(tmdbId: tmdbId, estado: estado, tipo: tipo));
 
   @override
@@ -91,9 +97,11 @@ Future<_FakeFeedback> _abrir(
   List<Result<TituloDetalhe>> respostas, {
   List<AcervoItem> acervo = const <AcervoItem>[],
   double largura = 1200,
+  DateTime Function()? agora,
+  Completer<Result<AcervoItem>>? gravacao,
 }) async {
   final _FakeFeedback feedback = _FakeFeedback();
-  final AcervoViewModel acervoVm = AcervoViewModel(_FakeAcervo(acervo));
+  final AcervoViewModel acervoVm = AcervoViewModel(_FakeAcervo(acervo, gravacao), agora: agora);
   await acervoVm.load();
   tester.view.physicalSize = Size(largura, 2000);
   tester.view.devicePixelRatio = 1;
@@ -151,6 +159,82 @@ void main() {
 
       expect(emVoo?.titulo, 'Game of Thrones');
       expect(emVoo?.ano, '2011');
+    });
+
+    testWidgets('"Assistido" mostra a data em que foi marcado (AP-54)', (tester) async {
+      await _abrir(
+        tester,
+        const <Result<TituloDetalhe>>[Result<TituloDetalhe>.ok(_ficha)],
+        acervo: <AcervoItem>[
+          AcervoItem(
+            tmdbId: 1399,
+            estado: EstadoAcervo.watched,
+            tipo: TipoMidia.tv,
+            // meio-dia UTC: o mesmo dia em qualquer fuso do Brasil
+            atualizadoEm: DateTime.utc(2026, 10, 20, 12),
+          ),
+        ],
+      );
+
+      expect(find.text('Assistido em 20/10/2026'), findsOneWidget);
+    });
+
+    testWidgets('fora de "Assistido" não há data', (tester) async {
+      await _abrir(
+        tester,
+        const <Result<TituloDetalhe>>[Result<TituloDetalhe>.ok(_ficha)],
+        acervo: <AcervoItem>[
+          AcervoItem(
+            tmdbId: 1399,
+            estado: EstadoAcervo.watching,
+            tipo: TipoMidia.tv,
+            atualizadoEm: DateTime.utc(2026, 10, 20, 12),
+          ),
+        ],
+      );
+
+      expect(find.textContaining('Assistido em'), findsNothing);
+    });
+
+    testWidgets('marcar "Assistido" no detalhe já mostra a data de hoje', (tester) async {
+      final Completer<Result<AcervoItem>> gravacao = Completer<Result<AcervoItem>>();
+      await _abrir(
+        tester,
+        const <Result<TituloDetalhe>>[Result<TituloDetalhe>.ok(_ficha)],
+        acervo: <AcervoItem>[
+          AcervoItem(
+            tmdbId: 1399,
+            estado: EstadoAcervo.watching,
+            tipo: TipoMidia.tv,
+            atualizadoEm: DateTime.utc(2026, 10, 20, 12),
+          ),
+        ],
+        agora: () => DateTime(2026, 10, 31, 9),
+        gravacao: gravacao,
+      );
+      expect(find.textContaining('Assistido em'), findsNothing);
+
+      await tester.tap(find.text('Assistindo'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Assistido').last);
+      await tester.pump();
+
+      expect(find.text('Assistido em 31/10/2026'), findsOneWidget,
+          reason: 'antes da resposta, e não a data de quando marcou "Assistindo"');
+
+      gravacao.complete(Result<AcervoItem>.ok(AcervoItem(
+        tmdbId: 1399,
+        estado: EstadoAcervo.watched,
+        tipo: TipoMidia.tv,
+        atualizadoEm: DateTime.utc(2026, 11, 1, 12),
+      )));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Assistido em 01/11/2026'), findsOneWidget, reason: 'a data do servidor vence');
+    });
+
+    test('dataCurta usa dia/mês/ano com zero à esquerda', () {
+      expect(dataCurta(DateTime(2026, 3, 5, 23, 59)), '05/03/2026');
     });
 
     testWidgets('nota 0 e ano vazio não viram "0.0" nem rótulo vazio', (tester) async {

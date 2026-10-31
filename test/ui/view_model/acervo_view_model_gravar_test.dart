@@ -339,4 +339,113 @@ void main() {
       expect(vm.itens.single.titulo, 'Game of Thrones');
     });
   });
+
+  group('AcervoViewModel.assistidoEm (AP-54)', () {
+    final DateTime marcadoEm = DateTime.utc(2026, 10, 20, 15);
+    final DateTime agora = DateTime.utc(2026, 10, 31, 12);
+
+    AcervoItem linha(EstadoAcervo estado, {TipoMidia? tipo = TipoMidia.movie, DateTime? em}) =>
+        AcervoItem(
+          tmdbId: 550,
+          estado: estado,
+          tipo: tipo,
+          titulo: 'Clube da Luta',
+          ano: '1999',
+          posterPath: '/clube.jpg',
+          atualizadoEm: em,
+        );
+
+    test('só "Assistido" tem data, e é a da linha', () async {
+      for (final EstadoAcervo estado in const <EstadoAcervo>[
+        EstadoAcervo.planToWatch,
+        EstadoAcervo.watching,
+        EstadoAcervo.dropped,
+      ]) {
+        final AcervoViewModel vm = await _carregado(_FakeAcervo(<AcervoItem>[linha(estado, em: marcadoEm)]));
+        expect(vm.assistidoEm(TipoMidia.movie, 550), isNull, reason: estado.name);
+      }
+
+      final AcervoViewModel vm =
+          await _carregado(_FakeAcervo(<AcervoItem>[linha(EstadoAcervo.watched, em: marcadoEm)]));
+      expect(vm.assistidoEm(TipoMidia.movie, 550), marcadoEm);
+      expect(vm.assistidoEm(TipoMidia.tv, 550), isNull, reason: 'série 550 é outro título');
+    });
+
+    test('"Assistido" sem data do servidor não inventa uma', () async {
+      final AcervoViewModel vm =
+          await _carregado(_FakeAcervo(<AcervoItem>[linha(EstadoAcervo.watched)]));
+
+      expect(vm.estadoDe(TipoMidia.movie, 550), EstadoAcervo.watched);
+      expect(vm.assistidoEm(TipoMidia.movie, 550), isNull);
+    });
+
+    test('linha antiga sem tipo responde pelos dois tipos; a tipada vale mais', () async {
+      final DateTime antiga = DateTime.utc(2025, 1, 2);
+      final AcervoViewModel soAntiga = await _carregado(
+        _FakeAcervo(<AcervoItem>[linha(EstadoAcervo.watched, tipo: null, em: antiga)]),
+      );
+      expect(soAntiga.assistidoEm(TipoMidia.movie, 550), antiga);
+      expect(soAntiga.assistidoEm(TipoMidia.tv, 550), antiga);
+
+      final AcervoViewModel comTipada = await _carregado(_FakeAcervo(<AcervoItem>[
+        linha(EstadoAcervo.watched, tipo: null, em: antiga),
+        linha(EstadoAcervo.watching, em: marcadoEm),
+      ]));
+      expect(comTipada.assistidoEm(TipoMidia.movie, 550), isNull,
+          reason: 'a linha tipada diz "Assistindo"; a antiga não pode responder por ela');
+    });
+
+    test('marcar "Assistido" já mostra a data de agora, e a do servidor vence', () async {
+      final _FakeAcervo repo = _FakeAcervo(<AcervoItem>[linha(EstadoAcervo.watching, em: marcadoEm)]);
+      final AcervoViewModel vm = AcervoViewModel(repo, agora: () => agora);
+      await vm.load();
+
+      final Future<AppError?> gravando = vm.marcar(TipoMidia.movie, 550, EstadoAcervo.watched);
+      expect(vm.assistidoEm(TipoMidia.movie, 550), agora,
+          reason: 'não a data de quando ela marcou "Assistindo"');
+      expect(vm.itens.single.titulo, 'Clube da Luta');
+
+      final DateTime doServidor = DateTime.utc(2026, 10, 31, 12, 0, 3);
+      repo.marcacoes.single.complete(Result<AcervoItem>.ok(linha(EstadoAcervo.watched, em: doServidor)));
+      await gravando;
+
+      expect(vm.assistidoEm(TipoMidia.movie, 550), doServidor);
+    });
+
+    test('a data provisória é UTC, como a do servidor', () async {
+      final _FakeAcervo repo = _FakeAcervo();
+      final AcervoViewModel vm = AcervoViewModel(repo, agora: () => DateTime(2026, 10, 31, 22));
+      await vm.load();
+
+      unawaited(vm.marcar(TipoMidia.movie, 550, EstadoAcervo.watched));
+
+      final DateTime? data = vm.assistidoEm(TipoMidia.movie, 550);
+      expect(data?.isUtc, isTrue);
+      expect(data, DateTime(2026, 10, 31, 22).toUtc());
+    });
+
+    test('falha ao marcar "Assistido" devolve o estado e a data de antes', () async {
+      final _FakeAcervo repo = _FakeAcervo(<AcervoItem>[linha(EstadoAcervo.watching, em: marcadoEm)]);
+      final AcervoViewModel vm = AcervoViewModel(repo, agora: () => agora);
+      await vm.load();
+
+      final Future<AppError?> gravando = vm.marcar(TipoMidia.movie, 550, EstadoAcervo.watched);
+      repo.marcacoes.single.complete(const Result<AcervoItem>.error(NetworkError()));
+      await gravando;
+
+      expect(vm.assistidoEm(TipoMidia.movie, 550), isNull);
+      expect(vm.itens.single.estado, EstadoAcervo.watching);
+      expect(vm.itens.single.atualizadoEm, marcadoEm);
+    });
+
+    test('sair de "Assistido" tira a data', () async {
+      final _FakeAcervo repo = _FakeAcervo(<AcervoItem>[linha(EstadoAcervo.watched, em: marcadoEm)]);
+      final AcervoViewModel vm = AcervoViewModel(repo, agora: () => agora);
+      await vm.load();
+
+      unawaited(vm.marcar(TipoMidia.movie, 550, EstadoAcervo.dropped));
+
+      expect(vm.assistidoEm(TipoMidia.movie, 550), isNull);
+    });
+  });
 }

@@ -10,9 +10,12 @@ import '../../utils/result.dart';
 /// Owns the list and the lookup that the screens actually use
 /// (`estadoDe(tipo, tmdbId)`), and talks only to the repository **contract**.
 class AcervoViewModel extends ChangeNotifier {
-  AcervoViewModel(this._repository);
+  AcervoViewModel(this._repository, {DateTime Function()? agora}) : _agora = agora ?? DateTime.now;
 
   final AcervoRepository _repository;
+
+  /// The clock of the optimistic date. A test passes a fixed one.
+  final DateTime Function() _agora;
 
   // Starts loading: this ViewModel outlives the screen (it is created once in
   // `main.dart`), so on the next login the first frame must not draw the
@@ -45,6 +48,20 @@ class AcervoViewModel extends ChangeNotifier {
     // ambiguous line follows on write. Only `null` when it is in neither.
     return _estados[chaveEstado(TipoMidia.movie, tmdbId)] ??
         _estados[chaveEstado(TipoMidia.tv, tmdbId)];
+  }
+
+  /// When she marked the title as watched (AP-54), or `null` when it is not
+  /// "Assistido" or the server sent no date.
+  ///
+  /// The app gets no field of its own for this: it is the line's
+  /// `atualizadoEm`, the last time the line changed. While the state stays
+  /// "Assistido" that is the day she marked it — unless something else rewrites
+  /// the line in between. Follows the same lookup as [estadoDe]: a typed line
+  /// first, then an old line without `tipo`.
+  DateTime? assistidoEm(TipoMidia tipo, int tmdbId) {
+    final AcervoItem? linha = _linha(tipo, tmdbId) ?? _linhaSemTipo(tmdbId);
+    if (linha == null || linha.estado != EstadoAcervo.watched) return null;
+    return linha.atualizadoEm;
   }
 
   bool enviando(TipoMidia tipo, int tmdbId) => _enviando.contains(chaveEstado(tipo, tmdbId));
@@ -88,6 +105,10 @@ class AcervoViewModel extends ChangeNotifier {
           titulo: titulo ?? anterior?.titulo,
           ano: ano ?? anterior?.ano,
           posterPath: posterPath ?? anterior?.posterPath,
+          // A new state is dated now; the server's answer then replaces the line
+          // with its own date. Without this, "Assistido" would show the date of
+          // the previous state while the write is on its way.
+          atualizadoEm: estado == anterior?.estado ? anterior?.atualizadoEm : _agora().toUtc(),
         ),
         chamada: () async => switch (await _repository.marcar(tipo, tmdbId, estado)) {
           // The server's line, with title, year and poster, replaces ours.
@@ -166,6 +187,17 @@ class AcervoViewModel extends ChangeNotifier {
   AcervoItem? _linha(TipoMidia tipo, int tmdbId) {
     for (final AcervoItem item in _itens) {
       if (item.tipo == tipo && item.tmdbId == tmdbId) return item;
+    }
+    return null;
+  }
+
+  /// A line from before migration 008 (no `tipo`, or one this app cannot
+  /// translate) with this id, if any.
+  AcervoItem? _linhaSemTipo(int tmdbId) {
+    for (final AcervoItem item in _itens) {
+      if ((item.tipo == null || item.tipo == TipoMidia.desconhecido) && item.tmdbId == tmdbId) {
+        return item;
+      }
     }
     return null;
   }
