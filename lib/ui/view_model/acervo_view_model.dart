@@ -71,6 +71,48 @@ class AcervoViewModel extends ChangeNotifier {
     return linha.atualizadoEm;
   }
 
+  /// "Quero ver" tab of the shelf screen (AP-59).
+  ///
+  /// The three tabs keep the server's order (most recent first) and are built
+  /// from the same list as [estadoDe], so a mark shows in the right tab at once.
+  List<AcervoItem> get queroVer => _daAba(const <EstadoAcervo>{EstadoAcervo.planToWatch});
+
+  /// "Assistindo" tab (AP-59).
+  List<AcervoItem> get assistindo => _daAba(const <EstadoAcervo>{EstadoAcervo.watching});
+
+  /// "Assistido" tab (AP-59): watched **and** dropped. The screen marks the
+  /// dropped ones; they are titles she closed, like the watched ones.
+  List<AcervoItem> get assistidos =>
+      _daAba(const <EstadoAcervo>{EstadoAcervo.watched, EstadoAcervo.dropped});
+
+  /// The lines of one tab.
+  ///
+  /// Two kinds of line are left out of every tab:
+  /// - a state this app version does not know ([EstadoAcervo.desconhecido]):
+  ///   there is no tab to put it in;
+  /// - an old line without `tipo` when a typed line of the same id exists. A
+  ///   change of state on the old line writes the typed one (see [podeRemover]),
+  ///   which then wins in [estadoDe]; showing both would list the title twice,
+  ///   possibly in two tabs. (If the typed line is in fact the other title of
+  ///   that id — movie 550 and series 550 — the old one is hidden too: there is
+  ///   no way to tell them apart, and a duplicate is the likelier case.)
+  ///
+  /// So the tabs may add up to less than [total], which counts every line.
+  List<AcervoItem> _daAba(Set<EstadoAcervo> estados) => List<AcervoItem>.unmodifiable(
+        _itens.where((AcervoItem item) => estados.contains(item.estado) && !_sombreada(item)),
+      );
+
+  /// An old line without `tipo` that a typed line of the same id overrides.
+  bool _sombreada(AcervoItem item) {
+    if (item.tipo != null && item.tipo != TipoMidia.desconhecido) return false;
+    return _itens.any(
+      (AcervoItem outra) =>
+          outra.tmdbId == item.tmdbId &&
+          outra.tipo != null &&
+          outra.tipo != TipoMidia.desconhecido,
+    );
+  }
+
   bool enviando(TipoMidia tipo, int tmdbId) => _enviando.contains(chaveEstado(tipo, tmdbId));
 
   /// "Remover" is only offered for a line with `tipo`.
