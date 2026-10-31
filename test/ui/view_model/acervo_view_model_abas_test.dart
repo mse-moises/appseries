@@ -117,6 +117,17 @@ void main() {
           reason: 'a antiga do id 1 não pode aparecer de novo em outra aba');
     });
 
+    test('duas linhas antigas sem tipo do mesmo id: só a última, a que o estadoDe lê', () async {
+      final AcervoViewModel vm = await _carregado(<AcervoItem>[
+        _linha(1, EstadoAcervo.watched, tipo: null),
+        _linha(1, EstadoAcervo.watching, tipo: null),
+      ]);
+
+      expect(vm.estadoDe(TipoMidia.movie, 1), EstadoAcervo.watching);
+      expect(_ids(vm.assistindo), <int>[1]);
+      expect(vm.assistidos, isEmpty, reason: 'o mesmo título não aparece em duas abas');
+    });
+
     test('marcar muda o título de aba na hora, e a falha devolve', () async {
       final _FakeAcervo repo = _FakeAcervo(<AcervoItem>[_linha(1, EstadoAcervo.watching)]);
       final AcervoViewModel vm = AcervoViewModel(repo);
