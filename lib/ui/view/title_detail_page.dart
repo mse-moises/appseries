@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../data/api_models/feedback_item.dart';
 import '../../data/api_models/titulo_detalhe.dart';
 import '../../utils/app_error.dart';
+import '../../utils/data_curta.dart';
 import '../../utils/tmdb_image.dart';
 import '../navegacao/titulo_ref.dart';
 import '../theme/app_theme.dart';
@@ -231,24 +232,6 @@ class _AssistidoEm extends StatelessWidget {
       ),
     );
   }
-}
-
-/// The default conversion of [dataCurta]: the same instant, in the device's
-/// time zone (a local `DateTime`, never a UTC one).
-DateTime paraLocalDoAparelho(DateTime quando) => quando.toLocal();
-
-/// `dd/mm/aaaa` in the device's time zone: the server sends UTC, and a title
-/// watched at 22h in Brazil is already the next day in UTC.
-///
-/// [paraLocal] is the conversion to the device's zone; a test passes a fixed
-/// one, because the zone of the machine running the tests is not Brazil's.
-String dataCurta(
-  DateTime quando, {
-  DateTime Function(DateTime) paraLocal = paraLocalDoAparelho,
-}) {
-  final DateTime local = paraLocal(quando);
-  String doisDigitos(int n) => n.toString().padLeft(2, '0');
-  return '${doisDigitos(local.day)}/${doisDigitos(local.month)}/${local.year}';
 }
 
 /// 👍/👎, shown once she closed the title ("Assistido" or "Abandonei") or
