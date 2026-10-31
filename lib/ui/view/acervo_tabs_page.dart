@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../data/api_models/acervo_item.dart';
 import '../view_model/acervo_view_model.dart';
+import '../widgets/acervo_action_button.dart';
 import '../widgets/acervo_item_tile.dart';
 import '../widgets/status_view.dart';
 
@@ -100,10 +100,25 @@ class _Aba extends StatelessWidget {
           // AP-58: the dropped titles share the tab with the watched ones, so
           // each one says so.
           abaixo: item.estado == EstadoAcervo.dropped ? const _MarcaAbandonado() : null,
+          acao: _acao(item),
         );
       },
     );
   }
+}
+
+/// The shelf button on the line (AP-63): change the state or remove, the same
+/// menu as the poster, the search and the detail. A new state moves the line to
+/// its tab at once, because the tabs are read from the same list.
+///
+/// An old line without `tipo` gets no button: a write needs the type, and
+/// guessing it could mark the other title of that id.
+Widget? _acao(AcervoItem item) {
+  final TipoMidia? tipo = item.tipo;
+  if (tipo != TipoMidia.movie && tipo != TipoMidia.tv) return null;
+  // No title, year or poster here: the line is already on the shelf, and the
+  // ViewModel keeps its data on a state change.
+  return AcervoAcao(tipo: tipo!, tmdbId: item.tmdbId, compacto: true);
 }
 
 class _MarcaAbandonado extends StatelessWidget {
