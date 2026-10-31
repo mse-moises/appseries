@@ -46,7 +46,7 @@ class AcervoRepositoryImpl implements AcervoRepository {
       final MarcarAcervoRequest corpo = MarcarAcervoRequest(estado: estado, tipo: tipo);
       return Result.ok(await _api.marcar(tmdbId, corpo));
     } on DioException catch (e) {
-      return Result.error(_doAcervo(appErrorFromDio(e)));
+      return Result.error(_doAcervo(e));
     } catch (_) {
       return const Result<AcervoItem>.error(ServerError());
     }
@@ -60,15 +60,25 @@ class AcervoRepositoryImpl implements AcervoRepository {
       await _api.remover(tmdbId, wire);
       return const Result<void>.ok(null);
     } on DioException catch (e) {
-      return Result.error(_doAcervo(appErrorFromDio(e)));
+      return Result.error(_doAcervo(e));
     } catch (_) {
       return const Result<void>.error(ServerError());
     }
   }
 
-  /// A refused write (`400 invalid_estado`/`invalid_tipo`, a `409`) fails the
-  /// same way when repeated: [ConflictError] would say "tente de novo", so the
-  /// shelf answers with its own sentence instead.
-  static AppError _doAcervo(AppError erro) =>
-      erro is ConflictError ? const AcervoIndisponivelError() : erro;
+  /// A write the server refused fails the same way when repeated, so the
+  /// shelf answers with its own sentence instead of a "tente de novo":
+  ///
+  /// - any `400`, whatever the code in the body: `invalid_estado`,
+  ///   `invalid_tipo`, a code this app does not know yet, or none. Without this
+  ///   check the last two would fall into [ServerError] ("Tente em instantes");
+  /// - a `409`, and the codes `appErrorFromCodigo` maps to [ConflictError].
+  ///
+  /// Everything else keeps the general mapping (a `401` still asks to sign in
+  /// again, a `500` still invites a retry).
+  static AppError _doAcervo(DioException e) {
+    if (e.response?.statusCode == 400) return const AcervoIndisponivelError();
+    final AppError erro = appErrorFromDio(e);
+    return erro is ConflictError ? const AcervoIndisponivelError() : erro;
+  }
 }

@@ -64,6 +64,45 @@ void main() {
           reason: 'repetir a mesma gravação recusada falha igual');
     });
 
+    // Erro determinístico: repetir a mesma gravação falha igual, então a frase
+    // não pode convidar a tentar de novo. Vale com código conhecido, com código
+    // que este app ainda não conhece e sem código.
+    for (final (String corpo, String caso) in const <(String, String)>[
+      ('{"error":"invalid_tipo"}', 'invalid_tipo'),
+      ('{}', 'sem código'),
+      ('{"error":"invalid_algo_novo"}', 'código desconhecido'),
+    ]) {
+      for (final String acao in const <String>['marcar', 'remover']) {
+        test('400 $caso em $acao é recusa do acervo, sem "tente"', () async {
+          final repo = AcervoRepositoryImpl(clienteFalso(AdapterFalso(corpo, status: 400)));
+
+          final AppError? erro = acao == 'marcar'
+              ? (await repo.marcar(TipoMidia.tv, 1399, EstadoAcervo.watched)).errorOrNull
+              : (await repo.remover(TipoMidia.tv, 1399)).errorOrNull;
+
+          expect(erro, isA<AcervoIndisponivelError>());
+          expect(erro?.mensagem.toLowerCase(), isNot(contains('tent')));
+        });
+      }
+    }
+
+    test('500 em remover continua convidando a tentar de novo', () async {
+      final repo = AcervoRepositoryImpl(clienteFalso(AdapterFalso('{}', status: 500)));
+
+      final result = await repo.remover(TipoMidia.tv, 1399);
+
+      expect(result.errorOrNull, isA<ServerError>(),
+          reason: 'só o 400 é recusa definitiva; falha do servidor passa');
+    });
+
+    test('remover com 401 pede para entrar de novo', () async {
+      final repo = AcervoRepositoryImpl(FakeRestClient(error: _erroHttp(401, <String, String>{})));
+
+      final result = await repo.remover(TipoMidia.movie, 550);
+
+      expect(result.errorOrNull, isA<UnauthorizedError>());
+    });
+
     test('marcar manda tipo e estado no corpo e devolve o item salvo', () async {
       final FakeRestClient api = FakeRestClient()..respostaMarcar = _got;
       final repo = AcervoRepositoryImpl(api);
