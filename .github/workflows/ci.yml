@@ -19,6 +19,14 @@ jobs:
   # Actions run on their current majors (checkout@v7, setup-java@v6, upload-artifact@v7),
   # which no longer carry the deprecated Node 20 runtime: the seven annotations this
   # workflow used to print on every run are gone.
+  #
+  # Artifact storage is 500 MB on the free plan and it is metered in gigabyte-hours over
+  # the month: a 1.5 GB cache plus 33 MB of artifacts per run exhausts it in days, and
+  # when it runs out the upload of the APK and the web fails (`CreateArtifact: Artifact
+  # storage quota has been hit`), which in turn skips `deploy web` and freezes the site
+  # on an old build. That is why `cache` is off (the Flutter SDK cache alone was 1.5 GB)
+  # and why the artifacts are kept for a day and only published from `main`. The cost is
+  # ~40 s of SDK download per job; the benefit is a pipeline that keeps deploying.
   analyze-and-test:
     name: analyze + test
     runs-on: ubuntu-24.04
@@ -28,7 +36,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: 3.35.5
-          cache: true
+          cache: false
 
       - name: Dependências
         run: flutter pub get
@@ -54,6 +62,8 @@ jobs:
         with:
           name: cobertura
           path: coverage/lcov.info
+          # Short on purpose: every artifact counts against the 500 MB storage budget.
+          retention-days: 3
 
   build-android:
     name: build APK
@@ -70,7 +80,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: 3.35.5
-          cache: true
+          cache: false
 
       - run: flutter pub get
       - run: dart run build_runner build --delete-conflicting-outputs
@@ -87,10 +97,14 @@ jobs:
         run: flutter build apk --release
 
       - name: Sobe o APK
+        # Only from `main`: the APK is a deliverable of the merge, and 23 MB per PR push
+        # is what used to exhaust the storage budget.
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v7
         with:
           name: appseries-apk
           path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 1
 
   build-web:
     name: build web
@@ -102,7 +116,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: 3.35.5
-          cache: true
+          cache: false
 
       - run: flutter pub get
       - run: dart run build_runner build --delete-conflicting-outputs
@@ -111,10 +125,14 @@ jobs:
         run: flutter build web --release
 
       - name: Sobe o build web
+        # The only consumer is `deploy web`, which runs on a push to `main` (see `if`
+        # below): uploading from a PR would spend storage on a build nobody publishes.
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v7
         with:
           name: appseries-web
           path: build/web
+          retention-days: 1
 
   # Publishing lives here and only here: a merge into `main` ships the site. Any
   # other branch stops at the artifact above, so a PR cannot overwrite what the
