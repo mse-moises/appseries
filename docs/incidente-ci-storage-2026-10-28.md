@@ -1,9 +1,27 @@
 # Incidente: storage do Actions travou o CI e o deploy do web (28/10/2026)
 
-**Status:** resolvido por fora do CI (deploy manual). O CI volta a publicar sozinho
-depois do reset da franquia (previsto para 01/11/2026).
+**Status (02/11):** **cota resolvida e provada** — fix em `29df15b`, PR #21, merge `49e4f7f`. O `analyze + test`,
+`build APK` e `build web` voltaram a ficar verdes nos 6 PRs abertos (#15 a #20). O que ainda falha é o
+`deploy web`, por **outro motivo**: 403 `serviceusage.services.get` na service account (ver "Segundo bloqueio" abaixo).
+**Status (28/10):** resolvido por fora do CI (deploy manual).
 **Afetou:** `main` (`6b377cd` e `4274d38`) — `build APK`, `build web` e `deploy web`.
 **Não afetou:** código, testes, backend, app rodando local.
+
+---
+
+## Fecho de 02/11 (segundo bloqueio: IAM do deploy)
+
+A franquia virou o mês e a cota está livre (medido: **66 MB de artifacts, 0 caches**). Com o `ci.yml` corrigido
+e mergeado, os três jobs de verificação ficam verdes — o bug de cota está fechado.
+
+O `deploy web` na `main` ainda falha, agora com **403 em `serviceusage.services.get`** no projeto
+`238916672789` (`firebasehosting.googleapis.com`). É IAM, não cota: a service account de
+`secrets.FIREBASE_SERVICE_ACCOUNT` não tem permissão de leitura em Service Usage. Conserto é **console**:
+Google Cloud → IAM → a service account do secret → adicionar `Service Usage Viewer`
+(`roles/serviceusage.serviceUsageViewer`) e conferir se `firebasehosting.googleapis.com` está habilitada no projeto.
+Enquanto isso, o site continua no build de **29/10** (deploy manual do dono, `main.dart.js` com
+`Last-Modified: 29 Oct 2026`) e o `deploy web` do CI é vermelho a cada merge na `main`.
+
 
 ---
 
