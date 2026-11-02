@@ -13,9 +13,9 @@ import '../ui/view/preferences_page.dart';
 /// the one thing the gate exists to prevent.
 ///
 /// Internal screens register their route here and are reached from a signed-in
-/// screen. The four routes below point at stubs on purpose: the foundation task
-/// (AP-108) opened the map once so no feature branch has to touch it again.
-/// Each stub is replaced by its own card, one file per screen.
+/// screen. The foundation task (AP-108) opened the map with a stub per screen,
+/// so no feature branch has to touch it again; each card replaces its stub,
+/// one file per screen (the shelf, `acervo`, is no longer one: AP-59).
 class Routes {
   const Routes._();
 

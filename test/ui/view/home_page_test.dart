@@ -76,6 +76,12 @@ class _FakeAcervoPendente extends _FakeAcervoRepository {
       Completer<Result<AcervoItem>>().future;
 }
 
+/// A leitura nunca responde: a home fica em "Carregando seu acervo...".
+class _FakeAcervoPendenteLeitura extends _FakeAcervoRepository {
+  @override
+  Future<Result<List<AcervoItem>>> listar() => Completer<Result<List<AcervoItem>>>().future;
+}
+
 class _FakeAcervoComItens implements AcervoRepository {
   @override
   Future<Result<List<AcervoItem>>> listar() async => Result<List<AcervoItem>>.ok(
@@ -185,6 +191,7 @@ Future<_FakeAuthRepository> _montar(
         home: const HomePage(),
         routes: <String, WidgetBuilder>{
           Routes.busca: (BuildContext _) => const Text('tela de busca'),
+          Routes.acervo: (BuildContext _) => const Text('tela do acervo'),
           // O detalhe vira um marcador que mostra o par que recebeu.
           Routes.detalhe: (BuildContext c) {
             final TituloRef ref = ModalRoute.of(c)!.settings.arguments! as TituloRef;
@@ -337,6 +344,24 @@ void main() {
       expect(acervo.itens.single.titulo, 'Título 1');
       expect(acervo.itens.single.ano, '2025');
       expect(acervo.itens.single.posterPath, '/poster-1.jpg');
+    });
+
+    testWidgets('"Ver acervo" abre a tela do acervo (AP-59)', (tester) async {
+      await _montar(tester);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('abrir-acervo')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('tela do acervo'), findsOneWidget);
+    });
+
+    testWidgets('sem acervo carregado não há "Ver acervo"', (tester) async {
+      await _montar(tester, acervo: _FakeAcervoPendenteLeitura());
+      await tester.pump();
+
+      expect(find.byKey(const Key('abrir-acervo')), findsNothing,
+          reason: 'enquanto carrega, a linha diz "Carregando"');
     });
 
     testWidgets('tocar no pôster abre o detalhe com o par (tipo, id)', (tester) async {

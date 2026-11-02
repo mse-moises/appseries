@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../utils/routes_config.dart';
 import '../view_model/acervo_view_model.dart';
 import '../view_model/auth_view_model.dart';
 import '../view_model/home_view_model.dart';
@@ -208,7 +209,20 @@ class _AcervoResumo extends StatelessWidget {
         ],
       );
     } else {
-      conteudo = Text('Seu acervo: ${total == 1 ? '1 título' : '$total títulos'}');
+      // Wrap, not Row: on a phone with a large font the button drops to the
+      // next line instead of overflowing.
+      conteudo = Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: <Widget>[
+          Text('Seu acervo: ${total == 1 ? '1 título' : '$total títulos'}'),
+          // AP-59: the way into the shelf screen.
+          TextButton(
+            key: const Key('abrir-acervo'),
+            onPressed: () => Navigator.pushNamed(context, Routes.acervo),
+            child: const Text('Ver acervo'),
+          ),
+        ],
+      );
     }
 
     return Row(
