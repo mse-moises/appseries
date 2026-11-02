@@ -194,6 +194,18 @@ void main() {
       expect(vm.enviando(TipoMidia.tv, 1399), isFalse);
     });
 
+    test('falha que chega depois do logout não é devolvida à tela', () async {
+      final _FakeAcervo repo = _FakeAcervo();
+      final AcervoViewModel vm = await _carregado(repo);
+
+      final Future<AppError?> gravando = vm.marcar(TipoMidia.tv, 1399, EstadoAcervo.planToWatch);
+      vm.reset();
+      repo.marcacoes.single.complete(const Result<AcervoItem>.error(NetworkError()));
+
+      expect(await gravando, isNull, reason: 'o aviso cairia na tela de login, sobre outro acervo');
+      expect(vm.estadoDe(TipoMidia.tv, 1399), isNull);
+    });
+
     test('repository que lança não deixa o botão girando', () async {
       final AcervoViewModel vm = await _carregado(_FakeQueLanca());
 
@@ -318,19 +330,52 @@ void main() {
       expect(linha.atualizadoEm, DateTime.utc(2026, 10, 20));
     });
 
-    test('remoção que falha devolve o título ao mesmo lugar', () async {
+    test('remoção que falha devolve o título ao mesmo lugar, com a ficha inteira', () async {
+      final AcervoItem doMeio = AcervoItem(
+        tmdbId: 2,
+        estado: EstadoAcervo.watching,
+        tipo: TipoMidia.movie,
+        titulo: 'A Origem',
+        ano: '2010',
+        posterPath: '/origem.jpg',
+        atualizadoEm: DateTime.utc(2026, 10, 20),
+      );
       final _FakeAcervo repo = _FakeAcervo(<AcervoItem>[
         const AcervoItem(tmdbId: 1, estado: EstadoAcervo.watched, tipo: TipoMidia.movie),
-        const AcervoItem(tmdbId: 2, estado: EstadoAcervo.watched, tipo: TipoMidia.movie),
+        doMeio,
         const AcervoItem(tmdbId: 3, estado: EstadoAcervo.watched, tipo: TipoMidia.movie),
       ]);
       final AcervoViewModel vm = await _carregado(repo);
 
       final Future<AppError?> removendo = vm.remover(TipoMidia.movie, 2);
+      expect(vm.itens.map((AcervoItem i) => i.tmdbId), <int>[1, 3]);
       repo.remocoes.single.complete(const Result<void>.error(NetworkError()));
       await removendo;
 
       expect(vm.itens.map((AcervoItem i) => i.tmdbId), <int>[1, 2, 3]);
+      final AcervoItem devolvido = vm.itens[1];
+      expect(devolvido.estado, EstadoAcervo.watching);
+      expect(devolvido.titulo, 'A Origem');
+      expect(devolvido.ano, '2010');
+      expect(devolvido.posterPath, '/origem.jpg');
+      expect(devolvido.atualizadoEm, DateTime.utc(2026, 10, 20));
+    });
+
+    test('remover um título não mexe nos outros', () async {
+      final _FakeAcervo repo = _FakeAcervo(<AcervoItem>[
+        const AcervoItem(tmdbId: 550, estado: EstadoAcervo.watched, tipo: TipoMidia.movie),
+        const AcervoItem(tmdbId: 550, estado: EstadoAcervo.watching, tipo: TipoMidia.tv),
+      ]);
+      final AcervoViewModel vm = await _carregado(repo);
+
+      final Future<AppError?> removendo = vm.remover(TipoMidia.tv, 550);
+      repo.remocoes.single.complete(const Result<void>.ok(null));
+      await removendo;
+
+      expect(vm.estadoDe(TipoMidia.tv, 550), isNull);
+      expect(vm.estadoDe(TipoMidia.movie, 550), EstadoAcervo.watched,
+          reason: 'filme 550 e série 550 são títulos diferentes');
+      expect(repo.chamadas, <String>['remover tv:550']);
     });
 
     test('"Remover" só existe para a linha com tipo', () async {

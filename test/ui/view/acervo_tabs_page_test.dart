@@ -1,10 +1,10 @@
 import 'dart:async';
 
-import 'package:appseries/data/api_models/acervo_item.dart';
 import 'package:appseries/data/repositories/acervo_repository.dart';
 import 'package:appseries/ui/navegacao/titulo_ref.dart';
 import 'package:appseries/ui/view/acervo_tabs_page.dart';
 import 'package:appseries/ui/view_model/acervo_view_model.dart';
+import 'package:appseries/ui/widgets/acervo_action_button.dart';
 import 'package:appseries/utils/app_error.dart';
 import 'package:appseries/utils/result.dart';
 import 'package:appseries/utils/routes_config.dart';
@@ -26,12 +26,26 @@ class _FakeAcervo implements AcervoRepository {
     return respostas[i];
   }
 
-  @override
-  Future<Result<AcervoItem>> marcar(TipoMidia tipo, int tmdbId, EstadoAcervo estado) =>
-      throw UnimplementedError();
+  /// Gravações pendentes até o teste responder (AP-63).
+  final List<Completer<Result<AcervoItem>>> marcacoes = <Completer<Result<AcervoItem>>>[];
+  final List<Completer<Result<void>>> remocoes = <Completer<Result<void>>>[];
+  final List<String> chamadas = <String>[];
 
   @override
-  Future<Result<void>> remover(TipoMidia tipo, int tmdbId) => throw UnimplementedError();
+  Future<Result<AcervoItem>> marcar(TipoMidia tipo, int tmdbId, EstadoAcervo estado) {
+    chamadas.add('marcar ${tipo.name}:$tmdbId ${estado.name}');
+    final Completer<Result<AcervoItem>> c = Completer<Result<AcervoItem>>();
+    marcacoes.add(c);
+    return c.future;
+  }
+
+  @override
+  Future<Result<void>> remover(TipoMidia tipo, int tmdbId) {
+    chamadas.add('remover ${tipo.name}:$tmdbId');
+    final Completer<Result<void>> c = Completer<Result<void>>();
+    remocoes.add(c);
+    return c.future;
+  }
 }
 
 AcervoItem _linha(int id, String titulo, EstadoAcervo estado, {TipoMidia? tipo = TipoMidia.movie}) =>
@@ -234,6 +248,119 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.text('Abandonei'), findsOneWidget);
+    });
+  });
+
+  group('AcervoTabsPage — mudar o estado pela lista (AP-63)', () {
+    final List<AcervoItem> lista = <AcervoItem>[
+      _linha(2, 'Dexter', EstadoAcervo.watching, tipo: TipoMidia.tv),
+      _linha(3, 'Clube da Luta', EstadoAcervo.watched),
+    ];
+
+    Future<void> irPara(WidgetTester tester, String aba) async {
+      final int i = <String>['Quero ver', 'Assistindo', 'Assistido'].indexOf(aba);
+      await tester.tap(find.byType(Tab).at(i));
+      // Tempo fixo, não pumpAndSettle: a linha que está gravando gira sem parar.
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+    }
+
+    Future<void> escolher(WidgetTester tester, String atual, String opcao) async {
+      await tester.tap(find.byTooltip(atual));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(opcao).last);
+      await tester.pump();
+    }
+
+    testWidgets('trocar o estado leva o título para a outra aba na hora', (tester) async {
+      final (_, _FakeAcervo repo) = await _abrir(tester, <Future<Result<List<AcervoItem>>>>[_ok(lista)]);
+      await irPara(tester, 'Assistindo');
+
+      await escolher(tester, 'Assistindo', 'Assistido');
+
+      expect(repo.chamadas, <String>['marcar tv:2 watched']);
+      expect(find.text('Assistindo (0)'), findsOneWidget);
+      expect(find.text('Assistido (2)'), findsOneWidget);
+      expect(find.text('Dexter'), findsNothing, reason: 'saiu da aba Assistindo antes da resposta');
+
+      repo.marcacoes.single.complete(Result<AcervoItem>.ok(_linha(2, 'Dexter', EstadoAcervo.watched, tipo: TipoMidia.tv)));
+      await irPara(tester, 'Assistido');
+
+      expect(find.text('Dexter'), findsOneWidget);
+      expect(find.text('Assistido (2)'), findsOneWidget);
+    });
+
+    testWidgets('falha devolve o título à aba de antes e avisa', (tester) async {
+      final (_, _FakeAcervo repo) = await _abrir(tester, <Future<Result<List<AcervoItem>>>>[_ok(lista)]);
+      await irPara(tester, 'Assistindo');
+
+      await escolher(tester, 'Assistindo', 'Abandonei');
+      expect(find.text('Dexter'), findsNothing);
+
+      repo.marcacoes.single.complete(const Result<AcervoItem>.error(NetworkError()));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Dexter'), findsOneWidget);
+      expect(find.text('Assistindo (1)'), findsOneWidget);
+      expect(find.textContaining('Não salvou no acervo.'), findsOneWidget);
+    });
+
+    testWidgets('na outra aba o título chega com nome, antes da resposta', (tester) async {
+      final (_, _FakeAcervo repo) = await _abrir(tester, <Future<Result<List<AcervoItem>>>>[_ok(lista)]);
+      await irPara(tester, 'Assistindo');
+
+      await escolher(tester, 'Assistindo', 'Quero ver');
+      await irPara(tester, 'Quero ver');
+
+      expect(repo.marcacoes, hasLength(1), reason: 'ainda gravando');
+      expect(find.text('Dexter'), findsOneWidget);
+      expect(find.text('Sem título'), findsNothing);
+    });
+
+    testWidgets('"Remover do acervo" tira o título da lista, e a falha devolve', (tester) async {
+      final (_, _FakeAcervo repo) = await _abrir(tester, <Future<Result<List<AcervoItem>>>>[_ok(lista)]);
+      await irPara(tester, 'Assistido');
+
+      await escolher(tester, 'Assistido', 'Remover do acervo');
+
+      expect(repo.chamadas, <String>['remover movie:3']);
+      expect(find.text('Clube da Luta'), findsNothing);
+      expect(find.text('Assistido (0)'), findsOneWidget);
+
+      repo.remocoes.single.complete(const Result<void>.error(NetworkError()));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Clube da Luta'), findsOneWidget);
+      expect(find.text('Assistido (1)'), findsOneWidget);
+    });
+
+    testWidgets('escolher o estado que já tem não grava nada', (tester) async {
+      final (_, _FakeAcervo repo) = await _abrir(tester, <Future<Result<List<AcervoItem>>>>[_ok(lista)]);
+      await irPara(tester, 'Assistindo');
+
+      await escolher(tester, 'Assistindo', 'Assistindo');
+      await tester.pumpAndSettle();
+
+      expect(repo.chamadas, isEmpty);
+      expect(find.text('Dexter'), findsOneWidget);
+    });
+
+    testWidgets('linha antiga sem tipo não tem botão: gravar exige o tipo', (tester) async {
+      await _abrir(tester, <Future<Result<List<AcervoItem>>>>[
+        _ok(<AcervoItem>[
+          _linha(7, 'Sem Tipo', EstadoAcervo.planToWatch, tipo: null),
+          _linha(8, 'Com Tipo', EstadoAcervo.planToWatch),
+        ]),
+      ]);
+
+      expect(find.byType(AcervoAcao), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey<String>('acervo-movie-8')),
+          matching: find.byType(AcervoAcao),
+        ),
+        findsOneWidget,
+      );
     });
   });
 }

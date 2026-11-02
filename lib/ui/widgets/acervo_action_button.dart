@@ -271,12 +271,16 @@ class AcervoAcao extends StatelessWidget {
   }
 
   static Future<void> _avisarSeFalhar(BuildContext context, Future<AppError?> gravacao) async {
+    // Taken before the wait, not after: on the shelf list (AP-63) a new state
+    // moves the line to another tab, so this button leaves the tree before the
+    // answer arrives — and the failure still has to be said. A sign-out in
+    // between is handled elsewhere: the home resets the shelf when the session
+    // ends (`HomePage.dispose`), and the ViewModel then answers `null`.
+    final ScaffoldMessengerState? aviso = ScaffoldMessenger.maybeOf(context);
     final AppError? erro = await gravacao;
-    // Gone from the tree (a sign-out in between): the warning would land on
-    // the login screen, about a shelf that is no longer hers to see.
-    if (erro == null || !context.mounted) return;
-    ScaffoldMessenger.maybeOf(context)
-      ?..hideCurrentSnackBar()
+    if (erro == null || aviso == null || !aviso.mounted) return;
+    aviso
+      ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text('Não salvou no acervo. ${erro.mensagem}')));
   }
 }

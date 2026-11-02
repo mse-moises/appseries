@@ -82,6 +82,18 @@ class _FakeAcervoPendenteLeitura extends _FakeAcervoRepository {
   Future<Result<List<AcervoItem>>> listar() => Completer<Result<List<AcervoItem>>>().future;
 }
 
+/// Guarda as gravações para o teste responder depois do logout.
+class _FakeAcervoGuardado extends _FakeAcervoRepository {
+  final List<Completer<Result<AcervoItem>>> marcacoes = <Completer<Result<AcervoItem>>>[];
+
+  @override
+  Future<Result<AcervoItem>> marcar(TipoMidia tipo, int tmdbId, EstadoAcervo estado) {
+    final Completer<Result<AcervoItem>> c = Completer<Result<AcervoItem>>();
+    marcacoes.add(c);
+    return c.future;
+  }
+}
+
 class _FakeAcervoComItens implements AcervoRepository {
   @override
   Future<Result<List<AcervoItem>>> listar() async => Result<List<AcervoItem>>.ok(
@@ -362,6 +374,59 @@ void main() {
 
       expect(find.byKey(const Key('abrir-acervo')), findsNothing,
           reason: 'enquanto carrega, a linha diz "Carregando"');
+    });
+
+    testWidgets('falha que chega depois do logout não aparece no login', (tester) async {
+      final _FakeAcervoGuardado acervoRepo = _FakeAcervoGuardado();
+      final AcervoViewModel acervo = AcervoViewModel(acervoRepo);
+      // Como o AuthGate: a sessão decide entre home e login, e ninguém chama
+      // reset() à mão no logout.
+      final ValueNotifier<bool> logado = ValueNotifier<bool>(true);
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<HomeViewModel>(
+              create: (_) => HomeViewModel(
+                _FakeTituloRepository(respostaEmAlta: _lista(<int>[1]), respostaPopulares: _lista(<int>[])),
+              ),
+            ),
+            ChangeNotifierProvider<AuthViewModel>(create: (_) => AuthViewModel(_FakeAuthRepository())),
+            ChangeNotifierProvider<AcervoViewModel>.value(value: acervo),
+          ],
+          child: MaterialApp(
+            home: ValueListenableBuilder<bool>(
+              valueListenable: logado,
+              builder: (_, bool l, __) => l ? const HomePage() : const Text('tela de login'),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Quero ver'));
+      await tester.pump();
+      expect(acervoRepo.marcacoes, hasLength(1));
+
+      logado.value = false;
+      await tester.pump();
+      acervoRepo.marcacoes.single.complete(const Result<AcervoItem>.error(NetworkError()));
+      await tester.pumpAndSettle();
+
+      expect(find.text('tela de login'), findsOneWidget);
+      expect(find.textContaining('Não salvou no acervo.'), findsNothing);
+    });
+
+    testWidgets('com a home na tela, a falha avisa', (tester) async {
+      final _FakeAcervoGuardado acervoRepo = _FakeAcervoGuardado();
+      await _montar(tester, acervo: acervoRepo);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Quero ver').first);
+      await tester.pump();
+      acervoRepo.marcacoes.single.complete(const Result<AcervoItem>.error(NetworkError()));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Não salvou no acervo.'), findsOneWidget);
     });
 
     testWidgets('tocar no pôster abre o detalhe com o par (tipo, id)', (tester) async {
