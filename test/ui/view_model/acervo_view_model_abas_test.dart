@@ -35,14 +35,14 @@ class _FakeAcervo implements AcervoRepository {
 
 /// Linha completa, como o servidor devolve.
 AcervoItem _linha(int id, EstadoAcervo estado, {TipoMidia? tipo = TipoMidia.movie}) => AcervoItem(
-      tmdbId: id,
-      estado: estado,
-      tipo: tipo,
-      titulo: 'Título $id',
-      ano: '20${id.toString().padLeft(2, '0')}',
-      posterPath: '/p$id.jpg',
-      atualizadoEm: DateTime.utc(2026, 10, id),
-    );
+  tmdbId: id,
+  estado: estado,
+  tipo: tipo,
+  titulo: 'Título $id',
+  ano: '20${id.toString().padLeft(2, '0')}',
+  posterPath: '/p$id.jpg',
+  atualizadoEm: DateTime.utc(2026, 10, id),
+);
 
 Future<AcervoViewModel> _carregado(List<AcervoItem> itens) async {
   final AcervoViewModel vm = AcervoViewModel(_FakeAcervo(itens));
@@ -113,8 +113,9 @@ void main() {
         _linha(2, EstadoAcervo.watched, tipo: TipoMidia.desconhecido),
       ]);
       expect(_ids(comTipada.assistindo), <int>[1]);
-      expect(_ids(comTipada.assistidos), <int>[2],
-          reason: 'a antiga do id 1 não pode aparecer de novo em outra aba');
+      expect(_ids(comTipada.assistidos), <int>[
+        2,
+      ], reason: 'a antiga do id 1 não pode aparecer de novo em outra aba');
     });
 
     test('duas linhas antigas sem tipo do mesmo id: só a última, a que o estadoDe lê', () async {
@@ -136,7 +137,11 @@ void main() {
       final Future<AppError?> gravando = vm.marcar(TipoMidia.movie, 1, EstadoAcervo.watched);
       expect(vm.assistindo, isEmpty);
       expect(_ids(vm.assistidos), <int>[1]);
-      expect(vm.assistidos.single.titulo, 'Título 1', reason: 'a linha não perde a ficha ao mudar de aba');
+      expect(
+        vm.assistidos.single.titulo,
+        'Título 1',
+        reason: 'a linha não perde a ficha ao mudar de aba',
+      );
 
       repo.marcacoes.single.complete(const Result<AcervoItem>.error(NetworkError()));
       await gravando;
@@ -162,6 +167,95 @@ void main() {
       final AcervoViewModel vm = await _carregado(<AcervoItem>[_linha(1, EstadoAcervo.watching)]);
 
       expect(() => vm.assistindo.clear(), throwsUnsupportedError);
+    });
+  });
+
+  group('AcervoViewModel.historico (AP-73)', () {
+    AcervoItem assistido(
+      int id,
+      DateTime? em, {
+      EstadoAcervo estado = EstadoAcervo.watched,
+      TipoMidia? tipo = TipoMidia.movie,
+    }) => AcervoItem(
+      tmdbId: id,
+      estado: estado,
+      tipo: tipo,
+      titulo: 'Título $id',
+      ano: '2010',
+      posterPath: '/p$id.jpg',
+      atualizadoEm: em,
+    );
+
+    test('só os assistidos, do marcado mais recente para o mais antigo', () async {
+      final AcervoViewModel vm = await _carregado(<AcervoItem>[
+        // ordem do servidor diferente da ordem das datas, de propósito
+        assistido(1, DateTime.utc(2026, 10, 5)),
+        assistido(2, DateTime.utc(2026, 10, 20)),
+        assistido(3, DateTime.utc(2026, 10, 9), estado: EstadoAcervo.dropped),
+        assistido(4, DateTime.utc(2026, 10, 30), estado: EstadoAcervo.watching),
+        assistido(5, DateTime.utc(2026, 10, 12), tipo: TipoMidia.tv),
+      ]);
+
+      expect(
+        _ids(vm.historico),
+        <int>[2, 5, 1],
+        reason: 'abandonado não foi assistido até o fim; "Assistindo" ainda não acabou',
+      );
+      expect(vm.historico.first.titulo, 'Título 2');
+      expect(vm.historico.first.posterPath, '/p2.jpg');
+    });
+
+    test('assistido sem data vai para o fim, na ordem do servidor', () async {
+      final AcervoViewModel vm = await _carregado(<AcervoItem>[
+        assistido(7, null),
+        assistido(1, DateTime.utc(2026, 10, 5)),
+        assistido(6, null),
+        assistido(2, DateTime.utc(2026, 10, 20)),
+      ]);
+
+      expect(_ids(vm.historico), <int>[2, 1, 7, 6]);
+    });
+
+    test('mesmo instante: vale a ordem do servidor', () async {
+      final DateTime mesmo = DateTime.utc(2026, 10, 20, 12);
+      final AcervoViewModel vm = await _carregado(<AcervoItem>[
+        for (int id = 1; id <= 40; id++) assistido(id, mesmo),
+      ]);
+
+      expect(_ids(vm.historico), <int>[for (int id = 1; id <= 40; id++) id]);
+    });
+
+    test('linha antiga sem tipo segue a regra das abas', () async {
+      final AcervoViewModel vm = await _carregado(<AcervoItem>[
+        assistido(1, DateTime.utc(2026, 10, 20), tipo: TipoMidia.tv),
+        assistido(1, DateTime.utc(2025, 1, 1), tipo: null),
+        assistido(2, DateTime.utc(2025, 1, 2), tipo: null),
+      ]);
+
+      expect(_ids(vm.historico), <int>[1, 2]);
+      expect(vm.historico.first.tipo, TipoMidia.tv, reason: 'a antiga do id 1 não aparece de novo');
+    });
+
+    test('marcar "Assistido" põe o título no topo na hora; a falha tira', () async {
+      final _FakeAcervo repo = _FakeAcervo(<AcervoItem>[
+        assistido(1, DateTime.utc(2026, 10, 20)),
+        assistido(2, DateTime.utc(2026, 10, 5), estado: EstadoAcervo.watching),
+      ]);
+      final AcervoViewModel vm = AcervoViewModel(repo, agora: () => DateTime.utc(2026, 10, 31));
+      await vm.load();
+
+      final Future<AppError?> gravando = vm.marcar(TipoMidia.movie, 2, EstadoAcervo.watched);
+      expect(_ids(vm.historico), <int>[2, 1], reason: 'a data provisória é agora');
+
+      repo.marcacoes.single.complete(const Result<AcervoItem>.error(NetworkError()));
+      await gravando;
+      expect(_ids(vm.historico), <int>[1]);
+    });
+
+    test('o histórico é só leitura', () async {
+      final AcervoViewModel vm = await _carregado(<AcervoItem>[assistido(1, DateTime.utc(2026))]);
+
+      expect(() => vm.historico.clear(), throwsUnsupportedError);
     });
   });
 }

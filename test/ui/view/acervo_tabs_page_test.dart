@@ -64,6 +64,7 @@ Future<(AcervoViewModel, _FakeAcervo)> _abrir(
       child: MaterialApp(
         home: const AcervoTabsPage(),
         routes: <String, WidgetBuilder>{
+          Routes.historico: (BuildContext _) => const Text('tela do histórico'),
           Routes.detalhe: (BuildContext c) {
             final TituloRef ref = ModalRoute.of(c)!.settings.arguments! as TituloRef;
             return Text('detalhe ${ref.tipo.name}:${ref.id}');
@@ -87,6 +88,15 @@ void main() {
       _linha(3, 'Clube da Luta', EstadoAcervo.watched),
       _linha(4, 'Lost', EstadoAcervo.dropped, tipo: TipoMidia.tv),
     ];
+
+    testWidgets('o ícone de histórico abre o histórico (AP-73)', (tester) async {
+      await _abrir(tester, <Future<Result<List<AcervoItem>>>>[_ok(tres)]);
+
+      await tester.tap(find.byTooltip('Histórico'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('tela do histórico'), findsOneWidget);
+    });
 
     testWidgets('três abas com a contagem, cada título na aba certa', (tester) async {
       final (_, _FakeAcervo repo) = await _abrir(tester, <Future<Result<List<AcervoItem>>>>[_ok(tres)]);

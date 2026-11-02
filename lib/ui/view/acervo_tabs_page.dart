@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+// routes_config: the history icon; AcervoItem comes through
+// acervo_action_button.dart, so it needs no import of its own.
+import '../../utils/routes_config.dart';
 import '../view_model/acervo_view_model.dart';
 import '../widgets/acervo_action_button.dart';
 import '../widgets/acervo_item_tile.dart';
@@ -23,6 +26,14 @@ class AcervoTabsPage extends StatelessWidget {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Meu acervo'),
+          actions: <Widget>[
+            // AP-73: the history is the watched titles in the order she marked them.
+            IconButton(
+              onPressed: () => Navigator.pushNamed(context, Routes.historico),
+              icon: const Icon(Icons.history),
+              tooltip: 'Histórico',
+            ),
+          ],
           bottom: TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,

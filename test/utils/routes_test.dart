@@ -9,7 +9,8 @@ import 'package:appseries/data/repositories/auth_repository.dart';
 import 'package:appseries/data/repositories/feedback_repository.dart';
 import 'package:appseries/data/repositories/titulo_repository.dart';
 import 'package:appseries/ui/navegacao/titulo_ref.dart';
-import 'package:appseries/ui/view/acervo_tabs_page.dart';
+import 'package:appseries/ui/view/acervo_tabs_page.dart';
+import 'package:appseries/ui/view/historico_page.dart';
 import 'package:appseries/ui/view/search_page.dart';
 import 'package:appseries/ui/view/title_detail_page.dart';
 import 'package:appseries/ui/view/preferences_page.dart';
@@ -136,10 +137,16 @@ Future<void> _empurrar(WidgetTester tester, String nome, {Object? argumentos}) a
 
 void main() {
   group('Routes.mapa', () {
-    test('as quatro rotas internas estão registradas', () {
+    test('as cinco rotas internas estão registradas', () {
       expect(
         Routes.mapa.keys,
-        containsAll(<String>[Routes.busca, Routes.detalhe, Routes.acervo, Routes.preferencias]),
+        containsAll(<String>[
+          Routes.busca,
+          Routes.detalhe,
+          Routes.acervo,
+          Routes.historico,
+          Routes.preferencias,
+        ]),
       );
     });
 
@@ -161,7 +168,13 @@ void main() {
       final MaterialApp app = tester.widget<MaterialApp>(find.byType(MaterialApp));
       expect(
         app.routes!.keys,
-        containsAll(<String>[Routes.busca, Routes.detalhe, Routes.acervo, Routes.preferencias]),
+        containsAll(<String>[
+          Routes.busca,
+          Routes.detalhe,
+          Routes.acervo,
+          Routes.historico,
+          Routes.preferencias,
+        ]),
         reason: 'sem `routes:` no App, nenhuma tela interna é alcançável',
       );
     });
@@ -170,6 +183,7 @@ void main() {
       final Map<String, Type> esperado = <String, Type>{
         Routes.busca: SearchPage,
         Routes.acervo: AcervoTabsPage,
+        Routes.historico: HistoricoPage,
         Routes.preferencias: PreferencesPage,
       };
 
