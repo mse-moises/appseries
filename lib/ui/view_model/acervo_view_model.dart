@@ -10,9 +10,12 @@ import '../../utils/result.dart';
 /// Owns the list and the lookup that the screens actually use
 /// (`estadoDe(tipo, tmdbId)`), and talks only to the repository **contract**.
 class AcervoViewModel extends ChangeNotifier {
-  AcervoViewModel(this._repository);
+  AcervoViewModel(this._repository, {DateTime Function()? agora}) : _agora = agora ?? DateTime.now;
 
   final AcervoRepository _repository;
+
+  /// The clock of the optimistic date. A test passes a fixed one.
+  final DateTime Function() _agora;
 
   // Starts loading: this ViewModel outlives the screen (it is created once in
   // `main.dart`), so on the next login the first frame must not draw the
@@ -45,6 +48,27 @@ class AcervoViewModel extends ChangeNotifier {
     // ambiguous line follows on write. Only `null` when it is in neither.
     return _estados[chaveEstado(TipoMidia.movie, tmdbId)] ??
         _estados[chaveEstado(TipoMidia.tv, tmdbId)];
+  }
+
+  /// When she marked the title as watched (AP-54), or `null` when it is not
+  /// "Assistido" or the server sent no date.
+  ///
+  /// The app gets no field of its own for this: it is the line's
+  /// `atualizadoEm`, the last time the line changed. While the state stays
+  /// "Assistido" that is the day she marked it — unless something else rewrites
+  /// the line in between. Follows the same lookup as [estadoDe], so the date
+  /// and the button never disagree about which line they read.
+  DateTime? assistidoEm(TipoMidia tipo, int tmdbId) {
+    // The same order as [estadoDe]: the typed line, then the old line without
+    // `tipo`; for a type this app cannot translate, the movie first, then the
+    // old line, then the series.
+    final AcervoItem? linha = tipo != TipoMidia.desconhecido
+        ? _linha(tipo, tmdbId) ?? _linhaSemTipo(tmdbId)
+        : _linha(TipoMidia.movie, tmdbId) ??
+            _linhaSemTipo(tmdbId) ??
+            _linha(TipoMidia.tv, tmdbId);
+    if (linha == null || linha.estado != EstadoAcervo.watched) return null;
+    return linha.atualizadoEm;
   }
 
   bool enviando(TipoMidia tipo, int tmdbId) => _enviando.contains(chaveEstado(tipo, tmdbId));
@@ -93,6 +117,11 @@ class AcervoViewModel extends ChangeNotifier {
           titulo: _preenchido(titulo) ?? anterior?.titulo,
           ano: _preenchido(ano) ?? anterior?.ano,
           posterPath: _preenchido(posterPath) ?? anterior?.posterPath,
+          // Dated now, so "Assistido" does not show the date of the previous
+          // state while the write is on its way. The server's answer then
+          // replaces the line with its own date. (The screen never writes the
+          // state a title already has, so every write here is a new state.)
+          atualizadoEm: _agora().toUtc(),
         ),
         chamada: () async => switch (await _repository.marcar(tipo, tmdbId, estado)) {
           // The server's line replaces ours as it came (see the doc above).
@@ -175,6 +204,21 @@ class AcervoViewModel extends ChangeNotifier {
   AcervoItem? _linha(TipoMidia tipo, int tmdbId) {
     for (final AcervoItem item in _itens) {
       if (item.tipo == tipo && item.tmdbId == tmdbId) return item;
+    }
+    return null;
+  }
+
+  /// A line from before migration 008 (no `tipo`, or one this app cannot
+  /// translate) with this id, if any.
+  ///
+  /// The **last** one wins, as in [_mapaDeEstados] (which writes the lines in
+  /// order, each over the previous): with two such lines for one id, the date
+  /// must come from the line whose state the button shows.
+  AcervoItem? _linhaSemTipo(int tmdbId) {
+    for (final AcervoItem item in _itens.reversed) {
+      if ((item.tipo == null || item.tipo == TipoMidia.desconhecido) && item.tmdbId == tmdbId) {
+        return item;
+      }
     }
     return null;
   }

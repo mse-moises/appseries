@@ -193,6 +193,7 @@ class _Informacoes extends StatelessWidget {
           ano: detalhe.ano,
           posterPath: detalhe.posterPath,
         ),
+        _AssistidoEm(tipo: detalhe.tipo, id: detalhe.id),
         _Gosto(tipo: detalhe.tipo, id: detalhe.id),
         const SizedBox(height: 16),
         Text('Sinopse', style: texto.titleMedium),
@@ -206,6 +207,48 @@ class _Informacoes extends StatelessWidget {
       ],
     );
   }
+}
+
+/// "Assistido em 28/10/2026" under the shelf button (AP-54). Nothing when the
+/// title is not "Assistido" or the server sent no date.
+class _AssistidoEm extends StatelessWidget {
+  const _AssistidoEm({required this.tipo, required this.id});
+
+  final TipoMidia tipo;
+  final int id;
+
+  @override
+  Widget build(BuildContext context) {
+    final DateTime? quando = context.watch<AcervoViewModel>().assistidoEm(tipo, id);
+    if (quando == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Text(
+        'Assistido em ${dataCurta(quando)}',
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+      ),
+    );
+  }
+}
+
+/// The default conversion of [dataCurta]: the same instant, in the device's
+/// time zone (a local `DateTime`, never a UTC one).
+DateTime paraLocalDoAparelho(DateTime quando) => quando.toLocal();
+
+/// `dd/mm/aaaa` in the device's time zone: the server sends UTC, and a title
+/// watched at 22h in Brazil is already the next day in UTC.
+///
+/// [paraLocal] is the conversion to the device's zone; a test passes a fixed
+/// one, because the zone of the machine running the tests is not Brazil's.
+String dataCurta(
+  DateTime quando, {
+  DateTime Function(DateTime) paraLocal = paraLocalDoAparelho,
+}) {
+  final DateTime local = paraLocal(quando);
+  String doisDigitos(int n) => n.toString().padLeft(2, '0');
+  return '${doisDigitos(local.day)}/${doisDigitos(local.month)}/${local.year}';
 }
 
 /// 👍/👎, shown once she closed the title ("Assistido" or "Abandonei") or
