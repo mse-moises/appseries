@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../utils/routes_config.dart';
 import '../view_model/acervo_view_model.dart';
 import '../view_model/auth_view_model.dart';
 import '../view_model/home_view_model.dart';
@@ -20,9 +21,13 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  /// Kept for [dispose], where the context can no longer be read.
+  late final AcervoViewModel _acervo;
+
   @override
   void initState() {
     super.initState();
+    _acervo = context.read<AcervoViewModel>();
     // Both ViewModels are created once at the root, so their `create` ran a
     // single time: after a sign-out and a new sign-in they still hold the
     // previous account's data. Clearing here is synchronous (no notify: this is
@@ -37,6 +42,16 @@ class _HomePageState extends State<HomePage> {
       context.read<HomeViewModel>().load();
       context.read<AcervoViewModel>().load();
     });
+  }
+
+  /// The home leaves the tree only when the session ends: the `AuthGate` swaps
+  /// it for the login (sign-out, or the interceptor's sign-out on a 401).
+  /// Resetting the shelf here invalidates any write still on its way, so its
+  /// answer — a failure included — is not reported on the login screen.
+  @override
+  void dispose() {
+    _acervo.reset();
+    super.dispose();
   }
 
   @override
@@ -208,7 +223,20 @@ class _AcervoResumo extends StatelessWidget {
         ],
       );
     } else {
-      conteudo = Text('Seu acervo: ${total == 1 ? '1 título' : '$total títulos'}');
+      // Wrap, not Row: on a phone with a large font the button drops to the
+      // next line instead of overflowing.
+      conteudo = Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: <Widget>[
+          Text('Seu acervo: ${total == 1 ? '1 título' : '$total títulos'}'),
+          // AP-59: the way into the shelf screen.
+          TextButton(
+            key: const Key('abrir-acervo'),
+            onPressed: () => Navigator.pushNamed(context, Routes.acervo),
+            child: const Text('Ver acervo'),
+          ),
+        ],
+      );
     }
 
     return Row(

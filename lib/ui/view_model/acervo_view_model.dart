@@ -10,9 +10,12 @@ import '../../utils/result.dart';
 /// Owns the list and the lookup that the screens actually use
 /// (`estadoDe(tipo, tmdbId)`), and talks only to the repository **contract**.
 class AcervoViewModel extends ChangeNotifier {
-  AcervoViewModel(this._repository);
+  AcervoViewModel(this._repository, {DateTime Function()? agora}) : _agora = agora ?? DateTime.now;
 
   final AcervoRepository _repository;
+
+  /// The clock of the optimistic date. A test passes a fixed one.
+  final DateTime Function() _agora;
 
   // Starts loading: this ViewModel outlives the screen (it is created once in
   // `main.dart`), so on the next login the first frame must not draw the
@@ -47,6 +50,77 @@ class AcervoViewModel extends ChangeNotifier {
         _estados[chaveEstado(TipoMidia.tv, tmdbId)];
   }
 
+  /// When she marked the title as watched (AP-54), or `null` when it is not
+  /// "Assistido" or the server sent no date.
+  ///
+  /// The app gets no field of its own for this: it is the line's
+  /// `atualizadoEm`, the last time the line changed. While the state stays
+  /// "Assistido" that is the day she marked it — unless something else rewrites
+  /// the line in between. Follows the same lookup as [estadoDe], so the date
+  /// and the button never disagree about which line they read.
+  DateTime? assistidoEm(TipoMidia tipo, int tmdbId) {
+    // The same order as [estadoDe]: the typed line, then the old line without
+    // `tipo`; for a type this app cannot translate, the movie first, then the
+    // old line, then the series.
+    final AcervoItem? linha = tipo != TipoMidia.desconhecido
+        ? _linha(tipo, tmdbId) ?? _linhaSemTipo(tmdbId)
+        : _linha(TipoMidia.movie, tmdbId) ??
+            _linhaSemTipo(tmdbId) ??
+            _linha(TipoMidia.tv, tmdbId);
+    if (linha == null || linha.estado != EstadoAcervo.watched) return null;
+    return linha.atualizadoEm;
+  }
+
+  /// "Quero ver" tab of the shelf screen (AP-59).
+  ///
+  /// The three tabs keep the server's order (most recent first) and are built
+  /// from the same list as [estadoDe], so a mark shows in the right tab at once.
+  List<AcervoItem> get queroVer => _daAba(const <EstadoAcervo>{EstadoAcervo.planToWatch});
+
+  /// "Assistindo" tab (AP-59).
+  List<AcervoItem> get assistindo => _daAba(const <EstadoAcervo>{EstadoAcervo.watching});
+
+  /// "Assistido" tab (AP-59): watched **and** dropped. The screen marks the
+  /// dropped ones; they are titles she closed, like the watched ones.
+  List<AcervoItem> get assistidos =>
+      _daAba(const <EstadoAcervo>{EstadoAcervo.watched, EstadoAcervo.dropped});
+
+  /// The lines of one tab.
+  ///
+  /// Two kinds of line are left out of every tab:
+  /// - a state this app version does not know ([EstadoAcervo.desconhecido]):
+  ///   there is no tab to put it in;
+  /// - an old line without `tipo` when a typed line of the same id exists. A
+  ///   change of state on the old line writes the typed one (see [podeRemover]),
+  ///   which then wins in [estadoDe]; showing both would list the title twice,
+  ///   possibly in two tabs. (If the typed line is in fact the other title of
+  ///   that id — movie 550 and series 550 — the old one is hidden too: there is
+  ///   no way to tell them apart, and a duplicate is the likelier case.)
+  /// - an old line without `tipo` when a **later** old line of the same id
+  ///   exists: only the last one shows, the same one [estadoDe] and
+  ///   [assistidoEm] read.
+  ///
+  /// So the tabs may add up to less than [total], which counts every line.
+  List<AcervoItem> _daAba(Set<EstadoAcervo> estados) => List<AcervoItem>.unmodifiable(
+        _itens.where((AcervoItem item) => estados.contains(item.estado) && !_sombreada(item)),
+      );
+
+  /// An old line without `tipo` that another line of the same id overrides:
+  /// a typed one anywhere, or an old one after it.
+  bool _sombreada(AcervoItem item) {
+    if (_temTipo(item)) return false;
+    final int posicao = _itens.indexOf(item);
+    for (int i = 0; i < _itens.length; i++) {
+      final AcervoItem outra = _itens[i];
+      if (outra.tmdbId != item.tmdbId || i == posicao) continue;
+      if (_temTipo(outra) || i > posicao) return true;
+    }
+    return false;
+  }
+
+  static bool _temTipo(AcervoItem item) =>
+      item.tipo != null && item.tipo != TipoMidia.desconhecido;
+
   bool enviando(TipoMidia tipo, int tmdbId) => _enviando.contains(chaveEstado(tipo, tmdbId));
 
   /// "Remover" is only offered for a line with `tipo`.
@@ -61,7 +135,10 @@ class AcervoViewModel extends ChangeNotifier {
   ///
   /// Optimistic: the new state shows before the server answers, and the
   /// previous one comes back if it fails. Answers the failure (or `null`) so
-  /// the screen can say that it did not save — it never pretends it did.
+  /// the screen can say that it did not save — it never pretends it did. A
+  /// failure that arrives after a [reset] or a reload answers `null`: that
+  /// shelf is gone, and so is the person to tell. (A sign-out reaches here as
+  /// a [reset]: the home calls it when the session ends.)
   ///
   /// [titulo], [ano] and [posterPath] are what the screen already shows (the
   /// poster, the search result, the detail). The optimistic line takes them,
@@ -93,6 +170,11 @@ class AcervoViewModel extends ChangeNotifier {
           titulo: _preenchido(titulo) ?? anterior?.titulo,
           ano: _preenchido(ano) ?? anterior?.ano,
           posterPath: _preenchido(posterPath) ?? anterior?.posterPath,
+          // Dated now, so "Assistido" does not show the date of the previous
+          // state while the write is on its way. The server's answer then
+          // replaces the line with its own date. (The screen never writes the
+          // state a title already has, so every write here is a new state.)
+          atualizadoEm: _agora().toUtc(),
         ),
         chamada: () async => switch (await _repository.marcar(tipo, tmdbId, estado)) {
           // The server's line replaces ours as it came (see the doc above).
@@ -158,8 +240,9 @@ class AcervoViewModel extends ChangeNotifier {
     }
 
     // A sign-out or a reload in between owns the state now: the answer is
-    // about a shelf that is no longer on screen.
-    if (geracao != _geracao) return erro;
+    // about a shelf that is no longer on screen, and there is nobody to warn.
+    // `null`, so the screen does not show a failure on the login screen.
+    if (geracao != _geracao) return null;
 
     _enviando.remove(chave);
     if (erro != null) {
@@ -175,6 +258,21 @@ class AcervoViewModel extends ChangeNotifier {
   AcervoItem? _linha(TipoMidia tipo, int tmdbId) {
     for (final AcervoItem item in _itens) {
       if (item.tipo == tipo && item.tmdbId == tmdbId) return item;
+    }
+    return null;
+  }
+
+  /// A line from before migration 008 (no `tipo`, or one this app cannot
+  /// translate) with this id, if any.
+  ///
+  /// The **last** one wins, as in [_mapaDeEstados] (which writes the lines in
+  /// order, each over the previous): with two such lines for one id, the date
+  /// must come from the line whose state the button shows.
+  AcervoItem? _linhaSemTipo(int tmdbId) {
+    for (final AcervoItem item in _itens.reversed) {
+      if ((item.tipo == null || item.tipo == TipoMidia.desconhecido) && item.tmdbId == tmdbId) {
+        return item;
+      }
     }
     return null;
   }
