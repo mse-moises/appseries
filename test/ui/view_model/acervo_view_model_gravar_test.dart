@@ -194,6 +194,18 @@ void main() {
       expect(vm.enviando(TipoMidia.tv, 1399), isFalse);
     });
 
+    test('falha que chega depois do logout não é devolvida à tela', () async {
+      final _FakeAcervo repo = _FakeAcervo();
+      final AcervoViewModel vm = await _carregado(repo);
+
+      final Future<AppError?> gravando = vm.marcar(TipoMidia.tv, 1399, EstadoAcervo.planToWatch);
+      vm.reset();
+      repo.marcacoes.single.complete(const Result<AcervoItem>.error(NetworkError()));
+
+      expect(await gravando, isNull, reason: 'o aviso cairia na tela de login, sobre outro acervo');
+      expect(vm.estadoDe(TipoMidia.tv, 1399), isNull);
+    });
+
     test('repository que lança não deixa o botão girando', () async {
       final AcervoViewModel vm = await _carregado(_FakeQueLanca());
 

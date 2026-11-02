@@ -21,9 +21,13 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  /// Kept for [dispose], where the context can no longer be read.
+  late final AcervoViewModel _acervo;
+
   @override
   void initState() {
     super.initState();
+    _acervo = context.read<AcervoViewModel>();
     // Both ViewModels are created once at the root, so their `create` ran a
     // single time: after a sign-out and a new sign-in they still hold the
     // previous account's data. Clearing here is synchronous (no notify: this is
@@ -38,6 +42,16 @@ class _HomePageState extends State<HomePage> {
       context.read<HomeViewModel>().load();
       context.read<AcervoViewModel>().load();
     });
+  }
+
+  /// The home leaves the tree only when the session ends: the `AuthGate` swaps
+  /// it for the login (sign-out, or the interceptor's sign-out on a 401).
+  /// Resetting the shelf here invalidates any write still on its way, so its
+  /// answer — a failure included — is not reported on the login screen.
+  @override
+  void dispose() {
+    _acervo.reset();
+    super.dispose();
   }
 
   @override
