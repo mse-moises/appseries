@@ -69,6 +69,13 @@ class _FakeAcervoRepository implements AcervoRepository {
   Future<Result<void>> remover(TipoMidia tipo, int tmdbId) => throw UnimplementedError();
 }
 
+/// A gravação fica pendente: é assim que o teste vê a linha antes da resposta.
+class _FakeAcervoPendente extends _FakeAcervoRepository {
+  @override
+  Future<Result<AcervoItem>> marcar(TipoMidia tipo, int tmdbId, EstadoAcervo estado) =>
+      Completer<Result<AcervoItem>>().future;
+}
+
 class _FakeAcervoComItens implements AcervoRepository {
   @override
   Future<Result<List<AcervoItem>>> listar() async => Result<List<AcervoItem>>.ok(
@@ -301,6 +308,35 @@ void main() {
       );
 
       expect(find.byTooltip('Quero ver'), findsNWidgets(3));
+    });
+
+    testWidgets('marcar no pôster leva título, ano e pôster para a linha do acervo', (tester) async {
+      await _montar(
+        tester,
+        titulos: _FakeTituloRepository(
+          respostaEmAlta: const Result<List<TmdbItem>>.ok(<TmdbItem>[
+            TmdbItem(
+              id: 1,
+              tipo: TipoMidia.movie,
+              titulo: 'Título 1',
+              ano: '2025',
+              posterPath: '/poster-1.jpg',
+            ),
+          ]),
+          respostaPopulares: _lista(<int>[]),
+        ),
+        acervo: _FakeAcervoPendente(),
+      );
+
+      await tester.tap(find.byTooltip('Quero ver'));
+      await tester.pump();
+
+      final AcervoViewModel acervo =
+          Provider.of<AcervoViewModel>(tester.element(find.byType(HomePage)), listen: false);
+      expect(acervo.enviando(TipoMidia.movie, 1), isTrue, reason: 'ainda gravando');
+      expect(acervo.itens.single.titulo, 'Título 1');
+      expect(acervo.itens.single.ano, '2025');
+      expect(acervo.itens.single.posterPath, '/poster-1.jpg');
     });
 
     testWidgets('tocar no pôster abre o detalhe com o par (tipo, id)', (tester) async {
