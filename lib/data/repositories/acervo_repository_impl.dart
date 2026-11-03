@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../utils/app_error.dart';
 import '../../utils/result.dart';
@@ -74,12 +75,22 @@ class AcervoRepositoryImpl implements AcervoRepository {
   ///   check the last two would fall into [ServerError] ("Tente em instantes");
   /// - a `409`, and the codes `appErrorFromCodigo` maps to [ConflictError].
   ///
+  /// The `400` also goes to `debugPrint` with its code and path: the sentence
+  /// above hides why the server refused, and a body this app built wrong would
+  /// otherwise vanish behind it.
+  ///
   /// Everything else keeps the general mapping of `appErrorFromDio`: a `500`
   /// still invites a retry, and a `401` asks to sign in again when its body has
   /// no code or the code `unauthorized` (another code goes through
   /// `appErrorFromCodigo`, as in every repository).
   static AppError _doAcervo(DioException e) {
-    if (e.response?.statusCode == 400) return const AcervoIndisponivelError();
+    if (e.response?.statusCode == 400) {
+      final Object? corpo = e.response?.data;
+      final Object? codigo = corpo is Map ? corpo['error'] : null;
+      debugPrint('[AppSeries] acervo recusou com 400 '
+          '(${codigo is String ? codigo : 'sem código'}) em ${e.requestOptions.path}');
+      return const AcervoIndisponivelError();
+    }
     final AppError erro = appErrorFromDio(e);
     return erro is ConflictError ? const AcervoIndisponivelError() : erro;
   }

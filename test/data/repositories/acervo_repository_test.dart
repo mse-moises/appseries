@@ -2,6 +2,7 @@ import 'package:appseries/data/api_models/acervo_item.dart';
 import 'package:appseries/data/repositories/acervo_repository_impl.dart';
 import 'package:appseries/utils/app_error.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/adapter_falso.dart';
@@ -87,6 +88,54 @@ void main() {
         });
       }
     }
+
+    // A frase de produto esconde o motivo do 400; o log de debug guarda o
+    // código, senão um corpo que o próprio app montou errado some atrás dela.
+    group('log do 400', () {
+      late List<String> logs;
+
+      setUp(() {
+        logs = <String>[];
+        final void Function(String?, {int? wrapWidth}) original = debugPrint;
+        debugPrint = (String? mensagem, {int? wrapWidth}) => logs.add(mensagem ?? '');
+        addTearDown(() => debugPrint = original);
+      });
+
+      for (final (String corpo, String esperado) in const <(String, String)>[
+        ('{"error":"invalid_algo_novo"}', 'invalid_algo_novo'),
+        ('{"error":"invalid_tipo"}', 'invalid_tipo'),
+        ('{}', 'sem código'),
+      ]) {
+        for (final String acao in const <String>['marcar', 'remover']) {
+          test('400 em $acao vai para o log com "$esperado" e a rota', () async {
+            final repo = AcervoRepositoryImpl(clienteFalso(AdapterFalso(corpo, status: 400)));
+
+            final AppError? erro = acao == 'marcar'
+                ? (await repo.marcar(TipoMidia.tv, 1399, EstadoAcervo.watched)).errorOrNull
+                : (await repo.remover(TipoMidia.tv, 1399)).errorOrNull;
+
+            expect(erro, isA<AcervoIndisponivelError>(),
+                reason: 'o log não muda o que a pessoa lê');
+            expect(logs, hasLength(1));
+            expect(logs.single, contains('400'));
+            expect(logs.single, contains(esperado));
+            expect(logs.single, contains('/api/v1/acervo/1399'));
+          });
+        }
+      }
+
+      test('409 e 500 não entram nesse log', () async {
+        for (final (int status, String corpo) in const <(int, String)>[
+          (409, '{"error":"conflict"}'),
+          (500, '{}'),
+        ]) {
+          final repo = AcervoRepositoryImpl(clienteFalso(AdapterFalso(corpo, status: status)));
+          await repo.remover(TipoMidia.tv, 1399);
+        }
+
+        expect(logs, isEmpty, reason: 'o log é do 400 que a frase de produto engole');
+      });
+    });
 
     test('500 em remover continua convidando a tentar de novo', () async {
       final repo = AcervoRepositoryImpl(clienteFalso(AdapterFalso('{}', status: 500)));
