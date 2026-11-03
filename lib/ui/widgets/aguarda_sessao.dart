@@ -4,18 +4,19 @@ import 'package:provider/provider.dart';
 import '../view_model/auth_view_model.dart';
 import 'status_view.dart';
 
-/// Holds a screen opened straight from the URL (F5, a pasted link) until the
-/// session is known.
+/// Shows an internal screen only while there is a session. Every route of
+/// `Routes.gerar` goes through it: a tap, a pasted link, an F5.
 ///
-/// Right after a reload the SDK has not restored the session yet: a request
-/// sent then goes out without `Authorization`, the API answers 401 and the
-/// interceptor signs the person out. So the screen is only built once the
-/// session is [SessionState.signedIn]. Without a session it goes back to the
-/// first route, where the `AuthGate` shows the login: "no login, no passing"
-/// holds for a link too.
+/// - Right after a reload the SDK has not restored the session yet: a request
+///   sent then goes out without `Authorization`, the API answers 401 and the
+///   interceptor signs the person out. So the screen is only built once the
+///   session is [SessionState.signedIn].
+/// - Without a session (never had one, or it ended with the screen open, like
+///   the 401 sign-out) it goes back to the first route, where the `AuthGate`
+///   shows the login: "no login, no passing" holds for every screen.
 ///
-/// Screens opened by a tap inside the app do not need it: they are reached
-/// from a signed-in screen.
+/// For a tap from a signed-in screen the session is already there, so the
+/// screen shows at once.
 class AguardaSessao extends StatelessWidget {
   const AguardaSessao({super.key, required this.child});
 

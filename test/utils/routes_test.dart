@@ -213,17 +213,18 @@ void main() {
       await tester.pump();
 
       final MaterialApp app = tester.widget<MaterialApp>(find.byType(MaterialApp));
-      expect(
-        app.routes!.keys,
-        containsAll(<String>[
-          Routes.busca,
-          Routes.detalhe,
-          Routes.acervo,
-          Routes.historico,
-          Routes.preferencias,
-        ]),
-        reason: 'sem `routes:` no App, nenhuma tela interna é alcançável',
-      );
+      // Sem `routes:`: um nome exato casaria ali e pularia a espera pela sessão.
+      expect(app.routes ?? const <String, WidgetBuilder>{}, isEmpty);
+      for (final String nome in <String>[
+        Routes.busca,
+        Routes.detalhe,
+        Routes.acervo,
+        Routes.historico,
+        Routes.preferencias,
+      ]) {
+        expect(app.onGenerateRoute!(RouteSettings(name: nome)), isNotNull,
+            reason: 'sem rota no App, $nome não é alcançável');
+      }
     });
 
     testWidgets('cada rota abre a sua tela', (tester) async {
@@ -361,6 +362,53 @@ void main() {
 
       expect(find.byType(HomePage), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+
+    // Com o app aberto, colar um link ou editar o hash não recarrega a página:
+    // o engine empurra o nome sem argumentos (`pushRoute`).
+    testWidgets('link colado com o app aberto abre o título da URL', (tester) async {
+      final (_SessaoControlada sessao, _FakeTituloRepository titulos) =
+          await _abrirPelaUrl(tester, '/');
+      sessao.controle.add(_usuaria);
+      await tester.pumpAndSettle();
+
+      await tester.binding.handlePushRoute('/detalhe?tipo=tv&id=1399');
+      await tester.pumpAndSettle();
+
+      expect(titulos.pedidos, <String>['tv:1399']);
+      expect(find.text('Game of Thrones'), findsWidgets);
+    });
+
+    testWidgets('link colado sem sessão não passa por cima do login', (tester) async {
+      final (_SessaoControlada sessao, _) = await _abrirPelaUrl(tester, '/');
+      sessao.controle.add(null);
+      await tester.pumpAndSettle();
+      expect(find.byType(LoginPage), findsOneWidget);
+
+      await tester.binding.handlePushRoute(Routes.acervo);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AcervoTabsPage), findsNothing);
+      expect(find.byType(LoginPage), findsOneWidget);
+    });
+
+    testWidgets('sessão que cai com o detalhe aberto por toque volta para o login', (tester) async {
+      final (_SessaoControlada sessao, _) = await _abrirPelaUrl(tester, '/');
+      sessao.controle.add(_usuaria);
+      await tester.pumpAndSettle();
+      unawaited(Routes.abrirDetalhe(
+        tester.element(find.byType(HomePage)),
+        const TituloRef(tipo: TipoMidia.tv, id: 1399),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.byType(TitleDetailPage), findsOneWidget);
+
+      // O 401 que faz o interceptor deslogar chega aqui como sessão vazia.
+      sessao.controle.add(null);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TitleDetailPage), findsNothing);
+      expect(find.byType(LoginPage), findsOneWidget);
     });
 
     testWidgets('dentro do app, abrir o detalhe põe o par no nome da rota', (tester) async {

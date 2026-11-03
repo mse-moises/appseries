@@ -70,15 +70,27 @@ class Routes {
   static Future<void> abrirDetalhe(BuildContext context, TituloRef ref) =>
       Navigator.pushNamed<void>(context, detalheDe(ref), arguments: ref);
 
-  /// `onGenerateRoute`: names outside [mapa]. The first route `/` (the
-  /// `AuthGate`, which is not `home:` because of [iniciais]) and the detail
-  /// with its query, which the map cannot match because the key is the bare
-  /// path.
+  /// `onGenerateRoute`: the single door for every route, whether a tap
+  /// (`pushNamed`), the address bar changing with the app open (a pasted link,
+  /// an edited hash: the engine pushes the name without arguments) or the
+  /// first route ([iniciais]). The app has no `routes:` on purpose: an exact
+  /// name would match there and skip this door.
+  ///
+  /// - `/` is the `AuthGate` (not `home:`, because of [iniciais]);
+  /// - a screen of [mapa], matched by the path so the detail's query does not
+  ///   get in the way, waits for the session ([AguardaSessao]);
+  /// - the detail without arguments gets its pair from the name;
+  /// - anything else is not a route of the app (`null`).
   static Route<void>? gerar(RouteSettings settings) {
-    if (settings.name == '/') return _raiz();
-    final Uri? uri = Uri.tryParse(settings.name ?? '');
-    if (uri == null || uri.path != detalhe) return null;
-    return MaterialPageRoute<void>(settings: settings, builder: (_) => const TitleDetailPage());
+    final String nome = settings.name ?? '';
+    if (nome == '/') return _raiz();
+    final Uri? uri = Uri.tryParse(nome);
+    final WidgetBuilder? tela = uri == null ? null : mapa[uri.path];
+    if (tela == null) return null;
+    return MaterialPageRoute<void>(
+      settings: RouteSettings(name: nome, arguments: settings.arguments ?? refDoDetalhe(nome)),
+      builder: (BuildContext c) => AguardaSessao(child: tela(c)),
+    );
   }
 
   static Route<void> _raiz() => MaterialPageRoute<void>(
@@ -87,22 +99,13 @@ class Routes {
       );
 
   /// `onGenerateInitialRoutes`: the route the app starts on, which is the
-  /// address bar after an F5 or a pasted link.
+  /// address bar after an F5 or in a new tab.
   ///
-  /// Always starts with the `AuthGate`, so going back lands where a tap would
-  /// have come from. An internal screen on top waits for the session
-  /// ([AguardaSessao]); the detail gets its pair from the query.
+  /// Always starts with the `AuthGate`, so going back lands on the home (or the
+  /// login), even for a screen a tap would reach from another one, like the
+  /// history from the shelf. The screen on top goes through [gerar].
   static List<Route<dynamic>> iniciais(String inicial) {
-    final Route<void> raiz = _raiz();
-    final Uri? uri = Uri.tryParse(inicial);
-    final WidgetBuilder? tela = uri == null ? null : mapa[uri.path];
-    if (tela == null) return <Route<dynamic>>[raiz];
-    return <Route<dynamic>>[
-      raiz,
-      MaterialPageRoute<void>(
-        settings: RouteSettings(name: inicial, arguments: refDoDetalhe(inicial)),
-        builder: (BuildContext c) => AguardaSessao(child: tela(c)),
-      ),
-    ];
+    final Route<void>? tela = inicial == '/' ? null : gerar(RouteSettings(name: inicial));
+    return <Route<dynamic>>[_raiz(), if (tela != null) tela];
   }
 }

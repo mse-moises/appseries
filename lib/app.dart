@@ -5,6 +5,9 @@ import 'utils/routes_config.dart';
 
 /// Root widget: theme, named routes and the `AuthGate` deciding the screen.
 ///
+/// Every route goes through [Routes.gerar] (no `routes:` map here), so a tap,
+/// a pasted link and an F5 all get the same session wait and the same pair.
+///
 /// The gate is the first route (`/`), built by [Routes.iniciais] and
 /// [Routes.gerar] instead of `home:` (Flutter refuses `home` together with
 /// `onGenerateInitialRoutes`). Which screen appears (login or home) still comes
@@ -20,7 +23,6 @@ class App extends StatelessWidget {
       theme: temas.light,
       darkTheme: temas.dark,
       themeMode: temas.mode,
-      routes: Routes.mapa,
       onGenerateRoute: Routes.gerar,
       onGenerateInitialRoutes: Routes.iniciais,
       debugShowCheckedModeBanner: false,
