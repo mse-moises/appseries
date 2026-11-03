@@ -235,6 +235,37 @@ void main() {
           reason: 'a segunda tecla chega com a primeira ainda em voo');
     });
 
+    test('Enter não repete consulta que o servidor recusou como inválida', () async {
+      vm.setConsulta('pokemon');
+      await _esperar();
+      repo.responder(0, const Result<List<TmdbItem>>.error(BuscaInvalidaError()));
+      await pumpEventQueue();
+      expect(vm.podeTentarDeNovo, isFalse);
+
+      vm.buscarAgora();
+      await pumpEventQueue();
+
+      expect(repo.consultas, <String>['pokemon'], reason: 'mandaria o mesmo 400 de novo');
+      expect(vm.erro, const BuscaInvalidaError().mensagem);
+    });
+
+    test('Enter depois de cancelar a busca em voo pergunta de novo', () async {
+      vm.setConsulta('pokemon');
+      await _esperar();
+      expect(repo.consultas, <String>['pokemon']);
+      vm.cancelar();
+
+      vm.buscarAgora();
+      await pumpEventQueue();
+
+      expect(repo.consultas, <String>['pokemon', 'pokemon'],
+          reason: 'a cancelada não volta a pintar a tela, então nada está pendente');
+      repo.responder(0, _ok(<TmdbItem>[_serie]));
+      repo.responder(1, _ok(<TmdbItem>[_filme]));
+      await pumpEventQueue();
+      expect(vm.resultados, <TmdbItem>[_filme]);
+    });
+
     test('Enter com consulta longa demais não sai do app', () async {
       vm.setConsulta('a' * (kBuscaMax + 1));
       vm.buscarAgora();

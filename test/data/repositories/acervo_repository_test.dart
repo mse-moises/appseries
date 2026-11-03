@@ -105,6 +105,10 @@ void main() {
         ('{"error":"invalid_algo_novo"}', 'invalid_algo_novo'),
         ('{"error":"invalid_tipo"}', 'invalid_tipo'),
         ('{}', 'sem código'),
+        // Corpo fora do formato (proxy, texto): um cast aqui lançaria e o 400
+        // viraria ServerError, o "tente de novo" que esta regra evita.
+        ('"texto do proxy"', 'sem código'),
+        ('[]', 'sem código'),
       ]) {
         for (final String acao in const <String>['marcar', 'remover']) {
           test('400 em $acao vai para o log com "$esperado" e a rota', () async {

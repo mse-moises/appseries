@@ -112,7 +112,8 @@ class SearchViewModel extends ChangeNotifier {
   ///
   /// - waiting for the pause: asks now instead;
   /// - request already on its way: nothing, so the same query is not sent twice;
-  /// - answer or error already on screen: asks again, like [tentarDeNovo];
+  /// - answer or error already on screen: asks again, like [tentarDeNovo],
+  ///   except a [BuscaInvalidaError], which would fail the same way;
   /// - query too short or too long: nothing leaves the app ([tentarDeNovo]
   ///   checks the length).
   void buscarAgora() {
@@ -122,8 +123,11 @@ class SearchViewModel extends ChangeNotifier {
       _buscar(_consulta.trim(), _geracao);
       return;
     }
-    // No timer and still loading: the request is on its way.
-    if (_carregando) return;
+    // A term waiting for its answer with no timer: the request is on its way.
+    // (`cancelar()` clears it, so nothing in flight never looks pending.)
+    if (_termoPendente != null) return;
+    // Asking again fails the same way, which is why the retry button hides.
+    if (_erro is BuscaInvalidaError) return;
     unawaited(tentarDeNovo());
   }
 
