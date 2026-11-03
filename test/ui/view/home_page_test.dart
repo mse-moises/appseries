@@ -204,11 +204,17 @@ Future<_FakeAuthRepository> _montar(
         routes: <String, WidgetBuilder>{
           Routes.busca: (BuildContext _) => const Text('tela de busca'),
           Routes.acervo: (BuildContext _) => const Text('tela do acervo'),
-          // O detalhe vira um marcador que mostra o par que recebeu.
-          Routes.detalhe: (BuildContext c) {
-            final TituloRef ref = ModalRoute.of(c)!.settings.arguments! as TituloRef;
-            return Text('detalhe ${ref.tipo.name}:${ref.id}');
-          },
+        },
+        // O detalhe vira um marcador com o par que recebeu, e só fecha o par se
+        // o nome da rota (a barra de endereço) carrega o mesmo par: é o que o F5 lê.
+        onGenerateRoute: (RouteSettings s) {
+          final TituloRef ref = s.arguments! as TituloRef;
+          final TituloRef? daUrl = Routes.refDoDetalhe(s.name);
+          final bool urlComPar = daUrl?.tipo == ref.tipo && daUrl?.id == ref.id;
+          return MaterialPageRoute<void>(
+            settings: s,
+            builder: (_) => Text('detalhe ${ref.tipo.name}:${ref.id}${urlComPar ? '' : ' (url sem o par)'}'),
+          );
         },
       ),
     ),

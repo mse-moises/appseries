@@ -165,11 +165,7 @@ class _ResultadoTile extends StatelessWidget {
 
     return InkWell(
       borderRadius: BorderRadius.circular(8),
-      onTap: () => Navigator.pushNamed(
-        context,
-        Routes.detalhe,
-        arguments: TituloRef(tipo: item.tipo, id: item.id),
-      ),
+      onTap: () => Routes.abrirDetalhe(context, TituloRef(tipo: item.tipo, id: item.id)),
       child: Row(
         children: <Widget>[
           ClipRRect(

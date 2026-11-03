@@ -65,10 +65,17 @@ Future<(AcervoViewModel, _FakeAcervo)> _abrir(
         home: const AcervoTabsPage(),
         routes: <String, WidgetBuilder>{
           Routes.historico: (BuildContext _) => const Text('tela do histórico'),
-          Routes.detalhe: (BuildContext c) {
-            final TituloRef ref = ModalRoute.of(c)!.settings.arguments! as TituloRef;
-            return Text('detalhe ${ref.tipo.name}:${ref.id}');
-          },
+        },
+        // O detalhe vira um marcador com o par que recebeu, e só fecha o par se
+        // o nome da rota (a barra de endereço) carrega o mesmo par: é o que o F5 lê.
+        onGenerateRoute: (RouteSettings s) {
+          final TituloRef ref = s.arguments! as TituloRef;
+          final TituloRef? daUrl = Routes.refDoDetalhe(s.name);
+          final bool urlComPar = daUrl?.tipo == ref.tipo && daUrl?.id == ref.id;
+          return MaterialPageRoute<void>(
+            settings: s,
+            builder: (_) => Text('detalhe ${ref.tipo.name}:${ref.id}${urlComPar ? '' : ' (url sem o par)'}'),
+          );
         },
       ),
     ),

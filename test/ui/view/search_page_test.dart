@@ -5,7 +5,6 @@ import 'package:appseries/data/repositories/acervo_repository.dart';
 import 'package:appseries/data/repositories/titulo_repository.dart';
 import 'package:appseries/ui/navegacao/titulo_ref.dart';
 import 'package:appseries/ui/view_model/acervo_view_model.dart';
-import 'package:appseries/utils/routes_config.dart';
 import 'package:appseries/ui/view/search_page.dart';
 import 'package:appseries/ui/view_model/search_view_model.dart';
 import 'package:appseries/utils/app_error.dart';
@@ -251,7 +250,8 @@ void main() {
       await tester.tap(find.text('Game of Thrones'));
       await tester.pumpAndSettle();
 
-      expect(aberta?.name, Routes.detalhe);
+      expect(aberta?.name, '/detalhe?tipo=tv&id=1399',
+          reason: 'o par vai na barra de endereço, senão o F5 perde o título');
       final TituloRef ref = aberta!.arguments! as TituloRef;
       expect((ref.tipo, ref.id), (TipoMidia.tv, 1399));
     });

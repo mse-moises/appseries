@@ -81,11 +81,7 @@ class CarouselSection extends StatelessWidget {
         return PosterCard(
           item: item,
           // The pair, not the id alone: movie 550 and series 550 are different titles.
-          onTap: () => Navigator.pushNamed(
-            context,
-            Routes.detalhe,
-            arguments: TituloRef(tipo: item.tipo, id: item.id),
-          ),
+          onTap: () => Routes.abrirDetalhe(context, TituloRef(tipo: item.tipo, id: item.id)),
           acao: AcervoAcao(
             tipo: item.tipo,
             tmdbId: item.id,

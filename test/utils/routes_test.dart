@@ -9,7 +9,8 @@ import 'package:appseries/data/repositories/auth_repository.dart';
 import 'package:appseries/data/repositories/feedback_repository.dart';
 import 'package:appseries/data/repositories/titulo_repository.dart';
 import 'package:appseries/ui/navegacao/titulo_ref.dart';
-import 'package:appseries/ui/view/acervo_tabs_page.dart';
+import 'package:appseries/ui/view/acervo_tabs_page.dart';
+
 import 'package:appseries/ui/view/historico_page.dart';
 import 'package:appseries/ui/view/search_page.dart';
 import 'package:appseries/ui/view/title_detail_page.dart';
@@ -22,6 +23,11 @@ import 'package:appseries/ui/view_model/title_detail_view_model.dart';
 import 'package:appseries/utils/app_error.dart';
 import 'package:appseries/utils/result.dart';
 import 'package:appseries/utils/routes_config.dart';
+import 'dart:async';
+
+import 'package:appseries/ui/view/home_page.dart';
+import 'package:appseries/ui/view/login_page.dart';
+import 'package:appseries/ui/view_model/home_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -58,11 +64,13 @@ class _FakeTituloRepository implements TituloRepository {
     return const Result<List<TmdbItem>>.ok(<TmdbItem>[]);
   }
 
+  // A home monta embaixo do detalhe aberto pela URL e carrega os carrosséis.
   @override
-  Future<Result<List<TmdbItem>>> emAlta() => throw UnimplementedError();
+  Future<Result<List<TmdbItem>>> emAlta() async => const Result<List<TmdbItem>>.ok(<TmdbItem>[]);
 
   @override
-  Future<Result<List<TmdbItem>>> populares() => throw UnimplementedError();
+  Future<Result<List<TmdbItem>>> populares() async =>
+      const Result<List<TmdbItem>>.ok(<TmdbItem>[]);
 
   @override
   Future<Result<TituloDetalhe>> titulo(TipoMidia tipo, int tmdbId) async {
@@ -106,6 +114,45 @@ class _FakeFeedback implements FeedbackRepository {
 }
 
 final _FakeTituloRepository _titulos = _FakeTituloRepository();
+
+/// A sessão chega quando o teste quiser, como o SDK restaurando depois do F5.
+class _SessaoControlada extends _FakeAuthRepository {
+  final StreamController<AppUser?> controle = StreamController<AppUser?>();
+
+  @override
+  Stream<AppUser?> get sessionStream => controle.stream;
+}
+
+/// Abre o app inteiro na URL dada, como um F5 ou um link colado: a rota inicial
+/// vem da barra de endereço, não de um `pushNamed`.
+Future<(_SessaoControlada, _FakeTituloRepository)> _abrirPelaUrl(
+  WidgetTester tester,
+  String url,
+) async {
+  tester.binding.platformDispatcher.defaultRouteNameTestValue = url;
+  addTearDown(tester.binding.platformDispatcher.clearDefaultRouteNameTestValue);
+  final _SessaoControlada sessao = _SessaoControlada();
+  addTearDown(sessao.controle.close);
+  final _FakeTituloRepository titulos = _FakeTituloRepository();
+
+  await tester.pumpWidget(MultiProvider(
+    providers: [
+      ChangeNotifierProvider<AuthViewModel>(create: (_) => AuthViewModel(sessao)),
+      ChangeNotifierProvider<LoginViewModel>(create: (_) => LoginViewModel(sessao)),
+      ChangeNotifierProvider<HomeViewModel>(create: (_) => HomeViewModel(titulos)),
+      ChangeNotifierProvider<SearchViewModel>(create: (_) => SearchViewModel(titulos)),
+      ChangeNotifierProvider<AcervoViewModel>(create: (_) => AcervoViewModel(_FakeAcervo())),
+      ChangeNotifierProvider<TitleDetailViewModel>(
+        create: (_) => TitleDetailViewModel(titulos, _FakeFeedback()),
+      ),
+    ],
+    child: const App(),
+  ));
+  await tester.pump();
+  return (sessao, titulos);
+}
+
+const AppUser _usuaria = AppUser(id: 'u1', email: 'a@b.com');
 
 /// Abre a rota pelo caminho real do app: `Navigator.pushNamed`, não uma rota
 /// montada à mão no teste.
@@ -213,6 +260,124 @@ void main() {
       expect(find.text(const TituloIndisponivelError().mensagem), findsOneWidget);
       expect(find.text('Tentar de novo'), findsNothing, reason: 'sem par não há o que repetir');
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('nome do detalhe com o par', () {
+    test('o par vai e volta pelo nome da rota', () {
+      for (final TituloRef ref in const <TituloRef>[
+        TituloRef(tipo: TipoMidia.tv, id: 1399),
+        TituloRef(tipo: TipoMidia.movie, id: 550),
+      ]) {
+        final TituloRef? volta = Routes.refDoDetalhe(Routes.detalheDe(ref));
+        expect((volta?.tipo, volta?.id), (ref.tipo, ref.id));
+      }
+      expect(Routes.detalheDe(const TituloRef(tipo: TipoMidia.movie, id: 550)),
+          '/detalhe?tipo=movie&id=550');
+    });
+
+    test('tipo desconhecido fica no nome puro, sem inventar par', () {
+      expect(Routes.detalheDe(const TituloRef(tipo: TipoMidia.desconhecido, id: 7)), Routes.detalhe);
+    });
+
+    test('nome sem par, com par quebrado ou de outra rota não vira título', () {
+      for (final String nome in const <String>[
+        '/detalhe',
+        '/detalhe?tipo=tv',
+        '/detalhe?id=1399',
+        '/detalhe?tipo=anime&id=1',
+        '/detalhe?tipo=desconhecido&id=1',
+        '/detalhe?tipo=tv&id=abc',
+        '/detalhe?tipo=tv&id=0',
+        '/acervo?tipo=tv&id=1399',
+      ]) {
+        expect(Routes.refDoDetalhe(nome), isNull, reason: nome);
+      }
+    });
+  });
+
+  group('abrir pela URL (F5 ou link colado)', () {
+    testWidgets('detalhe espera a sessão voltar e abre o mesmo título', (tester) async {
+      final (_SessaoControlada sessao, _FakeTituloRepository titulos) =
+          await _abrirPelaUrl(tester, '/detalhe?tipo=tv&id=1399');
+
+      expect(titulos.pedidos, isEmpty,
+          reason: 'sem sessão o pedido sairia sem token, e o 401 deslogaria a pessoa');
+      expect(find.byType(TitleDetailPage), findsNothing);
+      expect(find.text('Só um instante...'), findsOneWidget);
+
+      sessao.controle.add(_usuaria);
+      await tester.pumpAndSettle();
+
+      expect(titulos.pedidos, <String>['tv:1399']);
+      expect(find.byType(TitleDetailPage), findsOneWidget);
+      expect(find.text('Game of Thrones'), findsWidgets);
+
+      // Voltar leva para onde um toque teria vindo: a home, pelo gate.
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.byType(HomePage), findsOneWidget);
+    });
+
+    testWidgets('sem sessão volta para o login sem chamar o servidor', (tester) async {
+      final (_SessaoControlada sessao, _FakeTituloRepository titulos) =
+          await _abrirPelaUrl(tester, '/detalhe?tipo=tv&id=1399');
+
+      sessao.controle.add(null);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(LoginPage), findsOneWidget);
+      expect(find.byType(TitleDetailPage), findsNothing);
+      expect(titulos.pedidos, isEmpty);
+    });
+
+    testWidgets('detalhe sem o par na URL degrada, sem pedir nada', (tester) async {
+      final (_SessaoControlada sessao, _FakeTituloRepository titulos) =
+          await _abrirPelaUrl(tester, '/detalhe');
+
+      sessao.controle.add(_usuaria);
+      await tester.pumpAndSettle();
+
+      expect(find.text(const TituloIndisponivelError().mensagem), findsOneWidget);
+      expect(titulos.pedidos, isEmpty);
+    });
+
+    testWidgets('outra tela interna também espera a sessão', (tester) async {
+      final (_SessaoControlada sessao, _) = await _abrirPelaUrl(tester, '/acervo');
+
+      expect(find.byType(AcervoTabsPage), findsNothing);
+
+      sessao.controle.add(_usuaria);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AcervoTabsPage), findsOneWidget);
+    });
+
+    testWidgets('URL que não é rota do app abre o gate normalmente', (tester) async {
+      final (_SessaoControlada sessao, _) = await _abrirPelaUrl(tester, '/nao-existe');
+
+      sessao.controle.add(_usuaria);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(HomePage), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('dentro do app, abrir o detalhe põe o par no nome da rota', (tester) async {
+      final (_SessaoControlada sessao, _FakeTituloRepository titulos) =
+          await _abrirPelaUrl(tester, '/');
+      sessao.controle.add(_usuaria);
+      await tester.pumpAndSettle();
+
+      unawaited(Routes.abrirDetalhe(
+        tester.element(find.byType(HomePage)),
+        const TituloRef(tipo: TipoMidia.movie, id: 550),
+      ));
+      await tester.pumpAndSettle();
+
+      final BuildContext pagina = tester.element(find.byType(TitleDetailPage));
+      expect(ModalRoute.of(pagina)!.settings.name, '/detalhe?tipo=movie&id=550');
+      expect(titulos.pedidos, <String>['movie:550']);
     });
   });
 }
