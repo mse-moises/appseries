@@ -176,6 +176,75 @@ void main() {
       expect(repo.consultas, isEmpty);
     });
 
+    // P3 do #13: o guard antigo saía sempre que não havia timer, e "nada
+    // pendente" incluía "já respondido". Enter é "buscar": depois de uma
+    // resposta ou de um erro, pergunta de novo.
+    test('Enter depois da resposta refaz a busca, sem perder consulta nem filtro', () async {
+      vm.setConsulta('pokemon');
+      vm.setFiltro(TipoFiltro.series);
+      await _esperar();
+      repo.responder(0, _ok(<TmdbItem>[_filme, _serie]));
+      await pumpEventQueue();
+      expect(vm.resultados, <TmdbItem>[_serie]);
+
+      vm.buscarAgora();
+      await pumpEventQueue();
+
+      expect(repo.consultas, <String>['pokemon', 'pokemon']);
+      expect(vm.estado, EstadoBusca.carregando,
+          reason: 'a lista antiga não fica na tela fingindo ser a resposta nova');
+
+      repo.responder(1, _ok(<TmdbItem>[_serie, _filme]));
+      await pumpEventQueue();
+
+      expect(vm.estado, EstadoBusca.resultados);
+      expect(vm.resultados, <TmdbItem>[_serie], reason: 'o filtro de séries continua valendo');
+      expect(vm.consulta, 'pokemon');
+      expect(vm.filtro, TipoFiltro.series);
+    });
+
+    test('Enter depois de um erro refaz a busca', () async {
+      vm.setConsulta('pokemon');
+      await _esperar();
+      repo.responder(0, const Result<List<TmdbItem>>.error(ServerError()));
+      await pumpEventQueue();
+      expect(vm.estado, EstadoBusca.erro);
+
+      vm.buscarAgora();
+      await pumpEventQueue();
+
+      expect(repo.consultas, <String>['pokemon', 'pokemon']);
+      expect(vm.erro, isNull, reason: 'o erro antigo sai enquanto pergunta de novo');
+
+      repo.responder(1, _ok(<TmdbItem>[_filme]));
+      await pumpEventQueue();
+      expect(vm.resultados, <TmdbItem>[_filme]);
+    });
+
+    test('Enter repetido com a busca já no ar não manda outra', () async {
+      vm.setConsulta('pokemon');
+      await _esperar();
+      repo.responder(0, _ok(<TmdbItem>[_filme]));
+      await pumpEventQueue();
+
+      vm.buscarAgora();
+      vm.buscarAgora();
+      await pumpEventQueue();
+
+      expect(repo.consultas, <String>['pokemon', 'pokemon'],
+          reason: 'a segunda tecla chega com a primeira ainda em voo');
+    });
+
+    test('Enter com consulta longa demais não sai do app', () async {
+      vm.setConsulta('a' * (kBuscaMax + 1));
+      vm.buscarAgora();
+      await _esperar();
+
+      expect(repo.consultas, isEmpty);
+      expect(vm.erro, const BuscaInvalidaError().mensagem,
+          reason: 'repetir uma consulta inválida falha igual');
+    });
+
     test('resposta antiga chegando depois não sobrescreve a consulta nova', () async {
       vm.setConsulta('pokemon');
       await _esperar();
