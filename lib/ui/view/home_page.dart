@@ -64,6 +64,15 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text('AppSeries'),
         actions: <Widget>[
+          // A porta da recomendação (AP-96/98/99). Na AppBar, não no corpo:
+          // a home já empilha filtro + dois carrosséis + rodapé, e mais um
+          // bloco no corpo empurrava o segundo carrossel para fora da tela.
+          IconButton(
+            key: const Key('abrir-rec'),
+            onPressed: () => Navigator.pushNamed(context, Routes.recomendacao),
+            icon: const Icon(Icons.auto_awesome),
+            tooltip: 'O que assistir agora',
+          ),
           if (auth.isSigningOut)
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20),

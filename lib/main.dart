@@ -14,6 +14,8 @@ import 'data/repositories/feedback_repository.dart';
 import 'data/repositories/feedback_repository_impl.dart';
 import 'data/repositories/preferencias_repository.dart';
 import 'data/repositories/preferencias_repository_impl.dart';
+import 'data/repositories/rec_repository.dart';
+import 'data/repositories/rec_repository_impl.dart';
 import 'data/repositories/titulo_repository.dart';
 import 'data/repositories/titulo_repository_impl.dart';
 import 'data/services/auth_interceptor.dart';
@@ -25,6 +27,7 @@ import 'ui/view_model/acervo_view_model.dart';
 import 'ui/view_model/auth_view_model.dart';
 import 'ui/view_model/home_view_model.dart';
 import 'ui/view_model/login_view_model.dart';
+import 'ui/view_model/rec_view_model.dart';
 import 'ui/view_model/search_view_model.dart';
 import 'ui/view_model/title_detail_view_model.dart';
 import 'utils/env.dart';
@@ -99,6 +102,14 @@ class AppSeries extends StatelessWidget {
           // AP-109: 👍/👎 mora no servidor, preso à conta e ao par (tipo, tmdbId).
           Provider<FeedbackRepository>(
             create: (ctx) => FeedbackRepositoryImpl(ctx.read<RestClient>()),
+          ),
+          // AP-96/98/99: a recomendação por momento. A tela abre ociosa e
+          // reseta no `initState`, como as outras criadas na raiz.
+          Provider<RecRepository>(
+            create: (ctx) => RecRepositoryImpl(ctx.read<RestClient>()),
+          ),
+          ChangeNotifierProvider<RecViewModel>(
+            create: (ctx) => RecViewModel(ctx.read<RecRepository>()),
           ),
           // AP-47: the detail page resets it on open (the `create` runs once).
           ChangeNotifierProvider<TitleDetailViewModel>(
