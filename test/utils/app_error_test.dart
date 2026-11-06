@@ -135,11 +135,21 @@ void main() {
         'invalid_body',
         'invalid_tipo',
         'invalid_generos',
-        'invalid_momento',
-        'momento_too_long',
       ];
       for (final String codigo in codigos) {
         expect(appErrorFromCodigo(codigo), isA<ConflictError>(), reason: codigo);
+      }
+    });
+
+    test('o momento recusado não fala em salvar', () {
+      final AppError longo = appErrorFromCodigo('momento_too_long');
+      final AppError invalido = appErrorFromCodigo('invalid_momento');
+
+      expect(longo, isA<MomentoLongoError>());
+      expect(invalido, isA<MomentoInvalidoError>());
+      for (final AppError e in <AppError>[longo, invalido]) {
+        expect(e.mensagem, isNot(contains('salvar')), reason: e.codigo);
+        expect(e.mensagem, isNot(contains('Tente de novo')), reason: e.codigo);
       }
     });
 
@@ -214,6 +224,8 @@ void main() {
       UnauthorizedError(),
       NotFoundError(),
       ConflictError(),
+      MomentoLongoError(),
+      MomentoInvalidoError(),
       RateLimitError(),
       CatalogoOcupadoError(),
       CatalogoIndisponivelError(),
