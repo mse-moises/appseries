@@ -16,7 +16,7 @@ class RecViewModel extends ChangeNotifier {
   final RecRepository _repository;
 
   bool _carregando = false;
-  String? _erro;
+  AppError? _erro;
   List<CartaRec> _cartas = const <CartaRec>[];
   OrigemRec _origem = OrigemRec.desconhecida;
 
@@ -28,7 +28,20 @@ class RecViewModel extends ChangeNotifier {
   int _geracao = 0;
 
   bool get carregando => _carregando;
-  String? get erro => _erro;
+  String? get erro => _erro?.mensagem;
+
+  /// Só a falha que pedir de novo resolve ganha o botão de retry.
+  ///
+  /// O teto do dia ([RateLimitError]) responde igual até amanhã, e o momento
+  /// recusado falha igual com o mesmo texto: nesses, o botão convidaria a
+  /// repetir o que a própria frase diz ser impossível agora.
+  bool get podeTentarDeNovo =>
+      _erro != null &&
+      _erro is! RateLimitError &&
+      _erro is! ConflictError &&
+      _erro is! MomentoLongoError &&
+      _erro is! MomentoInvalidoError;
+
   List<CartaRec> get cartas => _cartas;
   OrigemRec get origem => _origem;
 
@@ -72,7 +85,7 @@ class RecViewModel extends ChangeNotifier {
         case Error<RecResult>(:final error):
           _cartas = const <CartaRec>[];
           _origem = OrigemRec.desconhecida;
-          _erro = error.mensagem;
+          _erro = error;
           _buscou = true;
       }
     } catch (error, stack) {
@@ -82,7 +95,7 @@ class RecViewModel extends ChangeNotifier {
       debugPrint('[AppSeries] rec fora do contrato: $error\n$stack');
       _cartas = const <CartaRec>[];
       _origem = OrigemRec.desconhecida;
-      _erro = const ServerError().mensagem;
+      _erro = const ServerError();
     } finally {
       if (geracao == _geracao) {
         _carregando = false;

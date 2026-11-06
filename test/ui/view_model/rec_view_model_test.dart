@@ -111,6 +111,20 @@ void main() {
       expect(repo.ultimoMomento, 'a');
     });
 
+    test('teto do dia não oferece retry; falha de rede oferece', () async {
+      final _FakeRec repo = _FakeRec(<Future<Result<RecResult>>>[
+        Future<Result<RecResult>>.value(const Result<RecResult>.error(RateLimitError())),
+        Future<Result<RecResult>>.value(const Result<RecResult>.error(NetworkError())),
+      ]);
+      final RecViewModel vm = RecViewModel(repo);
+
+      await vm.gerar();
+      expect(vm.podeTentarDeNovo, isFalse, reason: 'o 429 responde igual até amanhã');
+
+      await vm.gerar();
+      expect(vm.podeTentarDeNovo, isTrue, reason: 'a rede pode voltar');
+    });
+
     test('reset descarta a resposta da sessão anterior', () async {
       final Completer<Result<RecResult>> emVoo = Completer<Result<RecResult>>();
       final _FakeRec repo = _FakeRec(<Future<Result<RecResult>>>[emVoo.future]);

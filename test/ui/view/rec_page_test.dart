@@ -119,8 +119,21 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text(const RateLimitError().mensagem), findsOneWidget);
-    expect(find.text('Tentar de novo'), findsOneWidget);
+    expect(find.text('Tentar de novo'), findsNothing,
+        reason: 'o teto do dia responde igual até amanhã: o botão convidaria a repetir');
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('falha de rede oferece tentar de novo', (tester) async {
+    await _abrir(tester, <Future<Result<RecResult>>>[
+      Future<Result<RecResult>>.value(const Result<RecResult>.error(NetworkError())),
+    ]);
+
+    await tester.tap(find.byKey(const Key('rec-gerar')));
+    await tester.pumpAndSettle();
+
+    expect(find.text(const NetworkError().mensagem), findsOneWidget);
+    expect(find.text('Tentar de novo'), findsOneWidget, reason: 'a rede pode voltar');
   });
 
   testWidgets('outra rodada pede de novo ao servidor', (tester) async {

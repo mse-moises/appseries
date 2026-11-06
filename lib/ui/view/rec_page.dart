@@ -97,7 +97,7 @@ class _Corpo extends StatelessWidget {
     if (vm.erro != null) {
       return SizedBox(
         height: 220,
-        child: ErrorView(mensagem: vm.erro!, onRetry: onOutra),
+        child: ErrorView(mensagem: vm.erro!, onRetry: vm.podeTentarDeNovo ? onOutra : null),
       );
     }
 
