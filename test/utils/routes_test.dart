@@ -25,6 +25,7 @@ import 'package:appseries/ui/view_model/acervo_view_model.dart';
 import 'package:appseries/ui/view_model/auth_view_model.dart';
 import 'package:appseries/ui/view_model/home_view_model.dart';
 import 'package:appseries/ui/view_model/login_view_model.dart';
+import 'package:appseries/ui/view_model/preferences_view_model.dart';
 import 'package:appseries/ui/view_model/rec_view_model.dart';
 import 'package:appseries/ui/view_model/search_view_model.dart';
 import 'package:appseries/ui/view_model/title_detail_view_model.dart';
@@ -34,6 +35,8 @@ import 'package:appseries/utils/routes_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+
+import '../support/fake_preferencias.dart';
 
 class _FakeAuthRepository implements AuthRepository {
   @override
@@ -162,6 +165,7 @@ Future<(_SessaoControlada, _FakeTituloRepository)> _abrirPelaUrl(
       ChangeNotifierProvider<TitleDetailViewModel>(
         create: (_) => TitleDetailViewModel(titulos, _FakeFeedback()),
       ),
+      ChangeNotifierProvider<PreferencesViewModel>(create: (_) => preferenciasJaEscolhidas()),
     ],
     child: const App(),
   ));
@@ -184,6 +188,7 @@ Future<void> _empurrar(WidgetTester tester, String nome, {Object? argumentos}) a
         create: (_) => TitleDetailViewModel(_titulos, _FakeFeedback()),
       ),
       ChangeNotifierProvider<RecViewModel>(create: (_) => RecViewModel(_rec)),
+      ChangeNotifierProvider<PreferencesViewModel>(create: (_) => preferenciasJaEscolhidas()),
     ],
     child: MaterialApp(
       key: ValueKey<String>('rota-$nome'),
@@ -226,6 +231,7 @@ void main() {
           ChangeNotifierProvider<LoginViewModel>(
             create: (BuildContext c) => LoginViewModel(c.read<AuthRepository>()),
           ),
+          ChangeNotifierProvider<PreferencesViewModel>(create: (_) => preferenciasJaEscolhidas()),
         ],
         child: const App(),
       ));

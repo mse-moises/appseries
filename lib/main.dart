@@ -14,6 +14,8 @@ import 'data/repositories/feedback_repository.dart';
 import 'data/repositories/feedback_repository_impl.dart';
 import 'data/repositories/preferencias_repository.dart';
 import 'data/repositories/preferencias_repository_impl.dart';
+import 'data/repositories/primeiro_acesso_repository.dart';
+import 'data/repositories/primeiro_acesso_repository_impl.dart';
 import 'data/repositories/rec_repository.dart';
 import 'data/repositories/rec_repository_impl.dart';
 import 'data/repositories/titulo_repository.dart';
@@ -27,6 +29,7 @@ import 'ui/view_model/acervo_view_model.dart';
 import 'ui/view_model/auth_view_model.dart';
 import 'ui/view_model/home_view_model.dart';
 import 'ui/view_model/login_view_model.dart';
+import 'ui/view_model/preferences_view_model.dart';
 import 'ui/view_model/rec_view_model.dart';
 import 'ui/view_model/search_view_model.dart';
 import 'ui/view_model/title_detail_view_model.dart';
@@ -98,6 +101,17 @@ class AppSeries extends StatelessWidget {
           // (AP-37) is the first consumer.
           Provider<PreferenciasRepository>(
             create: (ctx) => PreferenciasRepositoryImpl(ctx.read<RestClient>()),
+          ),
+          // AP-38: skipping leaves `generos` empty on the server, the same as
+          // never having seen the chips; this local mark tells the two apart.
+          Provider<PrimeiroAcessoRepository>(create: (_) => PrimeiroAcessoRepositoryImpl()),
+          // AP-38: the chips and the first-access decision. The `AuthGate`
+          // resets it on every login (the `create` runs once).
+          ChangeNotifierProvider<PreferencesViewModel>(
+            create: (ctx) => PreferencesViewModel(
+              ctx.read<PreferenciasRepository>(),
+              ctx.read<PrimeiroAcessoRepository>(),
+            ),
           ),
           // AP-109: 👍/👎 mora no servidor, preso à conta e ao par (tipo, tmdbId).
           Provider<FeedbackRepository>(

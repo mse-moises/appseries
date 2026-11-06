@@ -1,24 +1,175 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-/// Stub da fundação (AP-108): a rota, o endpoint e o repositório estão abertos.
+import '../theme/app_theme.dart';
+import '../view_model/preferences_view_model.dart';
+import '../widgets/status_view.dart';
+
+/// "O que eu gosto": genre chips (AP-38).
 ///
-/// Quem pegar **AP-38** troca o corpo abaixo e nada mais. O ViewModel e a tela
-/// são da trilha; `main.dart` ainda precisa de uma linha para o provider.
-class PreferencesPage extends StatelessWidget {
-  const PreferencesPage({super.key});
+/// Two ways in:
+/// - [primeiroAcesso]: shown by the `AuthGate` after the first login, with
+///   "Pular". The gate already read the server, so the screen does not load,
+///   and saving or skipping swaps it for the home by itself;
+/// - the `/preferencias` route, from the home: loads what is saved and closes
+///   after saving.
+class PreferencesPage extends StatefulWidget {
+  const PreferencesPage({super.key, this.primeiroAcesso = false});
+
+  final bool primeiroAcesso;
+
+  @override
+  State<PreferencesPage> createState() => _PreferencesPageState();
+}
+
+class _PreferencesPageState extends State<PreferencesPage> {
+  @override
+  void initState() {
+    super.initState();
+    if (widget.primeiroAcesso) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<PreferencesViewModel>().carregar();
+    });
+  }
+
+  Future<void> _salvar(PreferencesViewModel vm) async {
+    final bool salvou = await vm.salvar();
+    if (!salvou || !mounted || widget.primeiroAcesso) return;
+    final ScaffoldMessengerState mensagens = ScaffoldMessenger.of(context);
+    Navigator.of(context).pop();
+    mensagens.showSnackBar(const SnackBar(content: Text('Seus gostos foram salvos.')));
+  }
 
   @override
   Widget build(BuildContext context) {
+    final PreferencesViewModel vm = context.watch<PreferencesViewModel>();
+    final bool primeiro = widget.primeiroAcesso;
+
+    final Widget corpo;
+    if (vm.carregando) {
+      corpo = const LoadingView();
+    } else if (vm.erroCarga != null) {
+      corpo = ErrorView(mensagem: vm.erroCarga!, onRetry: vm.carregar);
+    } else {
+      corpo = _Chips(vm: vm, primeiroAcesso: primeiro);
+    }
+
+    final bool mostraBotao = !vm.carregando && vm.erroCarga == null;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('O que eu gosto')),
-      body: const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Text(
-            'Tela em construção (AP-38).',
-            textAlign: TextAlign.center,
-          ),
+      appBar: AppBar(
+        title: Text(primeiro ? 'Do que você gosta?' : 'O que eu gosto'),
+        automaticallyImplyLeading: !primeiro,
+        actions: <Widget>[
+          if (primeiro)
+            TextButton(
+              key: const Key('preferencias-pular'),
+              onPressed: vm.salvando ? null : vm.pular,
+              child: const Text('Pular'),
+            ),
+        ],
+      ),
+      body: corpo,
+      bottomNavigationBar: mostraBotao
+          ? SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                child: FilledButton(
+                  key: const Key('preferencias-salvar'),
+                  onPressed: vm.podeSalvar ? () => _salvar(vm) : null,
+                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                  child: vm.salvando
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(primeiro ? 'Continuar' : 'Salvar'),
+                ),
+              ),
+            )
+          : null,
+    );
+  }
+}
+
+class _Chips extends StatelessWidget {
+  const _Chips({required this.vm, required this.primeiroAcesso});
+
+  final PreferencesViewModel vm;
+  final bool primeiroAcesso;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme texto = Theme.of(context).textTheme;
+    final ColorScheme cores = Theme.of(context).colorScheme;
+    final int escolhidos = vm.selecionados.length;
+    final int faltam = vm.faltamParaSugerido;
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      children: <Widget>[
+        Text(
+          primeiroAcesso
+              ? 'Escolha os gêneros que você curte. Sua primeira sugestão parte daqui.'
+              : 'Os gêneros que você curte entram nas suas sugestões.',
+          style: texto.bodyLarge,
         ),
+        const SizedBox(height: 8),
+        Text(
+          faltam > 0
+              ? 'Escolha pelo menos $kGenerosSugeridos para acertar mais '
+                  '(${faltam == 1 ? 'falta 1' : 'faltam $faltam'}).'
+              : '$escolhidos gêneros escolhidos.',
+          key: const Key('preferencias-contagem'),
+          style: texto.bodySmall?.copyWith(color: cores.onSurfaceVariant),
+        ),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: <Widget>[
+            for (final String genero in vm.generos)
+              _GeneroChip(
+                genero: genero,
+                selecionado: vm.selecionado(genero),
+                onTap: vm.salvando ? null : () => vm.alternar(genero),
+              ),
+          ],
+        ),
+        if (vm.erroSalvar != null) ...<Widget>[
+          const SizedBox(height: 16),
+          Text(vm.erroSalvar!, style: texto.bodyMedium?.copyWith(color: cores.error)),
+        ],
+      ],
+    );
+  }
+}
+
+class _GeneroChip extends StatelessWidget {
+  const _GeneroChip({required this.genero, required this.selecionado, required this.onTap});
+
+  final String genero;
+  final bool selecionado;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme cores = Theme.of(context).colorScheme;
+
+    return FilterChip(
+      key: ValueKey<String>('genero-$genero'),
+      label: Text(genero),
+      selected: selecionado,
+      onSelected: onTap == null ? null : (_) => onTap!(),
+      checkmarkColor: Colors.white,
+      shape: const StadiumBorder(),
+      selectedColor: AppTheme.destaque,
+      side: BorderSide(color: selecionado ? AppTheme.destaque : cores.outlineVariant),
+      labelStyle: TextStyle(
+        color: selecionado ? Colors.white : cores.onSurface,
+        fontWeight: selecionado ? FontWeight.w600 : FontWeight.w500,
       ),
     );
   }
