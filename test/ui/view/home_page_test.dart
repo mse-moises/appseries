@@ -204,6 +204,7 @@ Future<_FakeAuthRepository> _montar(
         routes: <String, WidgetBuilder>{
           Routes.busca: (BuildContext _) => const Text('tela de busca'),
           Routes.acervo: (BuildContext _) => const Text('tela do acervo'),
+          Routes.recomendacao: (BuildContext _) => const Text('tela de recomendação'),
           // O detalhe vira um marcador que mostra o par que recebeu.
           Routes.detalhe: (BuildContext c) {
             final TituloRef ref = ModalRoute.of(c)!.settings.arguments! as TituloRef;
@@ -219,6 +220,20 @@ Future<_FakeAuthRepository> _montar(
 
 void main() {
   group('HomePage', () {
+    testWidgets('a recomendação tem FAB estendido e abre a tela', (tester) async {
+      await _montar(tester);
+
+      final Finder fab = find.byKey(const Key('abrir-rec'));
+      expect(fab, findsOneWidget);
+      expect(tester.widget(fab), isA<FloatingActionButton>(),
+          reason: 'feature core: destaque é botão flutuante, não ícone de AppBar');
+      expect(find.text('O que assistir agora'), findsOneWidget);
+
+      await tester.tap(fab);
+      await tester.pumpAndSettle();
+      expect(find.text('tela de recomendação'), findsOneWidget);
+    });
+
     testWidgets('mostra os títulos dos dois carrosséis', (tester) async {
       await _montar(
         tester,

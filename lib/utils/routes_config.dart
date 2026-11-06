@@ -5,6 +5,7 @@ import '../ui/view/historico_page.dart';
 import '../ui/view/search_page.dart';
 import '../ui/view/title_detail_page.dart';
 import '../ui/view/preferences_page.dart';
+import '../ui/view/rec_page.dart';
 
 /// Named routes for the whole app.
 ///
@@ -25,6 +26,7 @@ class Routes {
   static const String acervo = '/acervo';
   static const String historico = '/historico';
   static const String preferencias = '/preferencias';
+  static const String recomendacao = '/recomendacao';
 
   static Map<String, WidgetBuilder> get mapa => <String, WidgetBuilder>{
         busca: (BuildContext _) => const SearchPage(),
@@ -32,5 +34,6 @@ class Routes {
         acervo: (BuildContext _) => const AcervoTabsPage(),
         historico: (BuildContext _) => const HistoricoPage(),
         preferencias: (BuildContext _) => const PreferencesPage(),
+        recomendacao: (BuildContext _) => const RecPage(),
       };
 }

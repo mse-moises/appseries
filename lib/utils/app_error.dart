@@ -54,6 +54,25 @@ final class BuscaInvalidaError extends AppError {
         );
 }
 
+/// Texto livre do momento que o servidor recusa por tamanho.
+///
+/// Não é [ConflictError]: no `/rec` nada é salvo, e "não deu para salvar agora"
+/// descreve uma ação que não existe naquela tela. Repetir a MESMA chamada falha
+/// igual, então este erro nunca ganha botão de tentar de novo (a saída é a
+/// pessoa encurtar o texto). Vive aqui porque `PUT /preferencias` recusa pelo
+/// mesmo código.
+final class MomentoLongoError extends AppError {
+  const MomentoLongoError()
+      : super('momento_too_long', 'Seu momento ficou longo demais. Encurte um pouco.');
+}
+
+/// Momento fora do tipo que o contrato aceita (bug de serialização do app):
+/// repetir com o mesmo texto falharia igual.
+final class MomentoInvalidoError extends AppError {
+  const MomentoInvalidoError()
+      : super('invalid_momento', 'Não consegui usar esse momento. Escreva com outras palavras.');
+}
+
 /// Sinal de gosto que não deu para registrar.
 ///
 /// Separado do acervo de propósito: a ação é outra e a pessoa lê a frase certa.
@@ -236,10 +255,12 @@ AppError appErrorFromCodigo(String? codigo) => switch (codigo) {
       'invalid_tmdb_id' ||
       'invalid_body' ||
       'invalid_tipo' ||
-      'invalid_generos' ||
-      'invalid_momento' ||
-      'momento_too_long' =>
+      'invalid_generos' =>
         const ConflictError(),
+      // Momento: recusado no `/rec` (que só lê) e no `PUT /preferencias`. A
+      // frase não fala em salvar nem convida a repetir o mesmo texto.
+      'momento_too_long' => const MomentoLongoError(),
+      'invalid_momento' => const MomentoInvalidoError(),
       // Corpo de feedback fora do contrato só acontece por bug de serialização
       // do app: repetir a mesma chamada falharia igual.
       'invalid_sinal' || 'invalid_peso' || 'invalid_origem' => const FeedbackIndisponivelError(),
