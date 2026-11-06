@@ -16,6 +16,7 @@ import 'package:appseries/ui/view_model/auth_view_model.dart';
 import 'package:appseries/ui/view_model/home_view_model.dart';
 import 'package:appseries/ui/view_model/login_view_model.dart';
 import 'package:appseries/ui/view_model/preferences_view_model.dart';
+import 'package:appseries/ui/widgets/genero_chip.dart';
 import 'package:appseries/utils/result.dart';
 import 'package:appseries/utils/routes_config.dart';
 import 'package:flutter/material.dart';
@@ -187,12 +188,12 @@ void main() {
       expect(c.preferencias.leituras, leiturasAntes + 1, reason: 'a tela lê o que está salvo');
       for (final String g in <String>['Drama', 'Comédia', 'Terror']) {
         expect(
-          tester.widget<FilterChip>(find.byKey(ValueKey<String>('genero-$g'))).selected,
+          tester.widget<GeneroChip>(find.byKey(ValueKey<String>('genero-$g'))).selecionado,
           isTrue,
           reason: g,
         );
       }
-      expect(tester.widget<FilterChip>(find.byKey(const ValueKey<String>('genero-Ação'))).selected,
+      expect(tester.widget<GeneroChip>(find.byKey(const ValueKey<String>('genero-Ação'))).selecionado,
           isFalse);
 
       await tester.tap(find.byKey(const ValueKey<String>('genero-Ação')));

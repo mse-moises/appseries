@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../theme/app_theme.dart';
 import '../view_model/preferences_view_model.dart';
+import '../widgets/genero_chip.dart';
 import '../widgets/status_view.dart';
 
 /// "O que eu gosto": genre chips (AP-38).
@@ -131,7 +131,8 @@ class _Chips extends StatelessWidget {
           runSpacing: 8,
           children: <Widget>[
             for (final String genero in vm.generos)
-              _GeneroChip(
+              GeneroChip(
+                key: ValueKey<String>('genero-$genero'),
                 genero: genero,
                 selecionado: vm.selecionado(genero),
                 onTap: vm.salvando ? null : () => vm.alternar(genero),
@@ -143,34 +144,6 @@ class _Chips extends StatelessWidget {
           Text(vm.erroSalvar!, style: texto.bodyMedium?.copyWith(color: cores.error)),
         ],
       ],
-    );
-  }
-}
-
-class _GeneroChip extends StatelessWidget {
-  const _GeneroChip({required this.genero, required this.selecionado, required this.onTap});
-
-  final String genero;
-  final bool selecionado;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme cores = Theme.of(context).colorScheme;
-
-    return FilterChip(
-      key: ValueKey<String>('genero-$genero'),
-      label: Text(genero),
-      selected: selecionado,
-      onSelected: onTap == null ? null : (_) => onTap!(),
-      checkmarkColor: Colors.white,
-      shape: const StadiumBorder(),
-      selectedColor: AppTheme.destaque,
-      side: BorderSide(color: selecionado ? AppTheme.destaque : cores.outlineVariant),
-      labelStyle: TextStyle(
-        color: selecionado ? Colors.white : cores.onSurface,
-        fontWeight: selecionado ? FontWeight.w600 : FontWeight.w500,
-      ),
     );
   }
 }
