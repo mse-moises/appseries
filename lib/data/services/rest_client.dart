@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:retrofit/retrofit.dart';
 
 import '../api_models/acervo_item.dart';
+import '../api_models/carta_rec.dart';
 import '../api_models/feedback_item.dart';
 import '../api_models/marcar_acervo_request.dart';
 import '../api_models/marcar_feedback_request.dart';
@@ -80,4 +81,16 @@ abstract class RestClient {
   /// `DELETE /api/v1/feedback/:tmdbId?tipo=` — removes **that** signal only.
   @DELETE('/api/v1/feedback/{tmdbId}')
   Future<void> removerFeedback(@Path('tmdbId') int tmdbId, @Query('tipo') String tipo);
+
+  /// `POST /api/v1/rec` — até 5 cartas pelo momento (mais gostos e histórico).
+  ///
+  /// Corpo vazio (`{}`) faz o servidor usar o momento salvo em `/preferencias`;
+  /// com `{"momento": "..."}` o texto vale só nesta chamada.
+  /// O teto é de 20 por dia (`429 rec_limit`).
+  ///
+  /// O parâmetro é não-nulo de propósito: com `Map?` o retrofit gerava
+  /// `corpo!` dentro de um `if (corpo != null)` e o `flutter analyze` acusava
+  /// `unnecessary_non_null_assertion` no arquivo gerado.
+  @POST('/api/v1/rec')
+  Future<RecResult> recomendar(@Body() Map<String, dynamic> corpo);
 }

@@ -204,6 +204,7 @@ Future<_FakeAuthRepository> _montar(
         routes: <String, WidgetBuilder>{
           Routes.busca: (BuildContext _) => const Text('tela de busca'),
           Routes.acervo: (BuildContext _) => const Text('tela do acervo'),
+          Routes.recomendacao: (BuildContext _) => const Text('tela de recomendação'),
         },
         // O detalhe vira um marcador com o par que recebeu, e só fecha o par se
         // o nome da rota (a barra de endereço) carrega o mesmo par: é o que o F5 lê.
@@ -225,6 +226,20 @@ Future<_FakeAuthRepository> _montar(
 
 void main() {
   group('HomePage', () {
+    testWidgets('a recomendação tem FAB estendido e abre a tela', (tester) async {
+      await _montar(tester);
+
+      final Finder fab = find.byKey(const Key('abrir-rec'));
+      expect(fab, findsOneWidget);
+      expect(tester.widget(fab), isA<FloatingActionButton>(),
+          reason: 'feature core: destaque é botão flutuante, não ícone de AppBar');
+      expect(find.text('O que assistir agora'), findsOneWidget);
+
+      await tester.tap(fab);
+      await tester.pumpAndSettle();
+      expect(find.text('tela de recomendação'), findsOneWidget);
+    });
+
     testWidgets('mostra os títulos dos dois carrosséis', (tester) async {
       await _montar(
         tester,

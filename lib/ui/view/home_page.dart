@@ -83,6 +83,17 @@ class _HomePageState extends State<HomePage> {
             ),
         ],
       ),
+      // A recomendação é a feature core do produto: FAB estendido, com o nome
+      // da ação escrito. O ícone sozinho na AppBar não dava o destaque.
+      floatingActionButton: FloatingActionButton.extended(
+        key: const Key('abrir-rec'),
+        onPressed: () => Navigator.pushNamed(context, Routes.recomendacao),
+        icon: const Icon(Icons.auto_awesome),
+        label: const Text('O que assistir agora'),
+      ),
+      // O rodapé vai para `bottomNavigationBar` para o FAB flutuar ACIMA dele,
+      // não por cima da contagem do acervo nem da atribuição do TMDB.
+      bottomNavigationBar: _Rodape(auth: auth, acervo: acervo),
       body: Column(
         children: <Widget>[
           // A sign-out that failed has to say so: otherwise the icon looks dead
@@ -99,6 +110,9 @@ class _HomePageState extends State<HomePage> {
             ),
           Expanded(
             child: ListView(
+              // 96 px no fim: o FAB flutua sobre a lista e, sem a folga, ele
+              // cobriria a última fileira de pôsteres do carrossel.
+              padding: const EdgeInsets.only(bottom: 96),
               children: <Widget>[
                 // Inside the scroll, not pinned above it: pinned, its ~110 px
                 // plus the footer overflowed a phone with a large font.
@@ -116,13 +130,9 @@ class _HomePageState extends State<HomePage> {
                   onRetry: home.recarregarPopulares,
                   mensagemVazia: _vazioDoFiltro(home.filtro, 'entre os populares'),
                 ),
-                const SizedBox(height: 12),
               ],
             ),
           ),
-          // Fora do scroll: quem está logado e a atribuição do TMDB têm de
-          // estar visíveis sem rolar (a atribuição é exigência de uso da API).
-          _Rodape(auth: auth, acervo: acervo),
         ],
       ),
     );
@@ -154,7 +164,11 @@ class _Rodape extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
         child: Column(
-        children: <Widget>[
+          // min: no `bottomNavigationBar` a altura chega frouxa, e a Column
+          // padrão (`max`) esticaria até o fim da tela, espremendo o corpo do
+          // Scaffold a zero (o `ListView` ficava com 0 px e nada era construído).
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
           // Whose account is this? Without it the only way to know was the
           // login screen.
           if (auth.user?.email != null)

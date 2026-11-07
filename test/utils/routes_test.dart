@@ -1,5 +1,6 @@
 import 'package:appseries/app.dart';
 import 'package:appseries/data/api_models/acervo_item.dart';
+import 'package:appseries/data/api_models/carta_rec.dart';
 import 'package:appseries/data/api_models/feedback_item.dart';
 import 'package:appseries/data/api_models/user.dart';
 import 'package:appseries/data/api_models/titulo_detalhe.dart';
@@ -7,6 +8,7 @@ import 'package:appseries/data/api_models/tmdb_item.dart';
 import 'package:appseries/data/repositories/acervo_repository.dart';
 import 'package:appseries/data/repositories/auth_repository.dart';
 import 'package:appseries/data/repositories/feedback_repository.dart';
+import 'package:appseries/data/repositories/rec_repository.dart';
 import 'package:appseries/data/repositories/titulo_repository.dart';
 import 'package:appseries/ui/navegacao/titulo_ref.dart';
 import 'package:appseries/ui/view/acervo_tabs_page.dart';
@@ -15,9 +17,11 @@ import 'package:appseries/ui/view/historico_page.dart';
 import 'package:appseries/ui/view/search_page.dart';
 import 'package:appseries/ui/view/title_detail_page.dart';
 import 'package:appseries/ui/view/preferences_page.dart';
+import 'package:appseries/ui/view/rec_page.dart';
 import 'package:appseries/ui/view_model/acervo_view_model.dart';
 import 'package:appseries/ui/view_model/auth_view_model.dart';
 import 'package:appseries/ui/view_model/login_view_model.dart';
+import 'package:appseries/ui/view_model/rec_view_model.dart';
 import 'package:appseries/ui/view_model/search_view_model.dart';
 import 'package:appseries/ui/view_model/title_detail_view_model.dart';
 import 'package:appseries/utils/app_error.dart';
@@ -113,7 +117,21 @@ class _FakeFeedback implements FeedbackRepository {
   Future<Result<void>> remover(TipoMidia tipo, int tmdbId) => throw UnimplementedError();
 }
 
+/// A recomendação abre ociosa: só abrir a rota não pode chamar o servidor.
+class _FakeRec implements RecRepository {
+  int chamadas = 0;
+
+  @override
+  Future<Result<RecResult>> recomendar({String? momento}) async {
+    chamadas++;
+    return const Result<RecResult>.ok(
+      RecResult(cartas: <CartaRec>[], origem: OrigemRec.llm),
+    );
+  }
+}
+
 final _FakeTituloRepository _titulos = _FakeTituloRepository();
+final _FakeRec _rec = _FakeRec();
 
 /// A sessão chega quando o teste quiser, como o SDK restaurando depois do F5.
 class _SessaoControlada extends _FakeAuthRepository {
@@ -166,6 +184,7 @@ Future<void> _empurrar(WidgetTester tester, String nome, {Object? argumentos}) a
       ChangeNotifierProvider<TitleDetailViewModel>(
         create: (_) => TitleDetailViewModel(_titulos, _FakeFeedback()),
       ),
+      ChangeNotifierProvider<RecViewModel>(create: (_) => RecViewModel(_rec)),
     ],
     child: MaterialApp(
       key: ValueKey<String>('rota-$nome'),
@@ -184,7 +203,7 @@ Future<void> _empurrar(WidgetTester tester, String nome, {Object? argumentos}) a
 
 void main() {
   group('Routes.mapa', () {
-    test('as cinco rotas internas estão registradas', () {
+    test('as rotas internas estão registradas', () {
       expect(
         Routes.mapa.keys,
         containsAll(<String>[
@@ -193,6 +212,7 @@ void main() {
           Routes.acervo,
           Routes.historico,
           Routes.preferencias,
+          Routes.recomendacao,
         ]),
       );
     });
@@ -221,6 +241,7 @@ void main() {
         Routes.acervo,
         Routes.historico,
         Routes.preferencias,
+        Routes.recomendacao,
       ]) {
         expect(app.onGenerateRoute!(RouteSettings(name: nome)), isNotNull,
             reason: 'sem rota no App, $nome não é alcançável');
@@ -233,6 +254,7 @@ void main() {
         Routes.acervo: AcervoTabsPage,
         Routes.historico: HistoricoPage,
         Routes.preferencias: PreferencesPage,
+        Routes.recomendacao: RecPage,
       };
 
       for (final MapEntry<String, Type> e in esperado.entries) {
@@ -240,6 +262,7 @@ void main() {
         expect(find.byType(e.value), findsOneWidget, reason: 'rota ${e.key}');
       }
       expect(_titulos.buscas, 0, reason: 'abrir a busca não pode chamar o servidor');
+      expect(_rec.chamadas, 0, reason: 'abrir a recomendação não pode gastar uma das 20 do dia');
     });
 
     testWidgets('pushNamed leva o TituloRef até o detalhe', (tester) async {
