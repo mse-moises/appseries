@@ -70,6 +70,11 @@ class _SearchPageState extends State<SearchPage> {
             autofocus: true,
             onChanged: busca.setConsulta,
             onSubmitted: (_) => busca.buscarAgora(),
+            // With `TextInputAction.search` the framework drops the focus after
+            // Enter unless `onEditingComplete` is given (the hook that owns that
+            // decision; `onSubmitted` still runs after it). Without this, the
+            // second Enter never reaches the field.
+            onEditingComplete: () {},
             textInputAction: TextInputAction.search,
             cursorColor: AppTheme.destaque,
             decoration: InputDecoration(

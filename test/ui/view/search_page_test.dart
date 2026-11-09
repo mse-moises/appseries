@@ -148,6 +148,45 @@ void main() {
       expect(find.text('Pokémon'), findsOneWidget);
     });
 
+    testWidgets('Enter busca de novo e o campo continua com o foco', (tester) async {
+      final _FakeBusca repo = _FakeBusca(
+        const Result<List<TmdbItem>>.ok(<TmdbItem>[
+          TmdbItem(id: 1, tipo: TipoMidia.tv, titulo: 'Dark', ano: '2017'),
+        ]),
+      );
+      await tester.pumpWidget(
+        _comProviders(
+          SearchViewModel(repo, espera: Duration.zero),
+          const MaterialApp(home: SearchPage()),
+        ),
+      );
+      await tester.enterText(find.byKey(const Key('campo-busca')), 'dark');
+      await tester.pump();
+      await tester.pump();
+      expect(repo.chamadas, 1);
+      expect(find.text('Dark'), findsOneWidget);
+
+      final Finder campo = find.byKey(const Key('campo-busca'));
+      bool comFoco() => tester.widget<EditableText>(
+            find.descendant(of: campo, matching: find.byType(EditableText)),
+          ).focusNode.hasFocus;
+      expect(comFoco(), isTrue, reason: 'o campo abre com o foco (autofocus)');
+
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pump();
+      await tester.pump();
+      expect(repo.chamadas, 2, reason: 'Enter com resultado na tela busca de novo');
+      expect(comFoco(), isTrue,
+          reason: 'quem repete a busca pelo teclado não pode precisar clicar no campo');
+
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pump();
+      await tester.pump();
+      expect(repo.chamadas, 3, reason: 'o segundo Enter também chega ao campo');
+      expect(find.text('Dark'), findsOneWidget);
+      expect(tester.widget<TextField>(campo).controller!.text, 'dark');
+    });
+
     testWidgets('sem resultado diz o que foi buscado', (tester) async {
       await _buscar(tester, const Result<List<TmdbItem>>.ok(<TmdbItem>[]), 'xyzxyz');
 
