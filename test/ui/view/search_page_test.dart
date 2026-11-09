@@ -187,6 +187,34 @@ void main() {
       expect(tester.widget<TextField>(campo).controller!.text, 'dark');
     });
 
+    testWidgets('Enter fecha a composição do teclado, mesmo mantendo o foco', (tester) async {
+      await _buscar(
+        tester,
+        const Result<List<TmdbItem>>.ok(<TmdbItem>[
+          TmdbItem(id: 1, tipo: TipoMidia.tv, titulo: 'Dark', ano: '2017'),
+        ]),
+        'dark',
+      );
+      final TextEditingController controller =
+          tester.widget<TextField>(find.byKey(const Key('campo-busca'))).controller!;
+      // An IME (Gboard, CJK) keeps the last word "in composition" until the
+      // action key; the default handler closes it together with the unfocus.
+      controller.value = const TextEditingValue(
+        text: 'dark',
+        selection: TextSelection.collapsed(offset: 4),
+        composing: TextRange(start: 0, end: 4),
+      );
+      await tester.pump();
+      expect(controller.value.composing.isValid, isTrue);
+
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pump();
+
+      expect(controller.value.composing.isValid, isFalse,
+          reason: 'Buscar fecha a composição, senão o trecho fica aberto no teclado');
+      expect(controller.text, 'dark');
+    });
+
     testWidgets('sem resultado diz o que foi buscado', (tester) async {
       await _buscar(tester, const Result<List<TmdbItem>>.ok(<TmdbItem>[]), 'xyzxyz');
 

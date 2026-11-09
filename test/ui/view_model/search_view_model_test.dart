@@ -249,7 +249,7 @@ void main() {
       expect(vm.erro, const BuscaInvalidaError().mensagem);
     });
 
-    test('Enter depois de cancelar a busca em voo pergunta de novo', () async {
+    test('depois de cancelar(), nada conta como pendente: Enter pergunta de novo', () async {
       vm.setConsulta('pokemon');
       await _esperar();
       expect(repo.consultas, <String>['pokemon']);

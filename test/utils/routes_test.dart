@@ -1,10 +1,12 @@
+import 'dart:async';
+
 import 'package:appseries/app.dart';
 import 'package:appseries/data/api_models/acervo_item.dart';
 import 'package:appseries/data/api_models/carta_rec.dart';
 import 'package:appseries/data/api_models/feedback_item.dart';
-import 'package:appseries/data/api_models/user.dart';
 import 'package:appseries/data/api_models/titulo_detalhe.dart';
 import 'package:appseries/data/api_models/tmdb_item.dart';
+import 'package:appseries/data/api_models/user.dart';
 import 'package:appseries/data/repositories/acervo_repository.dart';
 import 'package:appseries/data/repositories/auth_repository.dart';
 import 'package:appseries/data/repositories/feedback_repository.dart';
@@ -12,14 +14,16 @@ import 'package:appseries/data/repositories/rec_repository.dart';
 import 'package:appseries/data/repositories/titulo_repository.dart';
 import 'package:appseries/ui/navegacao/titulo_ref.dart';
 import 'package:appseries/ui/view/acervo_tabs_page.dart';
-
 import 'package:appseries/ui/view/historico_page.dart';
-import 'package:appseries/ui/view/search_page.dart';
-import 'package:appseries/ui/view/title_detail_page.dart';
+import 'package:appseries/ui/view/home_page.dart';
+import 'package:appseries/ui/view/login_page.dart';
 import 'package:appseries/ui/view/preferences_page.dart';
 import 'package:appseries/ui/view/rec_page.dart';
+import 'package:appseries/ui/view/search_page.dart';
+import 'package:appseries/ui/view/title_detail_page.dart';
 import 'package:appseries/ui/view_model/acervo_view_model.dart';
 import 'package:appseries/ui/view_model/auth_view_model.dart';
+import 'package:appseries/ui/view_model/home_view_model.dart';
 import 'package:appseries/ui/view_model/login_view_model.dart';
 import 'package:appseries/ui/view_model/rec_view_model.dart';
 import 'package:appseries/ui/view_model/search_view_model.dart';
@@ -27,11 +31,6 @@ import 'package:appseries/ui/view_model/title_detail_view_model.dart';
 import 'package:appseries/utils/app_error.dart';
 import 'package:appseries/utils/result.dart';
 import 'package:appseries/utils/routes_config.dart';
-import 'dart:async';
-
-import 'package:appseries/ui/view/home_page.dart';
-import 'package:appseries/ui/view/login_page.dart';
-import 'package:appseries/ui/view_model/home_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';

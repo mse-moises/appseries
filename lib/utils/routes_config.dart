@@ -107,6 +107,11 @@ class Routes {
   /// Always starts with the `AuthGate`, so going back lands on the home (or the
   /// login), even for a screen a tap would reach from another one, like the
   /// history from the shelf. The screen on top goes through [gerar].
+  ///
+  /// The root underneath also does the loading: only the `HomePage` calls
+  /// `AcervoViewModel.load()`, so a detail opened by F5 gets its shelf button
+  /// out of "waiting" because the `AuthGate` below mounts the home offstage.
+  /// Dropping the root here would leave that button waiting forever.
   static List<Route<dynamic>> iniciais(String inicial) {
     final Route<void>? tela = inicial == '/' ? null : gerar(RouteSettings(name: inicial));
     return <Route<dynamic>>[_raiz(), if (tela != null) tela];
