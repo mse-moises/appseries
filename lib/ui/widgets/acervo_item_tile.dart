@@ -42,11 +42,7 @@ class AcervoItemTile extends StatelessWidget {
 
     return InkWell(
       onTap: abre
-          ? () => Navigator.pushNamed(
-                context,
-                Routes.detalhe,
-                arguments: TituloRef(tipo: tipo!, id: item.tmdbId),
-              )
+          ? () => Routes.abrirDetalhe(context, TituloRef(tipo: tipo!, id: item.tmdbId))
           : null,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

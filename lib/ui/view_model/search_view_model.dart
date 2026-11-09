@@ -108,14 +108,27 @@ class SearchViewModel extends ChangeNotifier {
     _timer = Timer(espera, () => _buscar(termo, geracao));
   }
 
-  /// Enter / "Buscar" on the keyboard: asks now instead of waiting for the
-  /// pause. Only skips the wait — a query already answered or already on its
-  /// way is not asked again.
+  /// Enter / "Buscar" on the keyboard. Enter always means "search":
+  ///
+  /// - waiting for the pause: asks now instead;
+  /// - request already on its way: nothing, so the same query is not sent twice;
+  /// - answer or error already on screen: asks again, like [tentarDeNovo],
+  ///   except a [BuscaInvalidaError], which would fail the same way;
+  /// - query too short or too long: nothing leaves the app ([tentarDeNovo]
+  ///   checks the length).
   void buscarAgora() {
     final Timer? timer = _timer;
-    if (timer == null || !timer.isActive) return;
-    timer.cancel();
-    _buscar(_consulta.trim(), _geracao);
+    if (timer != null && timer.isActive) {
+      timer.cancel();
+      _buscar(_consulta.trim(), _geracao);
+      return;
+    }
+    // A term waiting for its answer with no timer: the request is on its way.
+    // (`cancelar()` clears it, so nothing in flight never looks pending.)
+    if (_termoPendente != null) return;
+    // Asking again fails the same way, which is why the retry button hides.
+    if (_erro is BuscaInvalidaError) return;
+    unawaited(tentarDeNovo());
   }
 
   void setFiltro(TipoFiltro filtro) {

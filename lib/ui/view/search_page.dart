@@ -70,6 +70,12 @@ class _SearchPageState extends State<SearchPage> {
             autofocus: true,
             onChanged: busca.setConsulta,
             onSubmitted: (_) => busca.buscarAgora(),
+            // With `TextInputAction.search` the framework's default handler
+            // closes the IME composition and drops the focus after Enter.
+            // Giving `onEditingComplete` replaces that handler (`onSubmitted`
+            // still runs after it): keep the first half, skip the unfocus, or
+            // the second Enter never reaches the field.
+            onEditingComplete: _texto.clearComposing,
             textInputAction: TextInputAction.search,
             cursorColor: AppTheme.destaque,
             decoration: InputDecoration(
@@ -165,11 +171,7 @@ class _ResultadoTile extends StatelessWidget {
 
     return InkWell(
       borderRadius: BorderRadius.circular(8),
-      onTap: () => Navigator.pushNamed(
-        context,
-        Routes.detalhe,
-        arguments: TituloRef(tipo: item.tipo, id: item.id),
-      ),
+      onTap: () => Routes.abrirDetalhe(context, TituloRef(tipo: item.tipo, id: item.id)),
       child: Row(
         children: <Widget>[
           ClipRRect(

@@ -5,7 +5,6 @@ import 'package:appseries/data/repositories/acervo_repository.dart';
 import 'package:appseries/data/repositories/titulo_repository.dart';
 import 'package:appseries/ui/navegacao/titulo_ref.dart';
 import 'package:appseries/ui/view_model/acervo_view_model.dart';
-import 'package:appseries/utils/routes_config.dart';
 import 'package:appseries/ui/view/search_page.dart';
 import 'package:appseries/ui/view_model/search_view_model.dart';
 import 'package:appseries/utils/app_error.dart';
@@ -149,6 +148,73 @@ void main() {
       expect(find.text('Pokémon'), findsOneWidget);
     });
 
+    testWidgets('Enter busca de novo e o campo continua com o foco', (tester) async {
+      final _FakeBusca repo = _FakeBusca(
+        const Result<List<TmdbItem>>.ok(<TmdbItem>[
+          TmdbItem(id: 1, tipo: TipoMidia.tv, titulo: 'Dark', ano: '2017'),
+        ]),
+      );
+      await tester.pumpWidget(
+        _comProviders(
+          SearchViewModel(repo, espera: Duration.zero),
+          const MaterialApp(home: SearchPage()),
+        ),
+      );
+      await tester.enterText(find.byKey(const Key('campo-busca')), 'dark');
+      await tester.pump();
+      await tester.pump();
+      expect(repo.chamadas, 1);
+      expect(find.text('Dark'), findsOneWidget);
+
+      final Finder campo = find.byKey(const Key('campo-busca'));
+      bool comFoco() => tester.widget<EditableText>(
+            find.descendant(of: campo, matching: find.byType(EditableText)),
+          ).focusNode.hasFocus;
+      expect(comFoco(), isTrue, reason: 'o campo abre com o foco (autofocus)');
+
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pump();
+      await tester.pump();
+      expect(repo.chamadas, 2, reason: 'Enter com resultado na tela busca de novo');
+      expect(comFoco(), isTrue,
+          reason: 'quem repete a busca pelo teclado não pode precisar clicar no campo');
+
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pump();
+      await tester.pump();
+      expect(repo.chamadas, 3, reason: 'o segundo Enter também chega ao campo');
+      expect(find.text('Dark'), findsOneWidget);
+      expect(tester.widget<TextField>(campo).controller!.text, 'dark');
+    });
+
+    testWidgets('Enter fecha a composição do teclado, mesmo mantendo o foco', (tester) async {
+      await _buscar(
+        tester,
+        const Result<List<TmdbItem>>.ok(<TmdbItem>[
+          TmdbItem(id: 1, tipo: TipoMidia.tv, titulo: 'Dark', ano: '2017'),
+        ]),
+        'dark',
+      );
+      final TextEditingController controller =
+          tester.widget<TextField>(find.byKey(const Key('campo-busca'))).controller!;
+      // An IME (Gboard, CJK) keeps the last word "in composition" until the
+      // action key; the default handler closes it together with the unfocus.
+      controller.value = const TextEditingValue(
+        text: 'dark',
+        selection: TextSelection.collapsed(offset: 4),
+        composing: TextRange(start: 0, end: 4),
+      );
+      await tester.pump();
+      expect(controller.value.composing.isValid, isTrue);
+
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pump();
+
+      expect(controller.value.composing.isValid, isFalse,
+          reason: 'Buscar fecha a composição, senão o trecho fica aberto no teclado');
+      expect(controller.text, 'dark');
+    });
+
     testWidgets('sem resultado diz o que foi buscado', (tester) async {
       await _buscar(tester, const Result<List<TmdbItem>>.ok(<TmdbItem>[]), 'xyzxyz');
 
@@ -251,7 +317,8 @@ void main() {
       await tester.tap(find.text('Game of Thrones'));
       await tester.pumpAndSettle();
 
-      expect(aberta?.name, Routes.detalhe);
+      expect(aberta?.name, '/detalhe?tipo=tv&id=1399',
+          reason: 'o par vai na barra de endereço, senão o F5 perde o título');
       final TituloRef ref = aberta!.arguments! as TituloRef;
       expect((ref.tipo, ref.id), (TipoMidia.tv, 1399));
     });

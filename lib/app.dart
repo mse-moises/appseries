@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 
 import 'ui/theme/app_theme.dart';
-import 'ui/view/auth_gate.dart';
 import 'utils/routes_config.dart';
 
 /// Root widget: theme, named routes and the `AuthGate` deciding the screen.
 ///
-/// The gate is the `home`, so which screen appears (login or home) comes from
-/// the session state, never from a navigation call.
+/// Every route goes through [Routes.gerar] (no `routes:` map here), so a tap,
+/// a pasted link and an F5 all get the same session wait and the same pair.
+///
+/// The gate is the first route (`/`), built by [Routes.iniciais] and
+/// [Routes.gerar] instead of `home:` (Flutter refuses `home` together with
+/// `onGenerateInitialRoutes`). Which screen appears (login or home) still comes
+/// from the session state, never from a navigation call.
 class App extends StatelessWidget {
   const App({super.key});
 
@@ -19,8 +23,8 @@ class App extends StatelessWidget {
       theme: temas.light,
       darkTheme: temas.dark,
       themeMode: temas.mode,
-      home: const AuthGate(),
-      routes: Routes.mapa,
+      onGenerateRoute: Routes.gerar,
+      onGenerateInitialRoutes: Routes.iniciais,
       debugShowCheckedModeBanner: false,
     );
   }
