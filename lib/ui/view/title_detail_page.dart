@@ -12,6 +12,7 @@ import '../theme/app_theme.dart';
 import '../view_model/acervo_view_model.dart';
 import '../view_model/title_detail_view_model.dart';
 import '../widgets/acervo_action_button.dart';
+import '../widgets/aviso_de_falha.dart';
 import '../widgets/status_view.dart';
 
 /// The sheet of a title (AP-46 / AP-47 / AP-48): poster, title, year, rating,
@@ -292,14 +293,18 @@ class _BotaoSinal extends StatelessWidget {
       selectedColor: AppTheme.destaque,
       labelStyle: TextStyle(color: escolhido ? Colors.white : null),
       tooltip: escolhido ? 'Tocar de novo desfaz' : null,
-      onSelected: (_) async {
-        final AppError? erro = await vm.darSinal(sinal, estado: estado);
-        // Gone from the tree (left the page or signed out): nothing to warn.
-        if (erro == null || !context.mounted) return;
-        ScaffoldMessenger.maybeOf(context)
-          ?..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text('Não salvou seu gosto. ${erro.mensagem}')));
-      },
+      onSelected: (_) => _darSinal(ScaffoldMessenger.maybeOf(context), vm),
+    );
+  }
+
+  Future<void> _darSinal(ScaffoldMessengerState? aviso, TitleDetailViewModel vm) async {
+    final AppError? erro = await vm.darSinal(sinal, estado: estado);
+    if (erro == null || aviso == null) return;
+    avisarFalha(
+      aviso,
+      prefixo: 'Não salvou seu gosto.',
+      erro: erro,
+      tentarDeNovo: () => _darSinal(aviso, vm),
     );
   }
 }

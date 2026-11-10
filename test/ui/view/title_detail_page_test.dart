@@ -61,6 +61,7 @@ class _FakeAcervo implements AcervoRepository {
 
 class _FakeFeedback implements FeedbackRepository {
   final List<String> gravados = <String>[];
+  final List<Result<FeedbackItem>> falhas = <Result<FeedbackItem>>[];
 
   @override
   Future<Result<List<FeedbackItem>>> listar() async =>
@@ -75,6 +76,7 @@ class _FakeFeedback implements FeedbackRepository {
     OrigemFeedback origem = OrigemFeedback.fechamento,
   }) async {
     gravados.add('${sinal.name} ${origem.name}');
+    if (falhas.isNotEmpty) return falhas.removeAt(0);
     return Result<FeedbackItem>.ok(FeedbackItem(tmdbId: tmdbId, sinal: sinal, tipo: tipo));
   }
 
@@ -351,6 +353,35 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(feedback.gravados, <String>['dislike abandono']);
+    });
+
+    testWidgets('sem rede no 👍: avisa com tentar de novo, e o retry grava (AP-78)',
+        (tester) async {
+      final _FakeFeedback feedback = await _abrir(
+        tester,
+        const <Result<TituloDetalhe>>[Result<TituloDetalhe>.ok(_ficha)],
+        acervo: const <AcervoItem>[
+          AcervoItem(tmdbId: 1399, estado: EstadoAcervo.watched, tipo: TipoMidia.tv),
+        ],
+      );
+      feedback.falhas.add(const Result<FeedbackItem>.error(NetworkError()));
+
+      await tester.tap(find.text('👍 Curti'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Não salvou seu gosto'), findsOneWidget,
+          reason: 'os chips saem da árvore enquanto grava, e o aviso ainda tem de aparecer');
+      expect(find.text('Tentar de novo'), findsOneWidget);
+
+      await tester.tap(find.text('Tentar de novo'));
+      await tester.pumpAndSettle();
+
+      expect(feedback.gravados, <String>['like fechamento', 'like fechamento']);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(
+        tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '👍 Curti')).selected,
+        isTrue,
+      );
     });
 
     testWidgets('catálogo fora do ar: frase clara e o retry funciona (AP-79)', (tester) async {

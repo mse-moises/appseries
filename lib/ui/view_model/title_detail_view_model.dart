@@ -153,7 +153,7 @@ class TitleDetailViewModel extends ChangeNotifier {
       erro = const ServerError();
     }
 
-    if (geracao != _geracao) return erro;
+    if (geracao != _geracao) return null;
     _enviandoSinal = false;
     // On failure `novo` is still the previous signal: the screen keeps it.
     _sinal = novo;
