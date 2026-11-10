@@ -395,5 +395,63 @@ void main() {
 
       expect(find.text('Remover do acervo'), findsNothing);
     });
+
+    testWidgets('sem rede, o aviso oferece tentar de novo e repete a mesma gravação (AP-78)',
+        (tester) async {
+      final (_FakeAcervo repo, AcervoViewModel vm) = await montarLigado(tester);
+
+      await tester.tap(find.text('Quero ver'));
+      await tester.pump();
+      repo.marcacoes.single.complete(const Result<AcervoItem>.error(NetworkError()));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.text('Tentar de novo'), findsOneWidget);
+
+      await tester.tap(find.text('Tentar de novo'));
+      await tester.pump();
+      expect(repo.marcacoes, hasLength(2));
+
+      repo.marcacoes[1].complete(const Result<AcervoItem>.ok(
+        AcervoItem(tmdbId: 1399, estado: EstadoAcervo.planToWatch, tipo: TipoMidia.tv),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(vm.estadoDe(TipoMidia.tv, 1399), EstadoAcervo.planToWatch);
+      expect(find.byType(SnackBar), findsNothing);
+    });
+
+    testWidgets('sem rede de novo depois do retry: um aviso só, não empilha (AP-78)',
+        (tester) async {
+      final (_FakeAcervo repo, _) = await montarLigado(tester);
+
+      await tester.tap(find.text('Quero ver'));
+      await tester.pump();
+      repo.marcacoes.single.complete(const Result<AcervoItem>.error(NetworkError()));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Tentar de novo'));
+      await tester.pump();
+      repo.marcacoes[1].complete(const Result<AcervoItem>.error(NetworkError()));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.text('Tentar de novo'), findsOneWidget);
+      expect(find.byIcon(Icons.bookmark_add_outlined), findsOneWidget,
+          reason: 'a tela continua utilizável');
+    });
+
+    testWidgets('falha que repetir não resolve não oferece tentar de novo (AP-78)',
+        (tester) async {
+      final (_FakeAcervo repo, _) = await montarLigado(tester);
+
+      await tester.tap(find.text('Quero ver'));
+      await tester.pump();
+      repo.marcacoes.single.complete(const Result<AcervoItem>.error(ServerError()));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Não salvou no acervo'), findsOneWidget);
+      expect(find.text('Tentar de novo'), findsNothing);
+    });
   });
 }
