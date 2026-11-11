@@ -40,6 +40,14 @@ class TitleDetailViewModel extends ChangeNotifier {
   SinalGosto? get sinal => _sinal;
   bool get enviandoSinal => _enviandoSinal;
 
+  /// Whether the sheet the ViewModel holds right now is `(tipo, id)`.
+  ///
+  /// The warning of a failed save lives on the root `ScaffoldMessenger`, so it
+  /// outlives the page: a "tentar de novo" can arrive with another title open.
+  /// [darSinal] writes on the title held here, and this is what the page asks
+  /// before repeating a save, so a retry never lands on the wrong title.
+  bool ehDoTitulo(TipoMidia tipo, int id) => _ref?.tipo == tipo && _ref?.id == id;
+
   /// Only a failure that asking again can fix gets a retry: a title without a
   /// valid pair would fail the same way.
   bool get podeTentarDeNovo => _erro != null && _erro is! TituloIndisponivelError;
