@@ -16,7 +16,7 @@ import '../widgets/aviso_de_falha.dart';
 import '../widgets/status_view.dart';
 
 /// The sheet of a title (AP-46 / AP-47 / AP-48): poster, title, year, rating,
-/// genres, synopsis, the shelf controls and 👍/👎.
+/// genres, synopsis, the shelf controls and like/dislike.
 ///
 /// Reads the [TituloRef] from the route arguments: whoever opens it sends the
 /// pair `(tipo, id)`, because the TMDB numbers movies and series separately.
@@ -235,7 +235,7 @@ class _AssistidoEm extends StatelessWidget {
   }
 }
 
-/// 👍/👎, shown once she closed the title ("Assistido" or "Abandonei") or
+/// like/dislike, shown once she closed the title ("Assistido" or "Abandonei") or
 /// already gave a signal (AP-48).
 class _Gosto extends StatelessWidget {
   const _Gosto({required this.tipo, required this.id});
@@ -265,8 +265,18 @@ class _Gosto extends StatelessWidget {
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           else ...<Widget>[
-            _BotaoSinal(sinal: SinalGosto.like, rotulo: '👍 Curti', estado: estado),
-            _BotaoSinal(sinal: SinalGosto.dislike, rotulo: '👎 Não curti', estado: estado),
+            _BotaoSinal(
+              sinal: SinalGosto.like,
+              rotulo: 'Curti',
+              icone: Icons.thumb_up_outlined,
+              estado: estado,
+            ),
+            _BotaoSinal(
+              sinal: SinalGosto.dislike,
+              rotulo: 'Não curti',
+              icone: Icons.thumb_down_outlined,
+              estado: estado,
+            ),
           ],
         ],
       ),
@@ -275,10 +285,16 @@ class _Gosto extends StatelessWidget {
 }
 
 class _BotaoSinal extends StatelessWidget {
-  const _BotaoSinal({required this.sinal, required this.rotulo, required this.estado});
+  const _BotaoSinal({
+    required this.sinal,
+    required this.rotulo,
+    required this.icone,
+    required this.estado,
+  });
 
   final SinalGosto sinal;
   final String rotulo;
+  final IconData icone;
   final EstadoAcervo? estado;
 
   @override
@@ -287,6 +303,7 @@ class _BotaoSinal extends StatelessWidget {
     final bool escolhido = vm.sinal == sinal;
 
     return ChoiceChip(
+      avatar: Icon(icone, size: 18, color: escolhido ? Colors.white : null),
       label: Text(rotulo),
       selected: escolhido,
       showCheckmark: false,

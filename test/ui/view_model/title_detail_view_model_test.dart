@@ -255,8 +255,8 @@ void main() {
     });
   });
 
-  group('TitleDetailViewModel — 👍/👎 (AP-48)', () {
-    test('👍 depois de assistido grava like, peso 2, origem fechamento', () async {
+  group('TitleDetailViewModel — curti/não curti (AP-48)', () {
+    test('curti depois de assistido grava like, peso 2, origem fechamento', () async {
       final (TitleDetailViewModel vm, _, _FakeFeedback fb) = await _aberto();
 
       final AppError? erro = await vm.darSinal(SinalGosto.like, estado: EstadoAcervo.watched);
@@ -275,7 +275,7 @@ void main() {
       expect(vm.sinal, SinalGosto.dislike);
     });
 
-    test('👍 depois de abandonar continua com origem fechamento (só o "não curti" é abandono)',
+    test('curti depois de abandonar continua com origem fechamento (só o "não curti" é abandono)',
         () async {
       final (TitleDetailViewModel vm, _, _FakeFeedback fb) = await _aberto();
 
@@ -284,7 +284,7 @@ void main() {
       expect(fb.gravados, <String>['tv:1399 like peso 2 fechamento']);
     });
 
-    test('o 👍 de um título não aparece no título aberto depois', () async {
+    test('o curti de um título não aparece no título aberto depois', () async {
       final _FakeTitulos titulos = _FakeTitulos();
       final _FakeFeedback fb = _FakeFeedback()..marcarPendente = Completer<Result<FeedbackItem>>();
       final TitleDetailViewModel vm = TitleDetailViewModel(titulos, fb);

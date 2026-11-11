@@ -299,31 +299,31 @@ void main() {
       expect(find.text('Ler mais'), findsNothing);
     });
 
-    testWidgets('👍/👎 só aparece depois de assistido ou abandonado', (tester) async {
+    testWidgets('curti/não curti só aparece depois de assistido ou abandonado', (tester) async {
       await _abrir(tester, const <Result<TituloDetalhe>>[Result<TituloDetalhe>.ok(_ficha)]);
-      expect(find.text('👍 Curti'), findsNothing);
+      expect(find.text('Curti'), findsNothing);
 
       await tester.tap(find.byTooltip('Outros estados'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Assistido').last);
       await tester.pumpAndSettle();
 
-      expect(find.text('👍 Curti'), findsOneWidget);
-      expect(find.text('👎 Não curti'), findsOneWidget);
+      expect(find.text('Curti'), findsOneWidget);
+      expect(find.text('Não curti'), findsOneWidget);
     });
 
     for (final EstadoAcervo estado in const <EstadoAcervo>[
       EstadoAcervo.planToWatch,
       EstadoAcervo.watching,
     ]) {
-      testWidgets('em "${estado.name}" ainda não há 👍/👎', (tester) async {
+      testWidgets('em "${estado.name}" ainda não há curti/não curti', (tester) async {
         await _abrir(
           tester,
           const <Result<TituloDetalhe>>[Result<TituloDetalhe>.ok(_ficha)],
           acervo: <AcervoItem>[AcervoItem(tmdbId: 1399, estado: estado, tipo: TipoMidia.tv)],
         );
 
-        expect(find.text('👍 Curti'), findsNothing);
+        expect(find.text('Curti'), findsNothing);
       });
     }
 
@@ -349,13 +349,13 @@ void main() {
         ],
       );
 
-      await tester.tap(find.text('👎 Não curti'));
+      await tester.tap(find.text('Não curti'));
       await tester.pumpAndSettle();
 
       expect(feedback.gravados, <String>['dislike abandono']);
     });
 
-    testWidgets('sem rede no 👍: avisa com tentar de novo, e o retry grava (AP-78)',
+    testWidgets('sem rede no Curti: avisa com tentar de novo, e o retry grava (AP-78)',
         (tester) async {
       final _FakeFeedback feedback = await _abrir(
         tester,
@@ -366,7 +366,7 @@ void main() {
       );
       feedback.falhas.add(const Result<FeedbackItem>.error(NetworkError()));
 
-      await tester.tap(find.text('👍 Curti'));
+      await tester.tap(find.text('Curti'));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('Não salvou seu gosto'), findsOneWidget,
@@ -379,7 +379,7 @@ void main() {
       expect(feedback.gravados, <String>['like fechamento', 'like fechamento']);
       expect(find.byType(SnackBar), findsNothing);
       expect(
-        tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '👍 Curti')).selected,
+        tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Curti')).selected,
         isTrue,
       );
     });
