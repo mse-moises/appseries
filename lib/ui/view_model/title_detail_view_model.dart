@@ -9,7 +9,7 @@ import '../../utils/app_error.dart';
 import '../../utils/result.dart';
 import '../navegacao/titulo_ref.dart';
 
-/// State of the detail page (AP-47 / AP-48): the title's sheet and her 👍/👎.
+/// State of the detail page (AP-47 / AP-48): the title's sheet and her like/dislike.
 ///
 /// The shelf state is **not** here: it lives in `AcervoViewModel`, shared with
 /// the home and the search, so a mark made on the detail shows everywhere. The
@@ -28,7 +28,7 @@ class TitleDetailViewModel extends ChangeNotifier {
   SinalGosto? _sinal;
   bool _enviandoSinal = false;
 
-  /// She already tapped 👍/👎 on this visit: the signal read at the opening,
+  /// She already tapped like/dislike on this visit: the signal read at the opening,
   /// if it arrives later, is older than her tap and must not overwrite it.
   bool _sinalTocado = false;
 
@@ -36,9 +36,17 @@ class TitleDetailViewModel extends ChangeNotifier {
   String? get erro => _erro?.mensagem;
   TituloDetalhe? get detalhe => _detalhe;
 
-  /// Her current 👍/👎 on this title, or `null`.
+  /// Her current like/dislike on this title, or `null`.
   SinalGosto? get sinal => _sinal;
   bool get enviandoSinal => _enviandoSinal;
+
+  /// Whether the sheet the ViewModel holds right now is `(tipo, id)`.
+  ///
+  /// The warning of a failed save lives on the root `ScaffoldMessenger`, so it
+  /// outlives the page: a "tentar de novo" can arrive with another title open.
+  /// [darSinal] writes on the title held here, and this is what the page asks
+  /// before repeating a save, so a retry never lands on the wrong title.
+  bool ehDoTitulo(TipoMidia tipo, int id) => _ref?.tipo == tipo && _ref?.id == id;
 
   /// Only a failure that asking again can fix gets a retry: a title without a
   /// valid pair would fail the same way.
@@ -106,12 +114,12 @@ class TitleDetailViewModel extends ChangeNotifier {
 
   Future<void> tentarDeNovo() => load(_ref);
 
-  /// 👍 or 👎 (AP-48). Tapping the signal she already gave takes it back.
+  /// Like or dislike (AP-48). Tapping the signal she already gave takes it back.
   ///
   /// The origin follows the card: "não curti" on an abandoned title is
-  /// `abandono` — a strong 👎 that vetoes it from the recommendations — and
-  /// every other signal is `fechamento`. Weight is always 2 here (👍 is always
-  /// 2, and the weak 👎 "sem tempo" is not offered on this page).
+  /// `abandono` — a strong dislike that vetoes it from the recommendations — and
+  /// every other signal is `fechamento`. Weight is always 2 here (like is always
+  /// 2, and the weak dislike "sem tempo" is not offered on this page).
   ///
   /// Answers the failure (or `null`) for the page to say it did not save; the
   /// signal on screen only changes when the server confirms.
@@ -153,7 +161,7 @@ class TitleDetailViewModel extends ChangeNotifier {
       erro = const ServerError();
     }
 
-    if (geracao != _geracao) return erro;
+    if (geracao != _geracao) return null;
     _enviandoSinal = false;
     // On failure `novo` is still the previous signal: the screen keeps it.
     _sinal = novo;

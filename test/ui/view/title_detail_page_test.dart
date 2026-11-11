@@ -62,6 +62,11 @@ class _FakeAcervo implements AcervoRepository {
 class _FakeFeedback implements FeedbackRepository {
   final List<String> gravados = <String>[];
 
+  /// The `tmdbId` of every attempt, in order: a retry must land on the title
+  /// the warning was made for.
+  final List<int> alvos = <int>[];
+  final List<Result<FeedbackItem>> falhas = <Result<FeedbackItem>>[];
+
   @override
   Future<Result<List<FeedbackItem>>> listar() async =>
       const Result<List<FeedbackItem>>.ok(<FeedbackItem>[]);
@@ -75,6 +80,8 @@ class _FakeFeedback implements FeedbackRepository {
     OrigemFeedback origem = OrigemFeedback.fechamento,
   }) async {
     gravados.add('${sinal.name} ${origem.name}');
+    alvos.add(tmdbId);
+    if (falhas.isNotEmpty) return falhas.removeAt(0);
     return Result<FeedbackItem>.ok(FeedbackItem(tmdbId: tmdbId, sinal: sinal, tipo: tipo));
   }
 
@@ -91,6 +98,75 @@ const TituloDetalhe _ficha = TituloDetalhe(
   nota: 8.4,
   generos: <String>['Drama', 'Fantasia'],
 );
+
+/// A second title, for the tests that leave one page and open another.
+const TituloDetalhe _outraFicha = TituloDetalhe(
+  id: 60625,
+  tipo: TipoMidia.tv,
+  titulo: 'Rick and Morty',
+  ano: '2013',
+  generos: <String>['Animação'],
+);
+
+/// Opens the app on a home with two closed titles, so a test can leave a
+/// detail page and open another: the failure warning lives on the root
+/// `ScaffoldMessenger` and survives that navigation (AP-78).
+Future<_FakeFeedback> _abrirPelaHome(WidgetTester tester) async {
+  final _FakeFeedback feedback = _FakeFeedback();
+  final AcervoViewModel acervoVm = AcervoViewModel(_FakeAcervo(const <AcervoItem>[
+    AcervoItem(tmdbId: 1399, estado: EstadoAcervo.watched, tipo: TipoMidia.tv),
+    AcervoItem(tmdbId: 60625, estado: EstadoAcervo.watched, tipo: TipoMidia.tv),
+  ]));
+  await acervoVm.load();
+  tester.view.physicalSize = const Size(1200, 2000);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+
+  await tester.pumpWidget(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AcervoViewModel>.value(value: acervoVm),
+        ChangeNotifierProvider<TitleDetailViewModel>(
+          create: (_) => TitleDetailViewModel(
+            // Ordered answers: the first open is 1399, the second is 60625.
+            _FakeTitulos(const <Result<TituloDetalhe>>[
+              Result<TituloDetalhe>.ok(_ficha),
+              Result<TituloDetalhe>.ok(_outraFicha),
+            ]),
+            feedback,
+          ),
+        ),
+      ],
+      child: MaterialApp(
+        home: Builder(
+          builder: (BuildContext context) => Scaffold(
+            body: Column(
+              children: <Widget>[
+                TextButton(
+                  onPressed: () => _abrirDetalhe(context, 1399),
+                  child: const Text('abrir 1'),
+                ),
+                TextButton(
+                  onPressed: () => _abrirDetalhe(context, 60625),
+                  child: const Text('abrir 2'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return feedback;
+}
+
+void _abrirDetalhe(BuildContext context, int id) => Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        settings: RouteSettings(arguments: TituloRef(tipo: TipoMidia.tv, id: id)),
+        builder: (_) => const TitleDetailPage(),
+      ),
+    );
 
 /// Abre o detalhe pela rota, como o app faz, com os ViewModels na raiz.
 Future<_FakeFeedback> _abrir(
@@ -297,31 +373,31 @@ void main() {
       expect(find.text('Ler mais'), findsNothing);
     });
 
-    testWidgets('👍/👎 só aparece depois de assistido ou abandonado', (tester) async {
+    testWidgets('curti/não curti só aparece depois de assistido ou abandonado', (tester) async {
       await _abrir(tester, const <Result<TituloDetalhe>>[Result<TituloDetalhe>.ok(_ficha)]);
-      expect(find.text('👍 Curti'), findsNothing);
+      expect(find.text('Curti'), findsNothing);
 
       await tester.tap(find.byTooltip('Outros estados'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Assistido').last);
       await tester.pumpAndSettle();
 
-      expect(find.text('👍 Curti'), findsOneWidget);
-      expect(find.text('👎 Não curti'), findsOneWidget);
+      expect(find.text('Curti'), findsOneWidget);
+      expect(find.text('Não curti'), findsOneWidget);
     });
 
     for (final EstadoAcervo estado in const <EstadoAcervo>[
       EstadoAcervo.planToWatch,
       EstadoAcervo.watching,
     ]) {
-      testWidgets('em "${estado.name}" ainda não há 👍/👎', (tester) async {
+      testWidgets('em "${estado.name}" ainda não há curti/não curti', (tester) async {
         await _abrir(
           tester,
           const <Result<TituloDetalhe>>[Result<TituloDetalhe>.ok(_ficha)],
           acervo: <AcervoItem>[AcervoItem(tmdbId: 1399, estado: estado, tipo: TipoMidia.tv)],
         );
 
-        expect(find.text('👍 Curti'), findsNothing);
+        expect(find.text('Curti'), findsNothing);
       });
     }
 
@@ -347,10 +423,100 @@ void main() {
         ],
       );
 
-      await tester.tap(find.text('👎 Não curti'));
+      await tester.tap(find.text('Não curti'));
       await tester.pumpAndSettle();
 
       expect(feedback.gravados, <String>['dislike abandono']);
+    });
+
+    testWidgets('sem rede no Curti: avisa com tentar de novo, e o retry grava (AP-78)',
+        (tester) async {
+      final _FakeFeedback feedback = await _abrir(
+        tester,
+        const <Result<TituloDetalhe>>[Result<TituloDetalhe>.ok(_ficha)],
+        acervo: const <AcervoItem>[
+          AcervoItem(tmdbId: 1399, estado: EstadoAcervo.watched, tipo: TipoMidia.tv),
+        ],
+      );
+      feedback.falhas.add(const Result<FeedbackItem>.error(NetworkError()));
+
+      await tester.tap(find.text('Curti'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Não salvou seu gosto'), findsOneWidget,
+          reason: 'os chips saem da árvore enquanto grava, e o aviso ainda tem de aparecer');
+      expect(find.text('Tentar de novo'), findsOneWidget);
+
+      await tester.tap(find.text('Tentar de novo'));
+      await tester.pumpAndSettle();
+
+      expect(feedback.gravados, <String>['like fechamento', 'like fechamento']);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(
+        tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Curti')).selected,
+        isTrue,
+      );
+    });
+
+    testWidgets('o retry de um aviso velho não grava no título aberto depois (AP-78)',
+        (tester) async {
+      final _FakeFeedback feedback = await _abrirPelaHome(tester);
+
+      // Título A (1399), sem rede no "Curti".
+      await tester.tap(find.text('abrir 1'));
+      await tester.pumpAndSettle();
+      feedback.falhas.add(const Result<FeedbackItem>.error(NetworkError()));
+      await tester.tap(find.text('Curti'));
+      await tester.pumpAndSettle();
+      expect(find.text('Tentar de novo'), findsOneWidget);
+
+      // Volta para a home: o aviso vive na raiz e continua na tela.
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.text('Tentar de novo'), findsOneWidget);
+
+      // Abre o título B (60625) e toca no retry do aviso velho.
+      await tester.tap(find.text('abrir 2'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Tentar de novo'));
+      await tester.pumpAndSettle();
+
+      expect(feedback.gravados, <String>['like fechamento'],
+          reason: 'o aviso é do título A: repetir não pode gravar no B');
+      expect(feedback.alvos, <int>[1399],
+          reason: 'a única tentativa é a do título A');
+      expect(
+        tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Curti')).selected,
+        isFalse,
+        reason: 'o chip do título aberto não pode mostrar o sinal de outro',
+      );
+    });
+
+    testWidgets('retry depois de mudar o acervo manda a origem de agora (AP-78)', (tester) async {
+      final _FakeFeedback feedback = await _abrir(
+        tester,
+        const <Result<TituloDetalhe>>[Result<TituloDetalhe>.ok(_ficha)],
+        acervo: const <AcervoItem>[
+          AcervoItem(tmdbId: 1399, estado: EstadoAcervo.watched, tipo: TipoMidia.tv),
+        ],
+      );
+      feedback.falhas.add(const Result<FeedbackItem>.error(NetworkError()));
+
+      await tester.tap(find.text('Não curti'));
+      await tester.pumpAndSettle();
+      expect(find.text('Tentar de novo'), findsOneWidget);
+
+      // Ela marca como abandonado depois da falha, antes de tentar de novo.
+      await tester.tap(find.byTooltip('Assistido'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Abandonei').last);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Tentar de novo'));
+      await tester.pumpAndSettle();
+
+      expect(feedback.gravados, <String>['dislike fechamento', 'dislike abandono'],
+          reason: 'um "não curti" num abandonado é abandono, um veto');
     });
 
     testWidgets('catálogo fora do ar: frase clara e o retry funciona (AP-79)', (tester) async {

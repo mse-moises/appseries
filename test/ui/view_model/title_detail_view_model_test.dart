@@ -255,8 +255,8 @@ void main() {
     });
   });
 
-  group('TitleDetailViewModel — 👍/👎 (AP-48)', () {
-    test('👍 depois de assistido grava like, peso 2, origem fechamento', () async {
+  group('TitleDetailViewModel — curti/não curti (AP-48)', () {
+    test('curti depois de assistido grava like, peso 2, origem fechamento', () async {
       final (TitleDetailViewModel vm, _, _FakeFeedback fb) = await _aberto();
 
       final AppError? erro = await vm.darSinal(SinalGosto.like, estado: EstadoAcervo.watched);
@@ -275,7 +275,7 @@ void main() {
       expect(vm.sinal, SinalGosto.dislike);
     });
 
-    test('👍 depois de abandonar continua com origem fechamento (só o "não curti" é abandono)',
+    test('curti depois de abandonar continua com origem fechamento (só o "não curti" é abandono)',
         () async {
       final (TitleDetailViewModel vm, _, _FakeFeedback fb) = await _aberto();
 
@@ -284,7 +284,7 @@ void main() {
       expect(fb.gravados, <String>['tv:1399 like peso 2 fechamento']);
     });
 
-    test('o 👍 de um título não aparece no título aberto depois', () async {
+    test('o curti de um título não aparece no título aberto depois', () async {
       final _FakeTitulos titulos = _FakeTitulos();
       final _FakeFeedback fb = _FakeFeedback()..marcarPendente = Completer<Result<FeedbackItem>>();
       final TitleDetailViewModel vm = TitleDetailViewModel(titulos, fb);
@@ -339,6 +339,44 @@ void main() {
       expect(erro, isA<FeedbackIndisponivelError>());
       expect(vm.sinal, SinalGosto.like);
       expect(vm.enviandoSinal, isFalse);
+    });
+
+    test('sem rede no sinal: devolve a falha de conexão e mantém o sinal anterior (AP-78)',
+        () async {
+      final (TitleDetailViewModel vm, _, _FakeFeedback fb) = await _aberto();
+      await vm.darSinal(SinalGosto.like, estado: EstadoAcervo.watched);
+      fb.respostaMarcar = const Result<FeedbackItem>.error(NetworkError());
+
+      final AppError? erro = await vm.darSinal(SinalGosto.dislike, estado: EstadoAcervo.watched);
+
+      expect(erro, isA<NetworkError>());
+      expect(vm.sinal, SinalGosto.like);
+      expect(vm.enviandoSinal, isFalse);
+      expect(vm.detalhe?.titulo, 'Game of Thrones', reason: 'a ficha continua na tela');
+    });
+
+    test('falha que chega depois de sair da página não é devolvida (AP-78)', () async {
+      final _FakeFeedback fb = _FakeFeedback()..marcarPendente = Completer<Result<FeedbackItem>>();
+      final (TitleDetailViewModel vm, _, _) = await _aberto(feedback: fb);
+
+      final Future<AppError?> gravando = vm.darSinal(SinalGosto.like, estado: EstadoAcervo.watched);
+      vm.reset();
+      fb.marcarPendente!.complete(const Result<FeedbackItem>.error(NetworkError()));
+
+      expect(await gravando, isNull, reason: 'o aviso apareceria na tela seguinte');
+    });
+
+    test('sem rede ao carregar a ficha: frase de conexão e retry (AP-78)', () async {
+      final _FakeTitulos titulos = _FakeTitulos();
+      final TitleDetailViewModel vm = TitleDetailViewModel(titulos, _FakeFeedback());
+
+      final Future<void> carga = vm.load(_got);
+      titulos.responder(0, const Result<TituloDetalhe>.error(NetworkError()));
+      await carga;
+
+      expect(vm.carregando, isFalse);
+      expect(vm.erro, const NetworkError().mensagem);
+      expect(vm.podeTentarDeNovo, isTrue);
     });
 
     test('sem ficha carregada não grava nada', () async {

@@ -12,10 +12,11 @@ import '../theme/app_theme.dart';
 import '../view_model/acervo_view_model.dart';
 import '../view_model/title_detail_view_model.dart';
 import '../widgets/acervo_action_button.dart';
+import '../widgets/aviso_de_falha.dart';
 import '../widgets/status_view.dart';
 
 /// The sheet of a title (AP-46 / AP-47 / AP-48): poster, title, year, rating,
-/// genres, synopsis, the shelf controls and 👍/👎.
+/// genres, synopsis, the shelf controls and like/dislike.
 ///
 /// Reads the [TituloRef] from the route arguments: whoever opens it sends the
 /// pair `(tipo, id)`, because the TMDB numbers movies and series separately.
@@ -234,7 +235,7 @@ class _AssistidoEm extends StatelessWidget {
   }
 }
 
-/// 👍/👎, shown once she closed the title ("Assistido" or "Abandonei") or
+/// like/dislike, shown once she closed the title ("Assistido" or "Abandonei") or
 /// already gave a signal (AP-48).
 class _Gosto extends StatelessWidget {
   const _Gosto({required this.tipo, required this.id});
@@ -264,8 +265,20 @@ class _Gosto extends StatelessWidget {
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           else ...<Widget>[
-            _BotaoSinal(sinal: SinalGosto.like, rotulo: '👍 Curti', estado: estado),
-            _BotaoSinal(sinal: SinalGosto.dislike, rotulo: '👎 Não curti', estado: estado),
+            _BotaoSinal(
+              tipo: tipo,
+              id: id,
+              sinal: SinalGosto.like,
+              rotulo: 'Curti',
+              icone: Icons.thumb_up_outlined,
+            ),
+            _BotaoSinal(
+              tipo: tipo,
+              id: id,
+              sinal: SinalGosto.dislike,
+              rotulo: 'Não curti',
+              icone: Icons.thumb_down_outlined,
+            ),
           ],
         ],
       ),
@@ -274,11 +287,19 @@ class _Gosto extends StatelessWidget {
 }
 
 class _BotaoSinal extends StatelessWidget {
-  const _BotaoSinal({required this.sinal, required this.rotulo, required this.estado});
+  const _BotaoSinal({
+    required this.tipo,
+    required this.id,
+    required this.sinal,
+    required this.rotulo,
+    required this.icone,
+  });
 
+  final TipoMidia tipo;
+  final int id;
   final SinalGosto sinal;
   final String rotulo;
-  final EstadoAcervo? estado;
+  final IconData icone;
 
   @override
   Widget build(BuildContext context) {
@@ -286,20 +307,46 @@ class _BotaoSinal extends StatelessWidget {
     final bool escolhido = vm.sinal == sinal;
 
     return ChoiceChip(
+      avatar: Icon(icone, size: 18, color: escolhido ? Colors.white : null),
       label: Text(rotulo),
       selected: escolhido,
       showCheckmark: false,
       selectedColor: AppTheme.destaque,
       labelStyle: TextStyle(color: escolhido ? Colors.white : null),
       tooltip: escolhido ? 'Tocar de novo desfaz' : null,
-      onSelected: (_) async {
-        final AppError? erro = await vm.darSinal(sinal, estado: estado);
-        // Gone from the tree (left the page or signed out): nothing to warn.
-        if (erro == null || !context.mounted) return;
-        ScaffoldMessenger.maybeOf(context)
-          ?..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text('Não salvou seu gosto. ${erro.mensagem}')));
-      },
+      // Both read before the wait: while the answer is on its way the chips
+      // leave the tree (the spinner takes their place), so a `context` read
+      // after it is already unmounted. The warning, being on the root
+      // `ScaffoldMessenger`, outlives this page as well.
+      onSelected: (_) => _darSinal(
+        ScaffoldMessenger.maybeOf(context),
+        context.read<AcervoViewModel>(),
+        vm,
+      ),
+    );
+  }
+
+  Future<void> _darSinal(
+    ScaffoldMessengerState? aviso,
+    AcervoViewModel acervo,
+    TitleDetailViewModel vm,
+  ) async {
+    // The warning outlives the page: she may be on another title by the time
+    // she taps "Tentar de novo", and `darSinal` writes on the title the
+    // ViewModel holds — the wrong one, and the chip of that other title would
+    // then show her signal. A retry only ever finishes its own title.
+    if (!vm.ehDoTitulo(tipo, id)) return;
+
+    // The shelf state read now, not at build time: a retry after she moved the
+    // title would otherwise send the old origin (a dislike on an abandoned
+    // title is `abandono`, a veto, not `fechamento`).
+    final AppError? erro = await vm.darSinal(sinal, estado: acervo.estadoDe(tipo, id));
+    if (erro == null || aviso == null) return;
+    avisarFalha(
+      aviso,
+      prefixo: 'Não salvou seu gosto.',
+      erro: erro,
+      tentarDeNovo: () => _darSinal(aviso, acervo, vm),
     );
   }
 }
