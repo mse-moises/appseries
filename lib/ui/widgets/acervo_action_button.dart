@@ -263,33 +263,47 @@ class AcervoAcao extends StatelessWidget {
             ano: ano,
             posterPath: posterPath,
           ),
+          () => acervo.estadoDe(tipo, tmdbId),
         );
       },
       onRemover: acervo.podeRemover(tipo, tmdbId)
           ? () => _avisarSeFalhar(
                 ScaffoldMessenger.maybeOf(context),
                 () => acervo.remover(tipo, tmdbId),
+                () => acervo.estadoDe(tipo, tmdbId),
               )
           : null,
     );
   }
 
+  /// Says the failure, and repeats [gravar] when she asks to.
+  ///
+  /// [estadoAgora] is the shelf state at the moment of the call: a retry only
+  /// runs while the shelf still shows what it showed when the write failed.
+  /// Otherwise a warning left on screen would replay an intent she already
+  /// replaced — the old "Quero ver" landing over the "Assistido" she saved
+  /// afterwards — and a stale intent would beat a newer one.
   static Future<void> _avisarSeFalhar(
     ScaffoldMessengerState? aviso,
     Future<AppError?> Function() gravar,
+    EstadoAcervo? Function() estadoAgora,
   ) async {
     // Taken before the wait, not after: on the shelf list (AP-63) a new state
     // moves the line to another tab, so this button leaves the tree before the
     // answer arrives — and the failure still has to be said. A sign-out in
     // between is handled elsewhere: the home resets the shelf when the session
     // ends (`HomePage.dispose`), and the ViewModel then answers `null`.
+    final EstadoAcervo? antes = estadoAgora();
     final AppError? erro = await gravar();
     if (erro == null || aviso == null) return;
     avisarFalha(
       aviso,
       prefixo: 'Não salvou no acervo.',
       erro: erro,
-      tentarDeNovo: () => _avisarSeFalhar(aviso, gravar),
+      tentarDeNovo: () {
+        if (estadoAgora() != antes) return;
+        _avisarSeFalhar(aviso, gravar, estadoAgora);
+      },
     );
   }
 }
