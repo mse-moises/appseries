@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:appseries/app.dart';
 import 'package:appseries/data/api_models/acervo_item.dart';
 import 'package:appseries/data/api_models/preferencias.dart';
 import 'package:appseries/data/api_models/titulo_detalhe.dart';
@@ -8,7 +9,6 @@ import 'package:appseries/data/api_models/user.dart';
 import 'package:appseries/data/repositories/acervo_repository.dart';
 import 'package:appseries/data/repositories/auth_repository.dart';
 import 'package:appseries/data/repositories/titulo_repository.dart';
-import 'package:appseries/ui/view/auth_gate.dart';
 import 'package:appseries/ui/view/home_page.dart';
 import 'package:appseries/ui/view/preferences_page.dart';
 import 'package:appseries/ui/view_model/acervo_view_model.dart';
@@ -18,7 +18,6 @@ import 'package:appseries/ui/view_model/login_view_model.dart';
 import 'package:appseries/ui/view_model/preferences_view_model.dart';
 import 'package:appseries/ui/widgets/genero_chip.dart';
 import 'package:appseries/utils/result.dart';
-import 'package:appseries/utils/routes_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -99,7 +98,9 @@ class _Cenario {
           create: (_) => PreferencesViewModel(preferencias, marca),
         ),
       ],
-      child: MaterialApp(home: const AuthGate(), routes: Routes.mapa),
+      // O app de verdade: sem `routes:`, toda rota passa por `Routes.gerar` e
+      // pelo `AguardaSessao`, como o ícone da home no aparelho.
+      child: const App(),
     ));
     auth.sessao.add(_livia);
     await tester.pumpAndSettle();
