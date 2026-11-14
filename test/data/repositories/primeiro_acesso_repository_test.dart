@@ -35,8 +35,8 @@ void main() {
         prefs: () => Future<SharedPreferences>.error(StateError('sem disco')),
       );
 
-      expect((await repo.jaPassou('u1')).errorOrNull, isA<ServerError>());
-      expect((await repo.marcar('u1')).errorOrNull, isA<ServerError>());
+      expect((await repo.jaPassou('u1')).errorOrNull, isA<ArmazenamentoLocalError>());
+      expect((await repo.marcar('u1')).errorOrNull, isA<ArmazenamentoLocalError>());
     });
   });
 }

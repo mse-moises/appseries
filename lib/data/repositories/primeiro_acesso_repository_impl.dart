@@ -22,7 +22,7 @@ class PrimeiroAcessoRepositoryImpl implements PrimeiroAcessoRepository {
       return Result<bool>.ok(prefs.getBool(chave(uid)) ?? false);
     } catch (error) {
       debugPrint('[AppSeries] marca de primeiro acesso ilegível: $error');
-      return const Result<bool>.error(ServerError());
+      return const Result<bool>.error(ArmazenamentoLocalError());
     }
   }
 
@@ -34,7 +34,7 @@ class PrimeiroAcessoRepositoryImpl implements PrimeiroAcessoRepository {
       return const Result<void>.ok(null);
     } catch (error) {
       debugPrint('[AppSeries] não gravou a marca de primeiro acesso: $error');
-      return const Result<void>.error(ServerError());
+      return const Result<void>.error(ArmazenamentoLocalError());
     }
   }
 }
