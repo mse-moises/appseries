@@ -13,12 +13,15 @@ import 'package:appseries/ui/view_model/acervo_view_model.dart';
 import 'package:appseries/ui/view_model/auth_view_model.dart';
 import 'package:appseries/ui/view_model/home_view_model.dart';
 import 'package:appseries/ui/view_model/login_view_model.dart';
+import 'package:appseries/ui/view_model/preferences_view_model.dart';
 import 'package:appseries/ui/widgets/status_view.dart';
 import 'package:appseries/utils/result.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:appseries/data/api_models/titulo_detalhe.dart';
 import 'package:provider/provider.dart';
+
+import '../../support/fake_preferencias.dart';
 
 const AppUser _livia = AppUser(id: 'u1', email: 'livia@exemplo.com');
 
@@ -95,6 +98,9 @@ Widget _tela(AuthRepository auth) => MultiProvider(
         ChangeNotifierProvider<AcervoViewModel>(
           create: (_) => AcervoViewModel(_FakeAcervoRepository()),
         ),
+        ChangeNotifierProvider<PreferencesViewModel>(
+          create: (_) => preferenciasJaEscolhidas(),
+        ),
       ],
       child: const MaterialApp(home: AuthGate()),
     );
@@ -130,6 +136,8 @@ void main() {
 
       repo.emitir(_livia);
       await tester.pump();
+      await tester.pump(); // pós-frame: o primeiro acesso começa a decidir
+      await tester.pump(); // os dublês respondem e a home entra
 
       expect(find.byType(HomePage), findsOneWidget);
       expect(find.byType(LoginPage), findsNothing);
@@ -140,6 +148,8 @@ void main() {
       await tester.pumpWidget(_tela(repo));
       repo.emitir(_livia);
       await tester.pump();
+      await tester.pump(); // pós-frame: o primeiro acesso começa a decidir
+      await tester.pump(); // os dublês respondem e a home entra
       expect(find.byType(HomePage), findsOneWidget);
 
       repo.emitir(null);

@@ -140,6 +140,15 @@ final class ServerError extends AppError {
   const ServerError() : super('server', 'O servidor deu uma escorregada. Tente em instantes.');
 }
 
+/// The device's own storage (`shared_preferences`) failed to read or write.
+/// Nothing went to the server, so [ServerError] would point the logs the
+/// wrong way. Today no screen shows it: a failed local mark only means the
+/// genre chips show once more.
+final class ArmazenamentoLocalError extends AppError {
+  const ArmazenamentoLocalError()
+      : super('armazenamento_local', 'Não deu para guardar isso no aparelho. Tente de novo.');
+}
+
 // --- account errors (Firebase Auth) ----------------------------------------
 //
 // The login screen has to tell "wrong password" from "no network": one is the

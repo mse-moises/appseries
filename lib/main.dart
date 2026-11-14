@@ -14,6 +14,8 @@ import 'data/repositories/feedback_repository.dart';
 import 'data/repositories/feedback_repository_impl.dart';
 import 'data/repositories/preferencias_repository.dart';
 import 'data/repositories/preferencias_repository_impl.dart';
+import 'data/repositories/primeiro_acesso_repository.dart';
+import 'data/repositories/primeiro_acesso_repository_impl.dart';
 import 'data/repositories/rec_repository.dart';
 import 'data/repositories/rec_repository_impl.dart';
 import 'data/repositories/titulo_repository.dart';
@@ -27,6 +29,7 @@ import 'ui/view_model/acervo_view_model.dart';
 import 'ui/view_model/auth_view_model.dart';
 import 'ui/view_model/home_view_model.dart';
 import 'ui/view_model/login_view_model.dart';
+import 'ui/view_model/preferences_view_model.dart';
 import 'ui/view_model/rec_view_model.dart';
 import 'ui/view_model/search_view_model.dart';
 import 'ui/view_model/title_detail_view_model.dart';
@@ -56,12 +59,20 @@ Future<void> main() async {
 /// This is the only place that knows how objects are built: every ViewModel is
 /// created here and read on the screen with `context.watch`.
 class AppSeries extends StatelessWidget {
-  const AppSeries({super.key});
+  const AppSeries({super.key, this.authService, this.adaptadorHttp});
+
+  /// Only for the boot test: the app always uses Firebase.
+  @visibleForTesting
+  final AuthService? authService;
+
+  /// Only for the boot test: no network there.
+  @visibleForTesting
+  final HttpClientAdapter? adaptadorHttp;
 
   @override
   Widget build(BuildContext context) => MultiProvider(
         providers: [
-          Provider<AuthService>(create: (_) => FirebaseAuthService()),
+          Provider<AuthService>(create: (_) => authService ?? FirebaseAuthService()),
           Provider<AuthRepository>(
             create: (ctx) => AuthRepositoryImpl(ctx.read<AuthService>()),
           ),
@@ -71,7 +82,11 @@ class AppSeries extends StatelessWidget {
           ChangeNotifierProvider<LoginViewModel>(
             create: (ctx) => LoginViewModel(ctx.read<AuthRepository>()),
           ),
-          Provider<Dio>(create: (ctx) => buildDio(ctx.read<AuthService>())),
+          Provider<Dio>(create: (ctx) {
+            final Dio dio = buildDio(ctx.read<AuthService>());
+            if (adaptadorHttp != null) dio.httpClientAdapter = adaptadorHttp!;
+            return dio;
+          }),
           Provider<RestClient>(
             create: (ctx) => RestClient(ctx.read<Dio>(), baseUrl: Env.apiBaseUrl),
           ),
@@ -98,6 +113,17 @@ class AppSeries extends StatelessWidget {
           // (AP-37) is the first consumer.
           Provider<PreferenciasRepository>(
             create: (ctx) => PreferenciasRepositoryImpl(ctx.read<RestClient>()),
+          ),
+          // AP-38: skipping leaves `generos` empty on the server, the same as
+          // never having seen the chips; this local mark tells the two apart.
+          Provider<PrimeiroAcessoRepository>(create: (_) => PrimeiroAcessoRepositoryImpl()),
+          // AP-38: the chips and the first-access decision. The `AuthGate`
+          // resets it on every login (the `create` runs once).
+          ChangeNotifierProvider<PreferencesViewModel>(
+            create: (ctx) => PreferencesViewModel(
+              ctx.read<PreferenciasRepository>(),
+              ctx.read<PrimeiroAcessoRepository>(),
+            ),
           ),
           // AP-109: 👍/👎 mora no servidor, preso à conta e ao par (tipo, tmdbId).
           Provider<FeedbackRepository>(

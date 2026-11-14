@@ -4,6 +4,7 @@ import 'package:appseries/app.dart';
 import 'package:appseries/data/api_models/acervo_item.dart';
 import 'package:appseries/data/api_models/carta_rec.dart';
 import 'package:appseries/data/api_models/feedback_item.dart';
+import 'package:appseries/data/api_models/preferencias.dart';
 import 'package:appseries/data/api_models/titulo_detalhe.dart';
 import 'package:appseries/data/api_models/tmdb_item.dart';
 import 'package:appseries/data/api_models/user.dart';
@@ -21,10 +22,12 @@ import 'package:appseries/ui/view/preferences_page.dart';
 import 'package:appseries/ui/view/rec_page.dart';
 import 'package:appseries/ui/view/search_page.dart';
 import 'package:appseries/ui/view/title_detail_page.dart';
+import 'package:appseries/ui/widgets/genero_chip.dart';
 import 'package:appseries/ui/view_model/acervo_view_model.dart';
 import 'package:appseries/ui/view_model/auth_view_model.dart';
 import 'package:appseries/ui/view_model/home_view_model.dart';
 import 'package:appseries/ui/view_model/login_view_model.dart';
+import 'package:appseries/ui/view_model/preferences_view_model.dart';
 import 'package:appseries/ui/view_model/rec_view_model.dart';
 import 'package:appseries/ui/view_model/search_view_model.dart';
 import 'package:appseries/ui/view_model/title_detail_view_model.dart';
@@ -34,6 +37,8 @@ import 'package:appseries/utils/routes_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+
+import '../support/fake_preferencias.dart';
 
 class _FakeAuthRepository implements AuthRepository {
   @override
@@ -144,8 +149,9 @@ class _SessaoControlada extends _FakeAuthRepository {
 /// vem da barra de endereço, não de um `pushNamed`.
 Future<(_SessaoControlada, _FakeTituloRepository)> _abrirPelaUrl(
   WidgetTester tester,
-  String url,
-) async {
+  String url, {
+  PreferencesViewModel Function()? preferencias,
+}) async {
   tester.binding.platformDispatcher.defaultRouteNameTestValue = url;
   addTearDown(tester.binding.platformDispatcher.clearDefaultRouteNameTestValue);
   final _SessaoControlada sessao = _SessaoControlada();
@@ -161,6 +167,9 @@ Future<(_SessaoControlada, _FakeTituloRepository)> _abrirPelaUrl(
       ChangeNotifierProvider<AcervoViewModel>(create: (_) => AcervoViewModel(_FakeAcervo())),
       ChangeNotifierProvider<TitleDetailViewModel>(
         create: (_) => TitleDetailViewModel(titulos, _FakeFeedback()),
+      ),
+      ChangeNotifierProvider<PreferencesViewModel>(
+        create: (_) => (preferencias ?? preferenciasJaEscolhidas)(),
       ),
     ],
     child: const App(),
@@ -184,6 +193,7 @@ Future<void> _empurrar(WidgetTester tester, String nome, {Object? argumentos}) a
         create: (_) => TitleDetailViewModel(_titulos, _FakeFeedback()),
       ),
       ChangeNotifierProvider<RecViewModel>(create: (_) => RecViewModel(_rec)),
+      ChangeNotifierProvider<PreferencesViewModel>(create: (_) => preferenciasJaEscolhidas()),
     ],
     child: MaterialApp(
       key: ValueKey<String>('rota-$nome'),
@@ -226,6 +236,7 @@ void main() {
           ChangeNotifierProvider<LoginViewModel>(
             create: (BuildContext c) => LoginViewModel(c.read<AuthRepository>()),
           ),
+          ChangeNotifierProvider<PreferencesViewModel>(create: (_) => preferenciasJaEscolhidas()),
         ],
         child: const App(),
       ));
@@ -363,6 +374,64 @@ void main() {
 
       expect(find.text(const TituloIndisponivelError().mensagem), findsOneWidget);
       expect(titulos.pedidos, isEmpty);
+    });
+
+    // O gate (resetSessao + verificarPrimeiroAcesso) e a tela (carregar) usam o
+    // mesmo PreferencesViewModel e montam no mesmo frame quando a sessão volta.
+    testWidgets('F5 em /preferencias abre com os gêneros salvos e o Salvar ativo', (tester) async {
+      final FakePreferenciasRepository repo = FakePreferenciasRepository(
+        atual: const Preferencias(momento: 'algo leve', generos: <String>['Drama', 'Terror']),
+      );
+      final (_SessaoControlada sessao, _) = await _abrirPelaUrl(
+        tester,
+        Routes.preferencias,
+        preferencias: () => PreferencesViewModel(
+          repo,
+          FakePrimeiroAcessoRepository(marcados: <String>{_usuaria.id}),
+        ),
+      );
+      expect(find.byType(PreferencesPage), findsNothing);
+
+      sessao.controle.add(_usuaria);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PreferencesPage), findsOneWidget);
+      for (final String g in <String>['Drama', 'Terror']) {
+        expect(
+          tester.widget<GeneroChip>(find.byKey(ValueKey<String>('genero-$g'))).selecionado,
+          isTrue,
+          reason: '$g veio do GET',
+        );
+      }
+      expect(
+        tester.widget<FilledButton>(find.byKey(const Key('preferencias-salvar'))).onPressed,
+        isNotNull,
+        reason: 'a leitura chegou: salvar não apaga o momento',
+      );
+
+      await tester.tap(find.byKey(const ValueKey<String>('genero-Ação')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('preferencias-salvar')));
+      await tester.pumpAndSettle();
+
+      expect(repo.atual.momento, 'algo leve');
+      expect(repo.atual.generos, <String>['Ação', 'Drama', 'Terror']);
+      expect(find.byType(HomePage), findsOneWidget, reason: 'salvar volta para a home do gate');
+    });
+
+    testWidgets('F5 em /preferencias numa conta nova abre os chips sem estourar', (tester) async {
+      final (_SessaoControlada sessao, _) = await _abrirPelaUrl(
+        tester,
+        Routes.preferencias,
+        preferencias: () =>
+            PreferencesViewModel(FakePreferenciasRepository(), FakePrimeiroAcessoRepository()),
+      );
+
+      sessao.controle.add(_usuaria);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PreferencesPage), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('outra tela interna também espera a sessão', (tester) async {

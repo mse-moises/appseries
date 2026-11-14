@@ -13,12 +13,15 @@ import 'package:appseries/ui/view_model/acervo_view_model.dart';
 import 'package:appseries/ui/view_model/auth_view_model.dart';
 import 'package:appseries/ui/view_model/home_view_model.dart';
 import 'package:appseries/ui/view_model/login_view_model.dart';
+import 'package:appseries/ui/view_model/preferences_view_model.dart';
 import 'package:appseries/utils/app_error.dart';
 import 'package:appseries/utils/result.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:appseries/data/api_models/titulo_detalhe.dart';
 import 'package:provider/provider.dart';
+
+import '../../support/fake_preferencias.dart';
 
 const AppUser _livia = AppUser(id: 'u1', email: 'livia@exemplo.com');
 
@@ -109,6 +112,9 @@ Future<void> _abrir(WidgetTester tester, AuthRepository auth) async {
         ChangeNotifierProvider<AcervoViewModel>(
           create: (_) => AcervoViewModel(_FakeAcervoRepository()),
         ),
+        ChangeNotifierProvider<PreferencesViewModel>(
+          create: (_) => preferenciasJaEscolhidas(),
+        ),
       ],
       child: const MaterialApp(home: AuthGate()),
     ),
@@ -122,6 +128,13 @@ Future<void> _preencherEEnviar(WidgetTester tester, {String botao = 'Entrar'}) a
   await tester.tap(find.widgetWithText(FilledButton, botao));
   await tester.pump(); // dispara a requisição
   await tester.pump(); // entrega a mudança de sessão
+  await _decidirPrimeiroAcesso(tester);
+}
+
+/// O gate lê a marca local e as preferências antes de escolher a home (AP-38).
+Future<void> _decidirPrimeiroAcesso(WidgetTester tester) async {
+  await tester.pump(); // pós-frame: a verificação começa
+  await tester.pump(); // as respostas dos dublês chegam
 }
 
 void main() {
@@ -129,6 +142,7 @@ void main() {
     testWidgets('abrir o app com sessão viva vai direto para a home', (tester) async {
       await _abrir(tester, _FakeAuthRepository(jaLogado: _livia));
       await tester.pump();
+      await _decidirPrimeiroAcesso(tester);
 
       expect(find.byType(HomePage), findsOneWidget);
       expect(find.byType(LoginPage), findsNothing);
@@ -151,6 +165,7 @@ void main() {
       await tester.tap(find.widgetWithText(OutlinedButton, 'Entrar com Google'));
       await tester.pump(); // dispara a requisição
       await tester.pump(); // entrega a mudança de sessão
+      await _decidirPrimeiroAcesso(tester);
 
       expect(find.byType(HomePage), findsOneWidget);
       expect(find.byType(LoginPage), findsNothing);

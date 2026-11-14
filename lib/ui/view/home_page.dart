@@ -64,6 +64,13 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text('AppSeries'),
         actions: <Widget>[
+          // AP-38: the way back to the genre chips.
+          IconButton(
+            key: const Key('abrir-preferencias'),
+            onPressed: () => Navigator.pushNamed(context, Routes.preferencias),
+            icon: const Icon(Icons.tune),
+            tooltip: 'O que eu gosto',
+          ),
           if (auth.isSigningOut)
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20),
