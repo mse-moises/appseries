@@ -59,12 +59,20 @@ Future<void> main() async {
 /// This is the only place that knows how objects are built: every ViewModel is
 /// created here and read on the screen with `context.watch`.
 class AppSeries extends StatelessWidget {
-  const AppSeries({super.key});
+  const AppSeries({super.key, this.authService, this.adaptadorHttp});
+
+  /// Only for the boot test: the app always uses Firebase.
+  @visibleForTesting
+  final AuthService? authService;
+
+  /// Only for the boot test: no network there.
+  @visibleForTesting
+  final HttpClientAdapter? adaptadorHttp;
 
   @override
   Widget build(BuildContext context) => MultiProvider(
         providers: [
-          Provider<AuthService>(create: (_) => FirebaseAuthService()),
+          Provider<AuthService>(create: (_) => authService ?? FirebaseAuthService()),
           Provider<AuthRepository>(
             create: (ctx) => AuthRepositoryImpl(ctx.read<AuthService>()),
           ),
@@ -74,7 +82,11 @@ class AppSeries extends StatelessWidget {
           ChangeNotifierProvider<LoginViewModel>(
             create: (ctx) => LoginViewModel(ctx.read<AuthRepository>()),
           ),
-          Provider<Dio>(create: (ctx) => buildDio(ctx.read<AuthService>())),
+          Provider<Dio>(create: (ctx) {
+            final Dio dio = buildDio(ctx.read<AuthService>());
+            if (adaptadorHttp != null) dio.httpClientAdapter = adaptadorHttp!;
+            return dio;
+          }),
           Provider<RestClient>(
             create: (ctx) => RestClient(ctx.read<Dio>(), baseUrl: Env.apiBaseUrl),
           ),
