@@ -64,8 +64,14 @@ class _PreferencesPageState extends State<PreferencesPage> {
           if (primeiro)
             TextButton(
               key: const Key('preferencias-pular'),
-              onPressed: vm.salvando ? null : vm.pular,
-              child: const Text('Pular'),
+              onPressed: vm.salvando || vm.pulando ? null : vm.pular,
+              child: vm.pulando
+                  ? const SizedBox(
+                      height: 16,
+                      width: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Pular'),
             ),
         ],
       ),
@@ -135,7 +141,7 @@ class _Chips extends StatelessWidget {
                 key: ValueKey<String>('genero-$genero'),
                 genero: genero,
                 selecionado: vm.selecionado(genero),
-                onTap: vm.salvando ? null : () => vm.alternar(genero),
+                onTap: vm.salvando || vm.pulando ? null : () => vm.alternar(genero),
               ),
           ],
         ),

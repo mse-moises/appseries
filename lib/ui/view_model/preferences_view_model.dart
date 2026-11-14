@@ -62,12 +62,17 @@ class PreferencesViewModel extends ChangeNotifier {
   /// Bumped on every new session: an answer from an older one is dropped.
   int _sessao = 0;
 
-  /// Bumped on every screen load: only the latest answer counts.
+  /// Bumped on every screen load and on every new session: only the latest
+  /// answer counts. The load does **not** watch [_sessao]: after an F5 on
+  /// `/preferencias` the gate's [verificarPrimeiroAcesso] and the screen's
+  /// [carregar] start in the same frame, in no guaranteed order, and the
+  /// gate's check must not throw the screen's read away.
   int _carga = 0;
 
   bool _carregando = false;
   String? _erroCarga;
   bool _salvando = false;
+  bool _pulando = false;
   String? _erroSalvar;
 
   /// The GET answered: only then saving is safe. The `PUT` replaces the whole
@@ -80,6 +85,10 @@ class PreferencesViewModel extends ChangeNotifier {
   bool get carregando => _carregando;
   String? get erroCarga => _erroCarga;
   bool get salvando => _salvando;
+
+  /// Writing the local mark after "Pular": the button waits, a second tap
+  /// does nothing.
+  bool get pulando => _pulando;
   String? get erroSalvar => _erroSalvar;
 
   /// The chips on screen: the fixed list, plus any genre the server holds that
@@ -99,7 +108,7 @@ class PreferencesViewModel extends ChangeNotifier {
   int get faltamParaSugerido =>
       (kGenerosSugeridos - _selecionados.length).clamp(0, kGenerosSugeridos);
 
-  bool get podeSalvar => _lido && _selecionados.isNotEmpty && !_salvando;
+  bool get podeSalvar => _lido && _selecionados.isNotEmpty && !_salvando && !_pulando;
 
   /// Clears the previous session **without notifying** (called in `initState`).
   void resetSessao() {
@@ -118,11 +127,13 @@ class PreferencesViewModel extends ChangeNotifier {
   ///
   /// Any failure goes to the home: a taste screen must never lock her out of
   /// the app. Without the mark, the decision is simply made again next login.
+  ///
+  /// It does not clear the chips: [resetSessao] already did, in the gate's
+  /// `initState`, and a screen opened by F5 may be loading them right now.
   Future<void> verificarPrimeiroAcesso(String uid) async {
     final int sessao = ++_sessao;
     _uid = uid;
     _acesso = AcessoInicial.verificando;
-    _limparTela();
     notifyListeners();
 
     final Result<bool> marca = await _seguro(() => _primeiroAcesso.jaPassou(uid));
@@ -156,15 +167,16 @@ class PreferencesViewModel extends ChangeNotifier {
 
   /// Loads the saved taste for the screen opened from the home.
   Future<void> carregar() async {
-    final int sessao = _sessao;
     final int carga = ++_carga;
     _carregando = true;
     _erroCarga = null;
     _erroSalvar = null;
+    // Until this read answers, what is on screen may be stale: no saving.
+    _lido = false;
     notifyListeners();
 
     final Result<Preferencias> lidas = await _seguro(_preferencias.ler);
-    if (sessao != _sessao || carga != _carga) return;
+    if (carga != _carga) return;
 
     switch (lidas) {
       case Ok<Preferencias>(:final value):
@@ -177,7 +189,7 @@ class PreferencesViewModel extends ChangeNotifier {
   }
 
   void alternar(String genero) {
-    if (_salvando) return;
+    if (_salvando || _pulando) return;
     if (!_selecionados.remove(genero)) _selecionados.add(genero);
     _erroSalvar = null;
     notifyListeners();
@@ -219,10 +231,13 @@ class PreferencesViewModel extends ChangeNotifier {
   /// Skips the chips: nothing goes to the server (empty genres already mean
   /// "no taste"), only the local mark, so the screen does not come back.
   Future<void> pular() async {
-    if (_salvando || _acesso != AcessoInicial.escolher) return;
+    if (_salvando || _pulando || _acesso != AcessoInicial.escolher) return;
     final int sessao = _sessao;
+    _pulando = true;
+    notifyListeners();
     await _marcarSessao(sessao);
     if (sessao != _sessao) return;
+    _pulando = false;
     _acesso = AcessoInicial.liberado;
     notifyListeners();
   }
@@ -247,6 +262,7 @@ class PreferencesViewModel extends ChangeNotifier {
     _carregando = false;
     _erroCarga = null;
     _salvando = false;
+    _pulando = false;
     _erroSalvar = null;
     _lido = false;
     _momento = null;

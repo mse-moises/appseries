@@ -35,6 +35,8 @@ class _FakeMarca implements PrimeiroAcessoRepository {
 
   final Set<String> marcados;
   bool falha = false;
+  int gravacoes = 0;
+  Completer<void>? gravacaoPendente;
 
   @override
   Future<Result<bool>> jaPassou(String uid) async => falha
@@ -43,6 +45,8 @@ class _FakeMarca implements PrimeiroAcessoRepository {
 
   @override
   Future<Result<void>> marcar(String uid) async {
+    gravacoes++;
+    await gravacaoPendente?.future;
     if (falha) return const Result<void>.error(ServerError());
     marcados.add(uid);
     return const Result<void>.ok(null);
@@ -145,6 +149,50 @@ void main() {
 
       expect(vm.acesso, AcessoInicial.verificando);
     });
+    test('pular com dois toques grava a marca uma vez e mostra que está pulando', () async {
+      final _FakeMarca marca = _FakeMarca()..gravacaoPendente = Completer<void>();
+      final PreferencesViewModel vm = PreferencesViewModel(_FakePreferencias(), marca);
+      await vm.verificarPrimeiroAcesso('u1');
+
+      final Future<void> primeiro = vm.pular();
+      final Future<void> segundo = vm.pular();
+      expect(vm.pulando, isTrue);
+      expect(vm.podeSalvar, isFalse, reason: 'pulando não dá para salvar ao mesmo tempo');
+      marca.gravacaoPendente!.complete();
+      await Future.wait(<Future<void>>[primeiro, segundo]);
+
+      expect(marca.gravacoes, 1);
+      expect(vm.pulando, isFalse);
+      expect(vm.acesso, AcessoInicial.liberado);
+    });
+
+    // F5 em /preferencias: o gate e a tela montam no mesmo frame e a ordem dos
+    // pós-frames não é garantida.
+    for (final bool telaPrimeiro in <bool>[true, false]) {
+      test('gate e tela no mesmo frame (${telaPrimeiro ? 'tela' : 'gate'} primeiro) '
+          'não perdem a leitura', () async {
+        final _FakePreferencias prefs = _FakePreferencias(
+          lidas: const Result<Preferencias>.ok(
+            Preferencias(momento: 'algo leve', generos: <String>['Drama']),
+          ),
+        );
+        final PreferencesViewModel vm =
+            PreferencesViewModel(prefs, _FakeMarca(marcados: <String>{'u1'}));
+
+        vm.resetSessao(); // initState do gate
+        final Future<void> a = telaPrimeiro ? vm.carregar() : vm.verificarPrimeiroAcesso('u1');
+        final Future<void> b = telaPrimeiro ? vm.verificarPrimeiroAcesso('u1') : vm.carregar();
+        await Future.wait(<Future<void>>[a, b]);
+
+        expect(vm.acesso, AcessoInicial.liberado);
+        expect(vm.carregando, isFalse);
+        expect(vm.selecionados, <String>['Drama']);
+        expect(vm.podeSalvar, isTrue, reason: 'a leitura chegou, então salvar é seguro');
+        vm.alternar('Terror');
+        await vm.salvar();
+        expect(prefs.enviadas?.momento, 'algo leve');
+      });
+    }
   });
 
   group('PreferencesViewModel — chips', () {
@@ -258,6 +306,21 @@ void main() {
 
       expect(vm.erroCarga, const NetworkError().mensagem);
       expect(vm.podeSalvar, isFalse);
+    });
+
+    test('recarga que falha depois de uma boa também bloqueia o salvar', () async {
+      final _FakePreferencias prefs = _FakePreferencias(
+        lidas: const Result<Preferencias>.ok(Preferencias(generos: <String>['Drama'])),
+      );
+      final PreferencesViewModel vm = PreferencesViewModel(prefs, _FakeMarca());
+      await vm.carregar();
+      expect(vm.podeSalvar, isTrue);
+
+      prefs.lidas = const Result<Preferencias>.error(NetworkError());
+      await vm.carregar();
+
+      expect(vm.erroCarga, const NetworkError().mensagem);
+      expect(vm.podeSalvar, isFalse, reason: 'a seleção e o momento da carga anterior são velhos');
     });
 
     test('repository que estoura não deixa a tela presa carregando', () async {
